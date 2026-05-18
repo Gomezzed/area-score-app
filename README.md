@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# エリアスコア分析ダッシュボード
 
-## Getting Started
+## セットアップ手順
 
-First, run the development server:
+### 1. Supabaseでテーブルを作成
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. [Supabase](https://supabase.com) でプロジェクトを作成
+2. **SQL Editor** を開き、`supabase/schema.sql` の内容を実行
+   - `cities` テーブル（都市マスタ）と `areas` テーブル（スコア自動計算）が作成されます
+   - 鹿児島・仙台・愛知のサンプルデータが自動挿入されます
+
+3. **Authentication** → **Email** を有効化し、テストユーザーを作成
+
+### 2. 環境変数を設定
+
+`.env.local` を編集してSupabase接続情報を入力:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. 開発サーバー起動
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Vercelにデプロイ
 
-## Learn More
+```bash
+# Vercel CLIを使う場合
+npm install -g vercel
+vercel
 
-To learn more about Next.js, take a look at the following resources:
+# 環境変数をVercelに設定
+vercel env add NEXT_PUBLIC_SUPABASE_URL
+vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## スコアリング計算式
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+スコア = 取引件数 × 40% + 人口増減率 × 30% + 平均価格水準 × 30%
+```
 
-## Deploy on Vercel
+| Tier | スコア条件 | 地図色 |
+|------|-----------|--------|
+| A    | 70点以上   | 緑     |
+| B    | 40〜69点  | 黄     |
+| C    | 39点以下   | 赤     |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 新しい都市を追加する方法
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Supabase の SQL Editor で以下を実行:
+
+```sql
+INSERT INTO cities (name, name_en, center_lat, center_lng, zoom_level)
+VALUES ('札幌', 'sapporo', 43.0621, 141.3544, 12);
+```
+
+## CSVエクスポート (Salesforce連携)
+
+ダッシュボード右上の「CSV出力」ボタンをクリックすると、現在表示中のエリアデータをSalesforceインポート形式でダウンロードできます。
