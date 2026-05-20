@@ -1,43 +1,77 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Area, City } from '@/types'
 
 export function useCities() {
   const [cities, setCities] = useState<City[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    supabase
+  const fetchCities = useCallback(async () => {
+    setLoading(true)
+    const { data, error: fetchError } = await supabase
       .from('cities')
       .select('*')
       .order('name')
-      .then(({ data }) => {
-        setCities(data ?? [])
-        setLoading(false)
-      })
+
+    if (fetchError) {
+      console.error('[useCities] error:', fetchError.code, fetchError.message, fetchError.details)
+      setError(fetchError.message)
+    } else {
+      console.log('[useCities] loaded:', data?.length, 'cities')
+      setCities(data ?? [])
+      setError(null)
+    }
+    setLoading(false)
   }, [])
 
-  return { cities, loading }
+  useEffect(() => {
+    // 即時フェッチ（セッションが既にある場合に対応）
+    fetchCities()
+
+    // セッション復元後・トークン更新時に再フェッチ（RLS対策）
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        fetchCities()
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [fetchCities])
+
+  return { cities, loading, error }
 }
 
 export function useAreas(cityId: string) {
   const [areas, setAreas] = useState<Area[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchAreas = useCallback(async (id: string) => {
+    setLoading(true)
+    const { data, error: fetchError } = await supabase
+      .from('areas')
+      .select('*')
+      .eq('city_id', id)
+      .order('score', { ascending: false })
+
+    if (fetchError) {
+      console.error('[useAreas] error:', fetchError.code, fetchError.message, fetchError.details)
+      setError(fetchError.message)
+    } else {
+      console.log('[useAreas] loaded:', data?.length, 'areas for city:', id)
+      setAreas(data ?? [])
+      setError(null)
+    }
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
     if (!cityId) return
-    setLoading(true)
-    supabase
-      .from('areas')
-      .select('*')
-      .eq('city_id', cityId)
-      .then(({ data }) => {
-        setAreas(data ?? [])
-        setLoading(false)
-      })
-  }, [cityId])
+    fetchAreas(cityId)
+  }, [cityId, fetchAreas])
 
-  return { areas, loading }
+  return { areas, loading, error, refetch: () => fetchAreas(cityId) }
 }
