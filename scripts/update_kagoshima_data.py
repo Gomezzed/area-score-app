@@ -362,8 +362,7 @@ def main() -> None:
     mlit_agg      = aggregate_transactions(mlit_records)
 
     if not mlit_agg:
-        log.error("MLIT データが取得できませんでした。終了します。")
-        sys.exit(1)
+        log.warning("MLIT データが取得できませんでした。e-Statデータのみで続行します。")
 
     # 2. e-Stat 人口データ取得
     pop_data = fetch_estat_population(estat_api_key, PREF_CODE)
