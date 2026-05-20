@@ -1,0 +1,54 @@
+name: 鹿児島県データ自動更新
+
+on:
+  # 毎月1日 0:00 JST (= UTC 15:00 of previous day)
+  schedule:
+    - cron: '0 15 28-31 * *'  # 月末→翌月1日 JST 対応
+    - cron: '0 15 1 * *'       # 毎月1日 15:00 UTC = JST 00:00
+
+  # 手動実行
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (Supabaseへの書き込みをスキップ)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  update-kagoshima-data:
+    name: 鹿児島県データ更新
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: 依存パッケージインストール
+        run: pip install -r scripts/requirements.txt
+
+      - name: データ更新スクリプト実行
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ESTAT_API_KEY:        ${{ secrets.ESTAT_API_KEY }}
+          DRY_RUN:              ${{ github.event.inputs.dry_run || 'false' }}
+        run: python scripts/update_kagoshima_data.py
+
+      - name: 実行結果をサマリに出力
+        if: always()
+        run: |
+          echo "## 実行結果" >> $GITHUB_STEP_SUMMARY
+          echo "- 実行日時: $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')" >> $GITHUB_STEP_SUMMARY
+          echo "- ステータス: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
