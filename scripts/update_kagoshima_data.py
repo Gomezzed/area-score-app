@@ -335,6 +335,7 @@ def upsert_areas(sb: Client, city_id: str, areas: list[dict]) -> None:
                 "transaction_count": row["transaction_count"],
                 "population_delta":  row["population_delta"],
                 "avg_price_level":   row["avg_price_level"],
+                "updated_at":        datetime.utcnow().isoformat(),
             }).eq("id", existing.data[0]["id"]).execute()
             updated += 1
         else:
