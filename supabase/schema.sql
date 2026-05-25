@@ -81,7 +81,8 @@ CREATE POLICY "areas_read_authenticated"
 INSERT INTO cities (name, name_en, center_lat, center_lng, zoom_level) VALUES
   ('鹿児島', 'kagoshima', 31.5966, 130.5571, 12),
   ('仙台',   'sendai',    38.2682, 140.8694, 12),
-  ('愛知',   'aichi',     35.1802, 136.9066, 11)
+  ('愛知',   'aichi',     35.1802, 136.9066, 11),
+  ('東海',   'tokai',     34.9756, 137.1446,  9)
 ON CONFLICT DO NOTHING;
 
 -- 鹿児島サンプルエリア
@@ -147,4 +148,27 @@ FROM city, (VALUES
   ('豊橋市 中心部',    0.5, 47,  34.5),
   ('岡崎市 中心部',    1.3, 61,  39.0),
   ('一宮市 中心部',    0.8, 55,  36.0)
+) AS area(name, pop, txn, price);
+
+-- 東海サンプルエリア
+WITH city AS (SELECT id FROM cities WHERE name_en = 'tokai')
+INSERT INTO areas (city_id, name, population_delta, transaction_count, avg_price_level, geojson)
+SELECT
+  city.id,
+  area.name,
+  area.pop,
+  area.txn,
+  area.price,
+  NULL
+FROM city, (VALUES
+  ('静岡市 葵区',      1.2, 74,  42.0),
+  ('静岡市 駿河区',    0.8, 61,  38.5),
+  ('浜松市 中区',      1.5, 82,  44.0),
+  ('浜松市 東区',      0.6, 55,  33.0),
+  ('岐阜市 中心部',    0.9, 68,  37.5),
+  ('大垣市 中心部',    0.3, 44,  29.0),
+  ('各務原市 中心部',  1.1, 51,  32.0),
+  ('津市 中心部',      0.4, 49,  31.0),
+  ('四日市市 中心部',  1.7, 77,  46.0),
+  ('鈴鹿市 中心部',    0.7, 53,  34.5)
 ) AS area(name, pop, txn, price);

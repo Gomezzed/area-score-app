@@ -42,6 +42,10 @@ jobs:
         run: python scripts/update_nagoya_data.py
         continue-on-error: true
 
+      - name: Update Tokai
+        run: python scripts/update_tokai_data.py
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## Result" >> $GITHUB_STEP_SUMMARY
