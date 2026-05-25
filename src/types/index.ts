@@ -35,4 +35,5 @@ export interface DashboardFilters {
   tiers: Tier[]
   sortKey: SortKey
   sortAsc: boolean
+  search: string
 }

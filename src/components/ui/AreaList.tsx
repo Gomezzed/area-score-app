@@ -2,7 +2,7 @@
 
 import { Area, DashboardFilters, Tier } from '@/types'
 import { TierBadge } from './TierBadge'
-import { ArrowUpDown, TrendingUp, TrendingDown } from 'lucide-react'
+import { ArrowUpDown, TrendingUp, TrendingDown, Search } from 'lucide-react'
 
 interface Props {
   areas: Area[]
@@ -36,8 +36,10 @@ export function AreaList({ areas, filters, onFiltersChange, selectedAreaId, onAr
     }
   }
 
+  const q = filters.search.trim().toLowerCase()
   const filtered = areas
     .filter((a) => filters.tiers.includes(a.tier as Tier))
+    .filter((a) => !q || a.name.toLowerCase().includes(q))
     .sort((a, b) => {
       const diff = a[filters.sortKey] - b[filters.sortKey]
       return filters.sortAsc ? diff : -diff
@@ -47,6 +49,18 @@ export function AreaList({ areas, filters, onFiltersChange, selectedAreaId, onAr
     <div className="flex flex-col h-full">
       {/* Filters */}
       <div className="p-4 border-b border-slate-700 space-y-3">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <input
+            type="text"
+            value={filters.search}
+            onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
+            placeholder="エリア名で検索…"
+            className="w-full pl-8 pr-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          />
+        </div>
+
         {/* Tier filter */}
         <div className="flex gap-2">
           {TIERS.map((tier) => {

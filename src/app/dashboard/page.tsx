@@ -28,6 +28,7 @@ export default function DashboardPage() {
     tiers: ['A', 'B', 'C'],
     sortKey: 'score',
     sortAsc: false,
+    search: '',
   })
 
   // 最初の都市を自動選択
@@ -36,8 +37,10 @@ export default function DashboardPage() {
   const activeCity = cities.find((c) => c.id === activeCityId) ?? cities[0]
 
   const filteredAreas = useMemo(() => {
+    const q = filters.search.trim().toLowerCase()
     return areas
       .filter((a) => filters.tiers.includes(a.tier as 'A' | 'B' | 'C'))
+      .filter((a) => !q || a.name.toLowerCase().includes(q))
       .sort((a, b) => {
         const diff = a[filters.sortKey] - b[filters.sortKey]
         return filters.sortAsc ? diff : -diff

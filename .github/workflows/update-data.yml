@@ -46,6 +46,10 @@ jobs:
         run: python scripts/update_tokai_data.py
         continue-on-error: true
 
+      - name: Update Aichi (all 54 municipalities)
+        run: python scripts/update_aichi_data.py
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## Result" >> $GITHUB_STEP_SUMMARY
