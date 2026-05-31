@@ -66,6 +66,10 @@ jobs:
         run: python scripts/update_koshinetsu_hokuriku_data.py
         continue-on-error: true
 
+      - name: Update Chugoku and Shikoku (9 prefectures)
+        run: python scripts/update_chugoku_shikoku_data.py
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## Result" >> $GITHUB_STEP_SUMMARY
