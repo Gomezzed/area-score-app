@@ -9,7 +9,8 @@ import { AreaList } from '@/components/ui/AreaList'
 import { AreaDetailPanel } from '@/components/ui/AreaDetailPanel'
 import { Area, City, DashboardFilters } from '@/types'
 import { generateSalesforceCSV, downloadCSV } from '@/lib/csv'
-import { MapPin, LogOut, Download, RefreshCw } from 'lucide-react'
+import { MapPin, LogOut, Download, RefreshCw, HelpCircle } from 'lucide-react'
+import Link from 'next/link'
 
 // Leaflet は SSR 不可のため dynamic import
 const AreaMap = dynamic(
@@ -120,6 +121,14 @@ export default function DashboardPage() {
             <Download className="w-4 h-4" />
             CSV出力
           </button>
+          <Link
+            href="/help"
+            className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
+            title="使い方ガイド"
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">ヘルプ</span>
+          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"

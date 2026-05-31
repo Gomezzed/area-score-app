@@ -6,8 +6,8 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // /login は認証不要で通過
-  if (pathname === '/login') {
+  // /login と /help は認証不要で通過
+  if (pathname === '/login' || pathname.startsWith('/help')) {
     return supabaseResponse
   }
 
@@ -42,5 +42,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/'],
+  matcher: ['/dashboard/:path*', '/login', '/help', '/'],
 }

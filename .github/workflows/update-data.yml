@@ -54,6 +54,10 @@ jobs:
         run: python scripts/update_osaka_hyogo_data.py
         continue-on-error: true
 
+      - name: Update Kanto (Tokyo, Kanagawa, Chiba, Saitama)
+        run: python scripts/update_kanto_data.py
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## Result" >> $GITHUB_STEP_SUMMARY
