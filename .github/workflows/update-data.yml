@@ -70,6 +70,10 @@ jobs:
         run: python scripts/update_chugoku_shikoku_data.py
         continue-on-error: true
 
+      - name: Update Kyushu and Okinawa (7 prefectures, excl. Kagoshima)
+        run: python scripts/update_kyushu_okinawa_data.py
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## Result" >> $GITHUB_STEP_SUMMARY
