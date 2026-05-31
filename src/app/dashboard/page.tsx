@@ -84,57 +84,61 @@ export default function DashboardPage() {
   return (
     <div className="h-screen bg-slate-900 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 px-5 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <MapPin className="w-4 h-4 text-white" />
+      <header className="bg-slate-800 border-b border-slate-700 flex-shrink-0">
+        {/* Row 1: logo + actions */}
+        <div className="px-5 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <MapPin className="w-4 h-4 text-white" />
+            </div>
+            <h1 className="text-white font-bold text-lg">エリアスコア分析</h1>
           </div>
-          <h1 className="text-white font-bold text-lg">エリアスコア分析</h1>
-        </div>
-
-        {/* City Tabs */}
-        <div className="flex gap-1">
-          {cities.map((city) => (
+          <div className="flex items-center gap-2">
             <button
-              key={city.id}
-              onClick={() => {
-                setSelectedCityId(city.id)
-                setSelectedArea(null)
-              }}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                city.id === activeCityId
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700'
-              }`}
+              onClick={handleCSVDownload}
+              disabled={filteredAreas.length === 0}
+              className="flex items-center gap-2 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
             >
-              {city.name}
+              <Download className="w-4 h-4" />
+              CSV出力
             </button>
-          ))}
+            <Link
+              href="/help"
+              className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
+              title="使い方ガイド"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">ヘルプ</span>
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleCSVDownload}
-            disabled={filteredAreas.length === 0}
-            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            CSV出力
-          </button>
-          <Link
-            href="/help"
-            className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
-            title="使い方ガイド"
-          >
-            <HelpCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">ヘルプ</span>
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+        {/* Row 2: scrollable region tabs */}
+        <div className="px-3 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex gap-1 min-w-max">
+            {cities.map((city) => (
+              <button
+                key={city.id}
+                onClick={() => {
+                  setSelectedCityId(city.id)
+                  setSelectedArea(null)
+                }}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  city.id === activeCityId
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
+              >
+                {city.name}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
