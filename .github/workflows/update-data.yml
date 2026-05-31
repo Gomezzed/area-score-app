@@ -50,7 +50,7 @@ jobs:
         run: python scripts/update_aichi_data.py
         continue-on-error: true
 
-      - name: Update Kinki (Osaka, Hyogo - all 84 municipalities)
+      - name: Update Kinki (Osaka, Hyogo, Kyoto, Shiga, Nara, Wakayama - all 198 municipalities)
         run: python scripts/update_osaka_hyogo_data.py
         continue-on-error: true
 

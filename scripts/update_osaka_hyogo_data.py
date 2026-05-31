@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-近畿地方（大阪府・兵庫県）不動産・人口データ 自動更新スクリプト
+近畿地方（大阪府・兵庫県・京都府・滋賀県・奈良県・和歌山県）
+不動産・人口データ 自動更新スクリプト
 
 取得元:
   - 国土交通省 不動産取引価格情報 API (認証不要)
   - e-Stat 住民基本台帳 API
 
 更新先:
-  - Supabase areas テーブル（近畿地方市区町村別）
+  - Supabase areas テーブル（近畿地方全6府県市区町村別）
 
 環境変数:
   SUPABASE_URL          ... SupabaseプロジェクトURL
@@ -31,8 +32,8 @@ from supabase import create_client, Client
 # ── 設定 ──────────────────────────────────────────────
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env.local'))
 
-PREF_CODES    = ["27", "28"]   # 大阪府・兵庫県
-PREF_NAME     = "近畿地方（大阪・兵庫）"
+PREF_CODES    = ["25", "26", "27", "28", "29", "30"]  # 滋賀・京都・大阪・兵庫・奈良・和歌山
+PREF_NAME     = "近畿地方（大阪・兵庫・京都・滋賀・奈良・和歌山）"
 CITY_NAME_EN  = "kinki"
 SCORE_WEIGHTS = {"transaction": 0.4, "population": 0.3, "price": 0.3}
 
@@ -57,7 +58,50 @@ HYOGO_MUNICIPALITIES = [
     "神河町", "太子町", "上郡町", "佐用町", "香美町", "新温泉町",
 ]
 
-ALL_MUNICIPALITIES = OSAKA_MUNICIPALITIES + HYOGO_MUNICIPALITIES
+# 京都府 全26市町村
+KYOTO_MUNICIPALITIES = [
+    "京都市", "福知山市", "舞鶴市", "綾部市", "宇治市", "宮津市", "亀岡市",
+    "城陽市", "向日市", "長岡京市", "八幡市", "京田辺市", "京丹後市", "南丹市",
+    "木津川市",
+    "大山崎町", "久御山町", "井手町", "宇治田原町", "笠置町", "和束町", "精華町",
+    "南山城村", "京丹波町", "伊根町", "与謝野町",
+]
+
+# 滋賀県 全19市町村
+SHIGA_MUNICIPALITIES = [
+    "大津市", "彦根市", "長浜市", "近江八幡市", "草津市", "守山市", "栗東市",
+    "甲賀市", "野洲市", "湖南市", "高島市", "東近江市", "米原市",
+    "日野町", "竜王町", "愛荘町", "豊郷町", "甲良町", "多賀町",
+]
+
+# 奈良県 全39市町村
+NARA_MUNICIPALITIES = [
+    "奈良市", "大和高田市", "大和郡山市", "天理市", "橿原市", "桜井市", "五條市",
+    "御所市", "生駒市", "香芝市", "葛城市", "宇陀市",
+    "山添村", "平群町", "三郷町", "斑鳩町", "安堵町", "川西町", "三宅町",
+    "田原本町", "曽爾村", "御杖村", "高取町", "明日香村", "上牧町", "王寺町",
+    "広陵町", "河合町", "吉野町", "大淀町", "下市町", "黒滝村", "天川村",
+    "野迫川村", "十津川村", "下北山村", "上北山村", "川上村", "東吉野村",
+]
+
+# 和歌山県 全30市町村
+WAKAYAMA_MUNICIPALITIES = [
+    "和歌山市", "海南市", "橋本市", "有田市", "御坊市", "田辺市", "新宮市",
+    "紀の川市", "岩出市",
+    "紀美野町", "かつらぎ町", "九度山町", "高野町", "湯浅町", "広川町",
+    "有田川町", "美浜町", "日高町", "由良町", "印南町", "みなべ町", "日高川町",
+    "白浜町", "上富田町", "すさみ町", "那智勝浦町", "太地町", "古座川町",
+    "北山村", "串本町",
+]
+
+ALL_MUNICIPALITIES = (
+    OSAKA_MUNICIPALITIES +
+    HYOGO_MUNICIPALITIES +
+    KYOTO_MUNICIPALITIES +
+    SHIGA_MUNICIPALITIES +
+    NARA_MUNICIPALITIES +
+    WAKAYAMA_MUNICIPALITIES
+)
 
 MLIT_BASE       = "https://www.land.mlit.go.jp/webland/api/TradeListSearch"
 ESTAT_BASE      = "https://api.e-stat.go.jp/rest/3.0/app/json"
@@ -316,9 +360,9 @@ def ensure_city(sb: Client) -> str:
     insert_res = sb.table("cities").insert({
         "name":       "近畿",
         "name_en":    CITY_NAME_EN,
-        "center_lat": 34.6937,
-        "center_lng": 135.5022,
-        "zoom_level": 9,
+        "center_lat": 34.85,
+        "center_lng": 135.65,
+        "zoom_level": 8,
     }).execute()
     city_id = insert_res.data[0]["id"]
     log.info(f"都市作成完了: id={city_id}")
@@ -365,7 +409,11 @@ def upsert_areas(sb: Client, city_id: str, areas: list[dict]) -> None:
 def main() -> None:
     log.info("=" * 60)
     log.info(f"近畿地方データ更新スクリプト 開始: {datetime.now().isoformat()}")
-    log.info(f"対象: 大阪府 {len(OSAKA_MUNICIPALITIES)} 市区町村 + 兵庫県 {len(HYOGO_MUNICIPALITIES)} 市区町村")
+    log.info(
+        f"対象: 大阪 {len(OSAKA_MUNICIPALITIES)} + 兵庫 {len(HYOGO_MUNICIPALITIES)} + "
+        f"京都 {len(KYOTO_MUNICIPALITIES)} + 滋賀 {len(SHIGA_MUNICIPALITIES)} + "
+        f"奈良 {len(NARA_MUNICIPALITIES)} + 和歌山 {len(WAKAYAMA_MUNICIPALITIES)} 市区町村"
+    )
     log.info("=" * 60)
 
     estat_api_key = os.getenv("ESTAT_API_KEY", "")
@@ -406,8 +454,9 @@ def main() -> None:
         })
         covered_by_mlit.add(muni_name)
 
+    seen: set[str] = set(covered_by_mlit)
     for muni in ALL_MUNICIPALITIES:
-        if muni not in covered_by_mlit:
+        if muni not in seen:
             delta = find_population_fuzzy(combined_pop_data, muni)
             log.info(f"MLIT データなし（人口のみ）: {muni}")
             areas_raw.append({
@@ -416,6 +465,7 @@ def main() -> None:
                 "avg_price_level":   0.0,
                 "population_delta":  delta,
             })
+            seen.add(muni)
 
     log.info(
         f"結合エリア数: {len(areas_raw)} "
