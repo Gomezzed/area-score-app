@@ -58,6 +58,10 @@ jobs:
         run: python scripts/update_kanto_data.py
         continue-on-error: true
 
+      - name: Update Hokkaido and Tohoku (7 prefectures)
+        run: python scripts/update_hokkaido_tohoku_data.py
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## Result" >> $GITHUB_STEP_SUMMARY
