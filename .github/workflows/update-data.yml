@@ -62,6 +62,10 @@ jobs:
         run: python scripts/update_hokkaido_tohoku_data.py
         continue-on-error: true
 
+      - name: Update Koshinetsu and Hokuriku (Niigata, Toyama, Ishikawa, Fukui, Yamanashi, Nagano)
+        run: python scripts/update_koshinetsu_hokuriku_data.py
+        continue-on-error: true
+
       - name: Summary
         run: |
           echo "## Result" >> $GITHUB_STEP_SUMMARY
