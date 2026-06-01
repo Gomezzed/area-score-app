@@ -32,10 +32,15 @@ from supabase import create_client, Client
 # ── 設定 ──────────────────────────────────────────────
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env.local'))
 
-PREF_CODE         = "04"   # 鹿児島県
-PREF_NAME         = "宮城県"
+PREF_CODE         = "04"   # 宮城県
+PREF_NAME         = "宮城県（仙台市）"
 CITY_NAME_EN      = "sendai"
 SCORE_WEIGHTS     = {"transaction": 0.4, "population": 0.3, "price": 0.3}
+
+# 仙台市 5区（仙台市内の行政区）
+SENDAI_MUNICIPALITIES = [
+    "青葉区", "宮城野区", "若林区", "太白区", "泉区",
+]
 
 MLIT_BASE         = "https://www.land.mlit.go.jp/webland/api/TradeListSearch"
 ESTAT_BASE        = "https://api.e-stat.go.jp/rest/3.0/app/json"
@@ -370,6 +375,8 @@ def main() -> None:
 
     # 3. エリアデータ結合
     areas_raw: list[dict] = []
+    covered_by_mlit: set[str] = set()
+
     for muni_name, txn in mlit_agg.items():
         delta = calc_population_delta(pop_data, muni_name)
         areas_raw.append({
@@ -378,8 +385,22 @@ def main() -> None:
             "avg_price_level":   round(txn["avg_price_level"], 2),
             "population_delta":  delta,
         })
+        covered_by_mlit.add(muni_name)
 
-    log.info(f"結合エリア数: {len(areas_raw)}")
+    # MLIT データがない場合、静的リストをベースに人口データのみ更新
+    seen: set[str] = set(covered_by_mlit)
+    for muni_name in SENDAI_MUNICIPALITIES:
+        if muni_name not in seen:
+            delta = calc_population_delta(pop_data, muni_name)
+            areas_raw.append({
+                "name":              muni_name,
+                "transaction_count": 0,
+                "avg_price_level":   0.0,
+                "population_delta":  delta,
+            })
+            seen.add(muni_name)
+
+    log.info(f"結合エリア数: {len(areas_raw)} （MLIT あり: {len(covered_by_mlit)}, なし: {len(areas_raw) - len(covered_by_mlit)}）")
 
     # 4. スコア計算
     areas_scored = compute_scores(areas_raw)
@@ -394,7 +415,7 @@ def main() -> None:
     sb = get_supabase_client()
     city_id = get_city_id(sb, CITY_NAME_EN)
     if not city_id:
-        log.error("Supabase に鹿児島市が存在しません。schema.sql を実行してください。")
+        log.error("Supabase に仙台市が存在しません。schema.sql を実行してください。")
         sys.exit(1)
 
     upsert_areas(sb, city_id, areas_scored)

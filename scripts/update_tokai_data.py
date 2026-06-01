@@ -37,6 +37,37 @@ PREF_NAME         = "東海地方（静岡・岐阜・三重）"
 CITY_NAME_EN      = "tokai"
 SCORE_WEIGHTS     = {"transaction": 0.4, "population": 0.3, "price": 0.3}
 
+# 岐阜県 全42市町村
+GIFU_MUNICIPALITIES = [
+    "岐阜市", "大垣市", "高山市", "多治見市", "関市", "中津川市", "美濃市",
+    "瑞浪市", "羽島市", "恵那市", "美濃加茂市", "土岐市", "各務原市", "可児市",
+    "山県市", "瑞穂市", "飛騨市", "本巣市", "郡上市", "下呂市", "海津市",
+    "岐南町", "笠松町", "養老町", "垂井町", "関ケ原町", "神戸町", "輪之内町",
+    "安八町", "揖斐川町", "大野町", "池田町", "北方町", "坂祝町", "富加町",
+    "川辺町", "七宗町", "八百津町", "白川町", "東白川村", "御嵩町", "白川村",
+]
+
+# 静岡県 全35市町村
+SHIZUOKA_MUNICIPALITIES = [
+    "静岡市", "浜松市", "沼津市", "熱海市", "三島市", "富士宮市", "伊東市",
+    "島田市", "富士市", "磐田市", "焼津市", "掛川市", "藤枝市", "御殿場市",
+    "袋井市", "下田市", "裾野市", "湖西市", "伊豆市", "御前崎市", "菊川市",
+    "伊豆の国市", "牧之原市",
+    "東伊豆町", "河津町", "南伊豆町", "松崎町", "西伊豆町", "函南町",
+    "清水町", "長泉町", "小山町", "吉田町", "川根本町", "森町",
+]
+
+# 三重県 全29市町村
+MIE_MUNICIPALITIES = [
+    "津市", "四日市市", "伊勢市", "松阪市", "桑名市", "鈴鹿市", "名張市",
+    "尾鷲市", "亀山市", "鳥羽市", "熊野市", "いなべ市", "志摩市", "伊賀市",
+    "木曽岬町", "東員町", "菰野町", "朝日町", "川越町", "多気町", "明和町",
+    "大台町", "玉城町", "度会町", "大紀町", "南伊勢町", "紀北町", "御浜町",
+    "紀宝町",
+]
+
+ALL_MUNICIPALITIES = GIFU_MUNICIPALITIES + SHIZUOKA_MUNICIPALITIES + MIE_MUNICIPALITIES
+
 MLIT_BASE         = "https://www.land.mlit.go.jp/webland/api/TradeListSearch"
 ESTAT_BASE        = "https://api.e-stat.go.jp/rest/3.0/app/json"
 FETCH_QUARTERS    = 4       # 直近4四半期分の取引データを取得
@@ -372,6 +403,8 @@ def main() -> None:
 
     # 2. エリアデータ結合
     areas_raw: list[dict] = []
+    covered_by_mlit: set[str] = set()
+
     for muni_name, txn in mlit_agg.items():
         delta = calc_population_delta(combined_pop_data, muni_name)
         areas_raw.append({
@@ -380,8 +413,22 @@ def main() -> None:
             "avg_price_level":   round(txn["avg_price_level"], 2),
             "population_delta":  delta,
         })
+        covered_by_mlit.add(muni_name)
 
-    log.info(f"結合エリア数: {len(areas_raw)}")
+    # MLIT データがない場合、静的リストをベースに人口データのみ更新
+    seen: set[str] = set(covered_by_mlit)
+    for muni_name in ALL_MUNICIPALITIES:
+        if muni_name not in seen:
+            delta = calc_population_delta(combined_pop_data, muni_name)
+            areas_raw.append({
+                "name":              muni_name,
+                "transaction_count": 0,
+                "avg_price_level":   0.0,
+                "population_delta":  delta,
+            })
+            seen.add(muni_name)
+
+    log.info(f"結合エリア数: {len(areas_raw)} （MLIT あり: {len(covered_by_mlit)}, なし: {len(areas_raw) - len(covered_by_mlit)}）")
 
     # 3. スコア計算
     areas_scored = compute_scores(areas_raw)

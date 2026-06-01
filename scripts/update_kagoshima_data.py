@@ -37,6 +37,17 @@ PREF_NAME         = "鹿児島県"
 CITY_NAME_EN      = "kagoshima"
 SCORE_WEIGHTS     = {"transaction": 0.4, "population": 0.3, "price": 0.3}
 
+# 鹿児島県 全43市町村
+KAGOSHIMA_MUNICIPALITIES = [
+    "鹿児島市", "鹿屋市", "枕崎市", "阿久根市", "出水市", "指宿市", "西之表市",
+    "垂水市", "薩摩川内市", "日置市", "曽於市", "霧島市", "いちき串木野市",
+    "南さつま市", "志布志市", "奄美市", "南九州市", "伊佐市", "姶良市",
+    "三島村", "十島村", "さつま町", "長島町", "湧水町", "大崎町", "東串良町",
+    "錦江町", "南大隅町", "肝付町", "中種子町", "南種子町", "屋久島町",
+    "龍郷町", "大和村", "宇検村", "瀬戸内町", "龍郷町", "喜界町", "徳之島町",
+    "天城町", "伊仙町", "和泊町", "知名町", "与論町",
+]
+
 MLIT_BASE         = "https://www.land.mlit.go.jp/webland/api/TradeListSearch"
 ESTAT_BASE        = "https://api.e-stat.go.jp/rest/3.0/app/json"
 FETCH_QUARTERS    = 4       # 直近4四半期分の取引データを取得
@@ -370,6 +381,8 @@ def main() -> None:
 
     # 3. エリアデータ結合
     areas_raw: list[dict] = []
+    covered_by_mlit: set[str] = set()
+
     for muni_name, txn in mlit_agg.items():
         delta = calc_population_delta(pop_data, muni_name)
         areas_raw.append({
@@ -378,8 +391,22 @@ def main() -> None:
             "avg_price_level":   round(txn["avg_price_level"], 2),
             "population_delta":  delta,
         })
+        covered_by_mlit.add(muni_name)
 
-    log.info(f"結合エリア数: {len(areas_raw)}")
+    # MLIT データがない場合、静的リストをベースに人口データのみ更新
+    seen: set[str] = set(covered_by_mlit)
+    for muni_name in KAGOSHIMA_MUNICIPALITIES:
+        if muni_name not in seen:
+            delta = calc_population_delta(pop_data, muni_name)
+            areas_raw.append({
+                "name":              muni_name,
+                "transaction_count": 0,
+                "avg_price_level":   0.0,
+                "population_delta":  delta,
+            })
+            seen.add(muni_name)
+
+    log.info(f"結合エリア数: {len(areas_raw)} （MLIT あり: {len(covered_by_mlit)}, なし: {len(areas_raw) - len(covered_by_mlit)}）")
 
     # 4. スコア計算
     areas_scored = compute_scores(areas_raw)
