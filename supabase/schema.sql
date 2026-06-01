@@ -21,16 +21,19 @@ CREATE TABLE IF NOT EXISTS areas (
   population_delta  FLOAT NOT NULL DEFAULT 0,  -- 人口増減率（%）
   transaction_count INT NOT NULL DEFAULT 0,    -- 取引件数
   avg_price_level   FLOAT NOT NULL DEFAULT 0,  -- 平均価格水準（万円/㎡）
-  -- スコア（計算済みキャッシュ）
+  -- スコア（計算済みキャッシュ、上限100）
   score             FLOAT GENERATED ALWAYS AS (
-    transaction_count * 0.4 +
-    population_delta  * 0.3 +
-    avg_price_level   * 0.3
+    LEAST(
+      transaction_count * 0.4 +
+      population_delta  * 0.3 +
+      avg_price_level   * 0.3,
+      100.0
+    )
   ) STORED,
   tier              TEXT GENERATED ALWAYS AS (
     CASE
-      WHEN (transaction_count * 0.4 + population_delta * 0.3 + avg_price_level * 0.3) >= 70 THEN 'A'
-      WHEN (transaction_count * 0.4 + population_delta * 0.3 + avg_price_level * 0.3) >= 40 THEN 'B'
+      WHEN LEAST(transaction_count * 0.4 + population_delta * 0.3 + avg_price_level * 0.3, 100.0) >= 70 THEN 'A'
+      WHEN LEAST(transaction_count * 0.4 + population_delta * 0.3 + avg_price_level * 0.3, 100.0) >= 40 THEN 'B'
       ELSE 'C'
     END
   ) STORED,

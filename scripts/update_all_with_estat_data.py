@@ -306,6 +306,11 @@ def main() -> None:
                     pop_delta = 0.0
                 else:
                     pop_delta = -0.2
+
+            # Cap txn so score formula (txn*0.4 + price*0.3 + pop*0.3) stays ≤ 100
+            price_pop_contribution = price * 0.3 + pop_delta * 0.3
+            max_txn = max(1, int((99.0 - price_pop_contribution) / 0.4))
+            txn = min(txn, max_txn)
         else:
             no_match += 1
             log.debug(f"  No e-Stat match for: {name}")
