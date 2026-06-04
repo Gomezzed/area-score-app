@@ -1,7 +1,7 @@
 'use client'
 
 import { Area, DashboardFilters, SortKey } from '@/types'
-import { ArrowUpDown, TrendingUp, TrendingDown, Search } from 'lucide-react'
+import { ArrowUpDown, Search } from 'lucide-react'
 
 interface Props {
   areas: Area[]
@@ -13,16 +13,37 @@ interface Props {
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'transaction_count', label: '人口順' },
-  { key: 'population_delta', label: '人口増減率順' },
-  { key: 'avg_price_level', label: '人口増減数順' },
+  { key: 'population_delta',  label: '増減率順' },
+  { key: 'avg_price_level',   label: '増減数順' },
 ]
 
-function fmt(n: number): string {
+function fmtPop(n: number): string {
   if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '万'
   return n.toLocaleString()
 }
 
-export function AreaList({ areas, filters, onFiltersChange, selectedAreaId, onAreaClick }: Props) {
+/** 5-tier color for delta value */
+function deltaClass(delta: number): string {
+  if (delta > 2)  return 'text-blue-500'
+  if (delta > 0)  return 'text-blue-400'
+  if (delta > -1) return 'text-slate-400'
+  if (delta > -3) return 'text-orange-400'
+  return                  'text-red-500'
+}
+
+function DeltaBadge({ delta }: { delta: number }) {
+  const cls  = deltaClass(delta)
+  const sign = delta > 0 ? '▲+' : delta < 0 ? '▼' : '▶'
+  return (
+    <span className={`text-xs font-bold tabular-nums ${cls}`}>
+      {sign}{delta.toFixed(2)}%
+    </span>
+  )
+}
+
+export function AreaList({
+  areas, filters, onFiltersChange, selectedAreaId, onAreaClick,
+}: Props) {
   function setSort(key: SortKey) {
     if (filters.sortKey === key) {
       onFiltersChange({ ...filters, sortAsc: !filters.sortAsc })
@@ -32,9 +53,7 @@ export function AreaList({ areas, filters, onFiltersChange, selectedAreaId, onAr
   }
 
   const filtered = areas
-    .filter((a) =>
-      filters.search === '' || a.name.includes(filters.search)
-    )
+    .filter((a) => !filters.search || a.name.includes(filters.search))
     .sort((a, b) => {
       const diff = a[filters.sortKey] - b[filters.sortKey]
       return filters.sortAsc ? diff : -diff
@@ -42,9 +61,9 @@ export function AreaList({ areas, filters, onFiltersChange, selectedAreaId, onAr
 
   return (
     <div className="flex flex-col h-full">
-      {/* Filters */}
-      <div className="p-3 border-b border-slate-700 space-y-2">
-        {/* Search */}
+      {/* Controls */}
+      <div className="p-3 border-b border-slate-700 space-y-2 flex-shrink-0">
+        {/* Search box */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
           <input
@@ -56,7 +75,7 @@ export function AreaList({ areas, filters, onFiltersChange, selectedAreaId, onAr
           />
         </div>
 
-        {/* Sort */}
+        {/* Sort buttons */}
         <div className="flex gap-1.5 flex-wrap">
           {SORT_OPTIONS.map((opt) => (
             <button
@@ -75,8 +94,8 @@ export function AreaList({ areas, filters, onFiltersChange, selectedAreaId, onAr
         </div>
       </div>
 
-      {/* Count */}
-      <div className="px-4 py-2 text-xs text-slate-500 border-b border-slate-700">
+      {/* Count row */}
+      <div className="px-4 py-1.5 text-xs text-slate-500 border-b border-slate-700 flex-shrink-0">
         {filtered.length} 市区町村
       </div>
 
@@ -86,28 +105,34 @@ export function AreaList({ areas, filters, onFiltersChange, selectedAreaId, onAr
           <button
             key={area.id}
             onClick={() => onAreaClick(area)}
-            className={`w-full text-left px-4 py-3 border-b border-slate-700/50 hover:bg-slate-700/50 transition-colors ${
-              selectedAreaId === area.id ? 'bg-slate-700' : ''
+            className={`w-full text-left px-3 py-2.5 border-b border-slate-700/40 hover:bg-slate-700/50 transition-colors ${
+              selectedAreaId === area.id ? 'bg-slate-700/80 border-l-2 border-l-blue-500' : ''
             }`}
           >
-            <div className="mb-1">
-              <span className="text-sm font-medium text-white">{area.name}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>人口 {fmt(area.transaction_count)}人</span>
-              <span className={area.population_delta >= 0 ? 'text-emerald-400 flex items-center gap-0.5' : 'text-red-400 flex items-center gap-0.5'}>
-                {area.population_delta >= 0
-                  ? <TrendingUp className="w-3 h-3" />
-                  : <TrendingDown className="w-3 h-3" />}
-                {area.population_delta > 0 ? '+' : ''}{area.population_delta.toFixed(2)}%
+            {/* Row 1: name + delta badge */}
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-sm font-medium text-white leading-tight truncate mr-2">
+                {area.name}
               </span>
+              <DeltaBadge delta={area.population_delta} />
+            </div>
+
+            {/* Row 2: population + change count */}
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
+              <span>人口 {fmtPop(area.transaction_count)}人</span>
+              {area.avg_price_level !== 0 && (
+                <span className={area.avg_price_level >= 0 ? 'text-blue-400/70' : 'text-orange-400/70'}>
+                  {area.avg_price_level > 0 ? '+' : ''}
+                  {fmtPop(Math.round(area.avg_price_level))}人
+                </span>
+              )}
             </div>
           </button>
         ))}
 
         {filtered.length === 0 && (
           <div className="text-center text-slate-500 py-12 text-sm">
-            該当する市区町村がありません
+            {areas.length === 0 ? 'データがありません' : '該当する市区町村がありません'}
           </div>
         )}
       </div>

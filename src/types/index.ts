@@ -1,4 +1,9 @@
-// Column reuse: transaction_count = 人口（最新）, avg_price_level = 人口増減数, population_delta = 人口増減率
+/**
+ * Column semantics in `areas` table (reused from original schema):
+ *   transaction_count  → 人口（最新）
+ *   avg_price_level    → 人口増減数（前回比）  [can be negative]
+ *   population_delta   → 人口増減率（%）
+ */
 
 export type SortKey = 'transaction_count' | 'population_delta' | 'avg_price_level'
 
@@ -29,7 +34,6 @@ export interface AreaWithCity extends Area {
 }
 
 export interface DashboardFilters {
-  cityId: string
   sortKey: SortKey
   sortAsc: boolean
   search: string
