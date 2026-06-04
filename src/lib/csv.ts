@@ -1,35 +1,35 @@
 import { Area, City } from '@/types'
 
-export function generateSalesforceCSV(areas: Area[], city: City): string {
+function fmt(n: number): string {
+  return n.toLocaleString()
+}
+
+export function generateCSV(areas: Area[], city: City): string {
   const headers = [
-    'エリア名',
-    '都市',
-    'Tier',
-    'スコア',
-    '取引件数',
-    '人口増減率(%)',
-    '平均価格水準(万円/㎡)',
-    'Salesforce_Lead_Source',
-    'Salesforce_Description',
+    '市区町村名',
+    '地域',
+    '人口（最新）',
+    '人口増減数（前回比）',
+    '人口増減率（%）',
   ]
 
   const rows = areas.map((area) => [
     area.name,
     city.name,
-    area.tier,
-    area.score.toFixed(2),
-    area.transaction_count,
-    area.population_delta.toFixed(1),
-    area.avg_price_level.toFixed(1),
-    'Area Score Dashboard',
-    `Tier ${area.tier} エリア - スコア ${area.score.toFixed(1)}`,
+    fmt(area.transaction_count),
+    area.avg_price_level >= 0
+      ? `+${fmt(Math.round(area.avg_price_level))}`
+      : fmt(Math.round(area.avg_price_level)),
+    area.population_delta >= 0
+      ? `+${area.population_delta.toFixed(2)}`
+      : area.population_delta.toFixed(2),
   ])
 
   const csvContent = [headers, ...rows]
     .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\n')
 
-  return '﻿' + csvContent // BOM for Excel Japanese support
+  return '﻿' + csvContent
 }
 
 export function downloadCSV(content: string, filename: string) {

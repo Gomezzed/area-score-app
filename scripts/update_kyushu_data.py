@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""宮城県（仙台）人口データ更新スクリプト (e-Stat 住民基本台帳)"""
+"""九州・沖縄 人口データ更新スクリプト (e-Stat 住民基本台帳)
+
+対象都道府県: 福岡(40), 佐賀(41), 長崎(42), 熊本(43), 大分(44), 宮崎(45), 沖縄(47)
+Note: 鹿児島(46) は kagoshima タブで管理
+"""
 
 from __future__ import annotations
 import os, sys, logging
@@ -12,17 +16,17 @@ from _common import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-PREF_CODES   = ["04"]
-CITY_NAME    = "仙台"
-CITY_NAME_EN = "sendai"
-CENTER_LAT   = 38.2682
-CENTER_LNG   = 140.8694
-ZOOM_LEVEL   = 10
+PREF_CODES   = ["40", "41", "42", "43", "44", "45", "47"]
+CITY_NAME    = "九州・沖縄"
+CITY_NAME_EN = "kyushu"
+CENTER_LAT   = 32.5
+CENTER_LNG   = 130.8
+ZOOM_LEVEL   = 7
 
 
 def main() -> None:
     log.info("=" * 60)
-    log.info(f"宮城県データ更新 開始: {datetime.now().isoformat()}")
+    log.info(f"九州・沖縄データ更新 開始: {datetime.now().isoformat()}")
 
     api_key = os.getenv("ESTAT_API_KEY", "")
     if not api_key:

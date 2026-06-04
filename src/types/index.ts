@@ -1,6 +1,6 @@
-export type Tier = 'A' | 'B' | 'C'
+// Column reuse: transaction_count = 人口（最新）, avg_price_level = 人口増減数, population_delta = 人口増減率
 
-export type SortKey = 'score' | 'transaction_count' | 'population_delta'
+export type SortKey = 'transaction_count' | 'population_delta' | 'avg_price_level'
 
 export interface City {
   id: string
@@ -16,11 +16,9 @@ export interface Area {
   id: string
   city_id: string
   name: string
-  population_delta: number
-  transaction_count: number
-  avg_price_level: number
-  score: number
-  tier: Tier
+  population_delta: number   // 人口増減率（%）
+  transaction_count: number  // 人口（最新）
+  avg_price_level: number    // 人口増減数（前回比）
   geojson: GeoJSON.Feature | null
   created_at: string
   updated_at: string
@@ -32,7 +30,7 @@ export interface AreaWithCity extends Area {
 
 export interface DashboardFilters {
   cityId: string
-  tiers: Tier[]
   sortKey: SortKey
   sortAsc: boolean
+  search: string
 }

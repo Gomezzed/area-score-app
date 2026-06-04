@@ -28,10 +28,8 @@ export function useCities() {
   }, [])
 
   useEffect(() => {
-    // 即時フェッチ（セッションが既にある場合に対応）
     fetchCities()
 
-    // セッション復元後・トークン更新時に再フェッチ（RLS対策）
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         fetchCities()
@@ -55,7 +53,7 @@ export function useAreas(cityId: string) {
       .from('areas')
       .select('*')
       .eq('city_id', id)
-      .order('score', { ascending: false })
+      .order('transaction_count', { ascending: false })
 
     if (fetchError) {
       console.error('[useAreas] error:', fetchError.code, fetchError.message, fetchError.details)

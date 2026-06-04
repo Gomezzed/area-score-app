@@ -30,19 +30,50 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
+      # ── 既存エリア ──────────────────────────────────────────
       - name: Update Kagoshima
         run: python scripts/update_kagoshima_data.py
+        working-directory: scripts
         continue-on-error: true
 
       - name: Update Sendai
         run: python scripts/update_sendai_data.py
+        working-directory: scripts
         continue-on-error: true
 
-      - name: Update Nagoya
+      - name: Update Nagoya (Aichi)
         run: python scripts/update_nagoya_data.py
+        working-directory: scripts
+        continue-on-error: true
+
+      # ── 新規リージョン ──────────────────────────────────────
+      - name: Update Tohoku (Hokkaido + Tohoku 7 prefs)
+        run: python scripts/update_tohoku_data.py
+        working-directory: scripts
+        continue-on-error: true
+
+      - name: Update Hokuriku (6 prefs)
+        run: python scripts/update_hokuriku_data.py
+        working-directory: scripts
+        continue-on-error: true
+
+      - name: Update Chugoku-Shikoku (9 prefs)
+        run: python scripts/update_chugoku_shikoku_data.py
+        working-directory: scripts
+        continue-on-error: true
+
+      - name: Update Kyushu-Okinawa (7 prefs)
+        run: python scripts/update_kyushu_data.py
+        working-directory: scripts
+        continue-on-error: true
+
+      # ── 不動産取引データ ────────────────────────────────────
+      - name: Fetch Real Estate Transactions
+        run: python scripts/fetch_realestate_transactions.py
+        working-directory: scripts
         continue-on-error: true
 
       - name: Summary
         run: |
-          echo "## Result" >> $GITHUB_STEP_SUMMARY
-          echo "- Done" >> $GITHUB_STEP_SUMMARY
+          echo "## Monthly Data Update" >> $GITHUB_STEP_SUMMARY
+          echo "- Completed at $(date)" >> $GITHUB_STEP_SUMMARY
