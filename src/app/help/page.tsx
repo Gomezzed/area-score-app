@@ -9,79 +9,62 @@ export const metadata: Metadata = {
 
 const GLOSSARY = [
   {
-    term: 'スコア（Score）',
-    definition: '各市区町村の総合評価スコア（0〜100点）。人口・世帯数増減・人口密度などを総合的に評価した数値。高いほど優良エリアを示す。',
-  },
-  {
-    term: 'Tier A',
-    badge: 'A',
-    definition: 'スコア上位の優良エリア（70点以上）。不動産仲介・媒介取得の最優先ターゲット。',
-  },
-  {
-    term: 'Tier B',
-    badge: 'B',
-    definition: '中程度スコアのエリア（40〜69点）。次点のターゲットエリア。',
-  },
-  {
-    term: 'Tier C',
-    badge: 'C',
-    definition: 'スコアが低いエリア（40点未満）。参考情報として確認。',
+    term: '人口（2020年）',
+    definition: '令和2年国勢調査の確定値。各市区町村の総人口（実数）。アプリ上では「197.5万人」のように万人単位で表示。',
   },
   {
     term: '人口増減率',
-    definition: '直近の国勢調査2期分を比較した人口変化率（%）。プラスは人口増加、マイナスは人口減少を示す。',
+    definition: '2015年（平成27年）→2020年（令和2年）の変化率（%）。青色の▲はプラス（人口増加）、赤色の▼はマイナス（人口減少）を示す。',
+  },
+  {
+    term: '人口増減数',
+    definition: '2015年→2020年の人口の増減（実数）。例: +1,234人 / -567人。',
   },
   {
     term: '世帯数',
-    definition: '各市区町村の総世帯数。住宅需要の規模を示す指標。',
-  },
-  {
-    term: '人口密度',
-    definition: '1km²あたりの人口数（人/km²）。エリアの過密度・都市化度合いを示す。',
+    definition: '令和2年国勢調査時点の各市区町村の総世帯数。住宅需要の規模を示す指標。',
   },
   {
     term: 'e-Stat',
-    definition: '日本の政府統計ポータルサイト（統計の総合窓口）。本アプリのデータソース。総務省統計局が運営。',
+    definition: '日本の政府統計ポータルサイト（統計の総合窓口）。総務省統計局が運営。本アプリの人口データソース。',
+  },
+  {
+    term: 'データ出典',
+    definition: '総務省統計局 e-Stat（https://www.e-stat.go.jp/）の令和2年国勢調査データを使用。',
   },
 ]
 
 const STEPS = [
-  'エリアタブを選択する（仙台・愛知・東海・関東・近畿など）',
-  '都市/市区町村リストが表示される',
-  'Tierフィルターで絞り込む（Tier A/B/C）',
-  'キーワード検索で市区町村を検索できる',
-  '各エリアのスコアと詳細データを確認する',
-  'CSVエクスポートボタンでデータをダウンロードできる',
+  '地方タブを選択する（北海道・東北／関東／中部／近畿／中国・四国／九州・沖縄）',
+  '都道府県ドロップダウンから都道府県を選ぶ',
+  '左パネルに市区町村の一覧（人口・増減率・増減数）が表示される',
+  'キーワード検索で市区町村を絞り込める',
+  '地図のマーカー色（増減率）で人口動態を俯瞰し、クリックで詳細を確認する',
+  'CSV出力ボタンで市区町村データをダウンロードできる',
 ]
 
 const FAQS = [
   {
-    q: 'スコアはどのように計算されていますか？',
-    a: '人口規模・人口増減率・世帯数・人口密度などの指標を重み付けして総合スコアを算出しています。取引件数40%・人口増減30%・価格水準30%の配分で計算しています。',
+    q: '人口データはいつの時点のものですか？',
+    a: '令和2年（2020年）国勢調査の確定値です。人口増減率・増減数は2015年（平成27年）国勢調査との比較で算出しています。',
+  },
+  {
+    q: '人口増減率はどのように計算していますか？',
+    a: '（2020年人口 − 2015年人口）÷ 2015年人口 × 100（%）で算出しています。地図のマーカーはこの増減率で色分けしています。',
   },
   {
     q: 'データの出典は何ですか？',
-    a: '総務省統計局が提供するe-Stat（政府統計の総合窓口）のAPIと、国土交通省の不動産取引価格情報APIを使用しています。',
+    a: '総務省統計局が提供するe-Stat（政府統計の総合窓口）の国勢調査データ（API）を使用しています。',
   },
   {
     q: '対応エリアはどこですか？',
-    a: '現在、北海道・東北（北海道・青森・岩手・宮城・秋田・山形・福島）・仙台・愛知・鹿児島・東海（静岡・岐阜・三重）・関東（東京・神奈川・千葉・埼玉）・近畿（大阪・兵庫）に対応しています。',
-  },
-  {
-    q: 'データはどのくらいの頻度で更新されますか？',
-    a: '毎月1日にGitHub Actionsで自動更新されます。最新の国勢調査データと不動産取引データを反映しています。',
+    a: '全国47都道府県・全市区町村（約1,700）に対応しています。地方タブと都道府県ドロップダウンで切り替えられます。',
   },
   {
     q: 'CSVファイルはどのように使いますか？',
-    a: 'Salesforce等のCRMへのインポートや、Excelでの独自分析に利用できます。市区町村名・スコア・Tier・人口増減率・取引件数が含まれます。',
+    a: 'Excel等での独自分析に利用できます。都道府県・市区町村名・市区町村コード・人口（2020/2015）・世帯数・人口増減数・人口増減率が含まれます。',
   },
 ]
-
-const TIER_BADGE_CLASSES: Record<string, string> = {
-  A: 'bg-emerald-900/60 text-emerald-300 border border-emerald-700',
-  B: 'bg-amber-900/60 text-amber-300 border border-amber-700',
-  C: 'bg-red-900/60 text-red-300 border border-red-700',
-}
 
 export default function HelpPage() {
   return (
@@ -126,16 +109,16 @@ export default function HelpPage() {
             アプリ概要
           </h3>
           <p className="text-slate-300 text-sm leading-relaxed">
-            このアプリは<span className="text-white font-medium">不動産エリアスコアリングSaaS</span>です。
-            各市区町村の人口・世帯数・人口増減などのデータを自動収集し、スコア化して表示します。
-            不動産仲介・媒介取得のエリア選定を効率化するための意思決定支援ツールとして活用できます。
+            このアプリは<span className="text-white font-medium">市区町村 人口動態ダッシュボード</span>です。
+            総務省統計局の国勢調査（2015年・2020年）をもとに、全国47都道府県・全市区町村の人口・世帯数・
+            人口増減を地図とリストで可視化します。エリアの人口動態を把握するための分析ツールとして活用できます。
           </p>
           <ul className="mt-4 space-y-2">
             {[
-              '全国主要エリアの市区町村データを自動収集・スコア化',
-              'Tier A / B / C によるエリア優先順位付け',
-              '地図上でのエリア可視化',
-              'Salesforce対応CSVエクスポート',
+              '全国47都道府県・全市区町村の国勢調査人口データを収録',
+              '2015→2020の人口増減率・増減数を可視化',
+              '地図マーカーを増減率で色分け表示',
+              '市区町村データのCSVエクスポート',
             ].map((item) => (
               <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
                 <span className="text-blue-400 mt-0.5">•</span>
@@ -160,17 +143,10 @@ export default function HelpPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {GLOSSARY.map(({ term, badge, definition }) => (
+                {GLOSSARY.map(({ term, definition }) => (
                   <tr key={term} className="align-top">
                     <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-white font-medium whitespace-nowrap">{term}</span>
-                        {badge && (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${TIER_BADGE_CLASSES[badge]}`}>
-                            Tier {badge}
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-white font-medium whitespace-nowrap">{term}</span>
                     </td>
                     <td className="py-3 text-slate-400 leading-relaxed">{definition}</td>
                   </tr>
@@ -206,10 +182,10 @@ export default function HelpPage() {
           </h3>
           <ul className="space-y-3">
             {[
-              'データはe-Stat（政府統計ポータル）と国土交通省不動産取引APIから自動収集しています',
-              '毎月1日にGitHub Actionsで自動更新されます',
-              '最新の国勢調査データおよび直近4四半期の不動産取引データを反映しています',
-              '手動での即時更新が必要な場合は管理者にお問い合わせください',
+              'データはe-Stat（政府統計の総合窓口）の国勢調査APIから収集しています',
+              '人口は令和2年（2020年）国勢調査の確定値です',
+              '人口増減率・増減数は平成27年（2015年）国勢調査との比較値です',
+              '次回国勢調査（2025年）の確定値公表後に更新予定です',
             ].map((item) => (
               <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
                 <span className="text-emerald-400 mt-0.5 flex-shrink-0">✓</span>

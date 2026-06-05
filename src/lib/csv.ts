@@ -1,28 +1,29 @@
-import { Area, City } from '@/types'
+import { MunicipalityWithStats, Prefecture } from '@/types'
 
-export function generateSalesforceCSV(areas: Area[], city: City): string {
+export function generateMunicipalityCSV(
+  municipalities: MunicipalityWithStats[],
+  prefecture: Prefecture,
+): string {
   const headers = [
-    'エリア名',
-    '都市',
-    'Tier',
-    'スコア',
-    '取引件数',
+    '都道府県',
+    '市区町村',
+    '市区町村コード',
+    '人口(2020年)',
+    '人口(2015年)',
+    '世帯数(2020年)',
+    '人口増減数',
     '人口増減率(%)',
-    '平均価格水準(万円/㎡)',
-    'Salesforce_Lead_Source',
-    'Salesforce_Description',
   ]
 
-  const rows = areas.map((area) => [
-    area.name,
-    city.name,
-    area.tier,
-    area.score.toFixed(2),
-    area.transaction_count,
-    area.population_delta.toFixed(1),
-    area.avg_price_level.toFixed(1),
-    'Area Score Dashboard',
-    `Tier ${area.tier} エリア - スコア ${area.score.toFixed(1)}`,
+  const rows = municipalities.map((m) => [
+    prefecture.name,
+    m.name,
+    m.city_code ?? '',
+    m.pop2020 ?? '',
+    m.pop2015 ?? '',
+    m.households2020 ?? '',
+    m.delta ?? '',
+    m.deltaRate ?? '',
   ])
 
   const csvContent = [headers, ...rows]

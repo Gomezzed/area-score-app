@@ -1,0 +1,91 @@
+'use client'
+
+import { useState } from 'react'
+import { MunicipalityWithStats } from '@/types'
+import { formatPopulation, formatDelta, deltaColor } from '@/lib/census'
+import { Search } from 'lucide-react'
+
+interface Props {
+  municipalities: MunicipalityWithStats[]
+  selectedId: string | null
+  onSelect: (m: MunicipalityWithStats) => void
+}
+
+export function MunicipalityList({ municipalities, selectedId, onSelect }: Props) {
+  const [search, setSearch] = useState('')
+
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? municipalities.filter((m) => m.name.toLowerCase().includes(q))
+    : municipalities
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* 検索 */}
+      <div className="p-3 border-b border-slate-700">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="市区町村名で検索…"
+            className="w-full pl-8 pr-3 py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          />
+        </div>
+      </div>
+
+      <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-700">
+        {filtered.length} 市区町村
+      </div>
+
+      {/* リスト */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.map((m) => {
+          const positive = (m.deltaRate ?? 0) >= 0
+          const rateColor = m.deltaRate == null ? 'text-slate-500' : positive ? 'text-blue-400' : 'text-red-400'
+          return (
+            <button
+              key={m.id}
+              onClick={() => onSelect(m)}
+              className={`w-full text-left px-3 py-2.5 border-b border-slate-700/50 hover:bg-slate-700/50 transition-colors ${
+                selectedId === m.id ? 'bg-slate-700' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: deltaColor(m.deltaRate) }}
+                  />
+                  <span className="text-sm font-medium text-white truncate">{m.name}</span>
+                </div>
+                <span className="text-sm font-bold text-white whitespace-nowrap ml-2">
+                  {formatPopulation(m.pop2020)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pl-[1.125rem]">
+                <span className={`text-xs font-semibold ${rateColor}`}>
+                  {m.deltaRate == null ? '—' : (
+                    <>
+                      {positive ? '▲' : '▼'} {Math.abs(m.deltaRate).toFixed(2)}%
+                    </>
+                  )}
+                </span>
+                <span className={`text-xs ${rateColor}`}>
+                  {formatDelta(m.delta)}
+                </span>
+              </div>
+            </button>
+          )
+        })}
+
+        {filtered.length === 0 && (
+          <div className="text-center text-slate-500 py-12 text-sm">
+            該当する市区町村がありません
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
