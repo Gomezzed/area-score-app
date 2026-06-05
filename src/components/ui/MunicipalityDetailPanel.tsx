@@ -2,6 +2,7 @@
 
 import { MunicipalityWithStats } from '@/types'
 import { formatPopulation, formatDelta, deltaColor } from '@/lib/census'
+import { TransactionSection } from './TransactionSection'
 import { X, Users, Home, TrendingUp, TrendingDown } from 'lucide-react'
 
 interface Props {
@@ -10,19 +11,35 @@ interface Props {
 }
 
 export function MunicipalityDetailPanel({ municipality: m, onClose }: Props) {
-  if (!m) return null
+  const open = m != null
 
+  return (
+    <div
+      className={`absolute inset-y-0 right-0 w-full md:w-96 bg-slate-800 border-l border-slate-700 shadow-2xl z-[1100] overflow-y-auto transition-transform duration-300 ease-out ${
+        open ? 'translate-x-0' : 'translate-x-full'
+      }`}
+      aria-hidden={!open}
+    >
+      {m && <PanelBody m={m} onClose={onClose} />}
+    </div>
+  )
+}
+
+function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => void }) {
   const positive = (m.deltaRate ?? 0) >= 0
 
   return (
-    <div className="absolute right-0 top-0 h-full w-80 bg-slate-800 border-l border-slate-700 shadow-2xl z-[1100] overflow-y-auto">
       <div className="p-5">
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-2">
             <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: deltaColor(m.deltaRate) }} />
             <h2 className="text-lg font-bold text-white leading-tight">{m.name}</h2>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors p-1">
+          <button
+            onClick={onClose}
+            aria-label="閉じる"
+            className="flex items-center justify-center min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 -mr-2 md:mr-0 text-slate-400 hover:text-white transition-colors md:p-1"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -62,11 +79,14 @@ export function MunicipalityDetailPanel({ municipality: m, onClose }: Props) {
           <Row icon={<Home className="w-4 h-4 text-blue-400" />} label="世帯数（2020年）" value={m.households2020 == null ? '—' : `${m.households2020.toLocaleString('ja-JP')}世帯`} />
         </div>
 
+        {/* マンション取引履歴 */}
+        <TransactionSection municipalityId={m.id} />
+
         <p className="text-xs text-slate-500 mt-5">
-          出典: 総務省統計局 国勢調査（e-Stat）
+          出典: 総務省統計局 国勢調査（e-Stat）／
+          国土交通省 不動産取引価格情報
         </p>
       </div>
-    </div>
   )
 }
 

@@ -47,3 +47,26 @@ export interface MunicipalityWithStats extends Municipality {
   delta: number | null        // 2015→2020 人口増減数
   deltaRate: number | null    // 2015→2020 人口増減率（%）
 }
+
+// 不動産取引（中古マンション等）：市区町村 × 年 × 四半期
+export interface RealEstateTransaction {
+  id: string
+  municipality_id: string | null
+  prefecture_code: string
+  city_code: string
+  year: number
+  quarter: number
+  transaction_count: number | null
+  avg_price_man_yen: number | null   // 平均取引価格（万円）
+  avg_price_per_sqm: number | null   // 平均㎡単価（万円/㎡）
+  avg_area_sqm: number | null        // 平均面積（㎡）
+}
+
+// 年単位に集計した取引サマリ（四半期を統合）
+export interface TransactionYearSummary {
+  year: number
+  count: number                  // 年間成約件数
+  avgPriceManYen: number | null  // 加重平均 取引価格（万円）
+  avgPricePerSqm: number | null  // 加重平均 ㎡単価（万円/㎡）
+  avgAreaSqm: number | null      // 加重平均 面積（㎡）
+}

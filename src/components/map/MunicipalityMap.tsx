@@ -11,13 +11,12 @@ interface Props {
   onSelect: (m: MunicipalityWithStats) => void
 }
 
-// lat/lng が未登録の市区町村を都道府県中心の周りに決定論的に配置する
-function stableOffset(seed: string, index: number, total: number): { lat: number; lng: number } {
+// lat/lng が未登録の市区町村を都道府県中心の周りに決定論的に配置する（フォールバック）
+function stableOffset(seed: string, index: number): { lat: number; lng: number } {
   let h = 0
   for (let i = 0; i < seed.length; i++) {
     h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0
   }
-  // 同心円状に配置（人口降順で内側ほど大きい都市）
   const ring = Math.floor(index / 16)
   const angle = (index / 16) * 2 * Math.PI + (h & 0xff) * 0.012
   const radius = 0.06 + ring * 0.05
@@ -28,8 +27,13 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
+  // onSelect の最新参照（マーカー再生成なしでクリックハンドラを最新化）
+  const onSelectRef = useRef(onSelect)
+  useEffect(() => {
+    onSelectRef.current = onSelect
+  }, [onSelect])
 
-  // ── 地図初期化 + 都道府県切替時のオートズーム ──
+  // ── 地図初期化（都道府県切替で再構築）──
   useEffect(() => {
     if (!containerRef.current || typeof window === 'undefined') return
     const lat = prefecture.center_lat ?? 36.2
@@ -51,12 +55,19 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
           keepBuffer: 4,
         }).addTo(mapRef.current)
       } else {
-        // 選択都道府県の範囲へオートズーム
-        mapRef.current.setView([lat, lng], zoom, { animate: true })
+        mapRef.current.setView([lat, lng], zoom, { animate: false })
       }
     })
 
+    // コンテナのサイズ変化（モバイルの回転・レイアウト変化）で再計測
+    const el = containerRef.current
+    const ro = new ResizeObserver(() => {
+      if (mapRef.current) mapRef.current.invalidateSize()
+    })
+    ro.observe(el)
+
     return () => {
+      ro.disconnect()
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null
@@ -66,28 +77,33 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefecture.code])
 
-  // ── マーカー更新（増減率で色分け）──
+  // ── マーカー描画（表示中の市区町村／区が変わったら再描画 + 実点へフィット）──
   useEffect(() => {
-    if (!mapRef.current || typeof window === 'undefined') return
+    if (typeof window === 'undefined') return
+    let cancelled = false
     const baseLat = prefecture.center_lat ?? 36.2
     const baseLng = prefecture.center_lng ?? 138.2
 
     import('leaflet').then((L) => {
-      if (!mapRef.current) return
+      const map = mapRef.current
+      if (!map || cancelled) return
+
       markersRef.current.forEach((mk) => mk.remove())
       markersRef.current.clear()
 
+      const points: [number, number][] = []
       municipalities.forEach((m, index) => {
-        const isSelected = m.id === selectedId
         const color = deltaColor(m.deltaRate)
         let lat = m.lat
         let lng = m.lng
+        // 実座標（市役所・区役所代表点）を優先。無ければ中心周りに散らす。
         if (lat == null || lng == null) {
-          const off = stableOffset(m.city_code ?? m.id, index, municipalities.length)
+          const off = stableOffset(m.city_code ?? m.id, index)
           lat = baseLat + off.lat
           lng = baseLng + off.lng
         }
 
+        const isSelected = m.id === selectedId
         const circle = L.circleMarker([lat, lng], {
           radius: isSelected ? 13 : 8,
           fillColor: color,
@@ -95,6 +111,7 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
           color: isSelected ? '#ffffff' : color,
           weight: isSelected ? 3 : 1,
         })
+        ;(circle as any)._baseColor = color
 
         const rateStr = m.deltaRate == null
           ? 'データなし'
@@ -105,22 +122,51 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
             <div style="font-size:13px">人口(2020): <b>${formatPopulation(m.pop2020)}</b></div>
             <div style="font-size:12px;color:${color}">増減率: <b>${rateStr}</b></div>
           </div>`,
-          { className: 'muni-popup' }
+          { className: 'muni-popup' },
         )
-        circle.on('click', () => onSelect(m))
-        circle.addTo(mapRef.current)
+        circle.on('click', () => onSelectRef.current(m))
+        circle.addTo(map)
         markersRef.current.set(m.id, circle)
+        points.push([lat, lng])
       })
-    })
-  }, [municipalities, selectedId, prefecture.center_lat, prefecture.center_lng, onSelect])
 
-  // ── 選択マーカーへパン + ポップアップ ──
+      // 実データ点の範囲へフィット（選択ではなく「表示集合」が変わったときのみ）
+      if (points.length > 1) {
+        map.fitBounds(points, { padding: [40, 40], maxZoom: 14, animate: false })
+      } else if (points.length === 1) {
+        map.setView(points[0], 13, { animate: false })
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+    // selectedId は意図的に除外（選択でフィットし直さない）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [municipalities, prefecture.code, prefecture.center_lat, prefecture.center_lng])
+
+  // ── 選択マーカーの強調 + パン + ポップアップ ──
   useEffect(() => {
-    if (!mapRef.current || !selectedId) return
-    const mk = markersRef.current.get(selectedId)
-    if (mk) {
-      mapRef.current.panTo(mk.getLatLng(), { animate: true })
-      mk.openPopup()
+    const map = mapRef.current
+    if (!map) return
+    markersRef.current.forEach((mk, id) => {
+      const base = (mk as any)._baseColor as string
+      const sel = id === selectedId
+      mk.setRadius(sel ? 13 : 8)
+      mk.setStyle({
+        fillColor: base,
+        fillOpacity: sel ? 0.95 : 0.75,
+        color: sel ? '#ffffff' : base,
+        weight: sel ? 3 : 1,
+      })
+      if (sel) mk.bringToFront()
+    })
+    if (selectedId) {
+      const mk = markersRef.current.get(selectedId)
+      if (mk) {
+        map.panTo(mk.getLatLng(), { animate: true })
+        mk.openPopup()
+      }
     }
   }, [selectedId])
 
@@ -129,7 +175,7 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
       <div ref={containerRef} className="w-full h-full" />
 
       {/* 増減率 凡例 */}
-      <div className="absolute bottom-6 left-4 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-lg px-3 py-2 z-[1000]">
+      <div className="absolute bottom-6 left-3 sm:left-4 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-lg px-3 py-2 z-[1000]">
         <div className="text-xs font-semibold text-slate-400 mb-2">人口増減率（2015→2020）</div>
         {DELTA_BUCKETS.map((b) => (
           <div key={b.label} className="flex items-center gap-2 mb-1 last:mb-0">

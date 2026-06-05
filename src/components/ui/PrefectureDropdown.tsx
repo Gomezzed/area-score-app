@@ -29,10 +29,10 @@ export function PrefectureDropdown({ prefectures, selectedCode, onSelect }: Prop
   if (!selected) return null
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative w-full sm:w-auto">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between gap-2 min-w-[10rem] px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg text-sm font-medium text-white transition-colors"
+        className="flex items-center justify-between gap-2 w-full sm:w-auto sm:min-w-[10rem] px-3 min-h-[44px] sm:min-h-0 py-2 sm:py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg text-sm font-medium text-white transition-colors"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -54,7 +54,7 @@ export function PrefectureDropdown({ prefectures, selectedCode, onSelect }: Prop
                     onSelect(p.code)
                     setOpen(false)
                   }}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                  className={`w-full flex items-center justify-between gap-2 px-3 min-h-[44px] sm:min-h-0 py-2 text-left text-sm transition-colors ${
                     active ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'
                   }`}
                 >

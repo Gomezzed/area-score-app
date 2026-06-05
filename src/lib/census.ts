@@ -56,3 +56,14 @@ export function formatRate(rate: number | null | undefined): string {
   const sign = rate > 0 ? '+' : ''
   return `${sign}${rate.toFixed(2)}%`
 }
+
+// 政令指定都市の行政区名を「市」「区」に分解する
+//   '名古屋市西区'   → { city: '名古屋市', ward: '西区' }
+//   '横浜市鶴見区'   → { city: '横浜市',   ward: '鶴見区' }
+//   '千代田区'(特別区) → null（「市」接頭辞を持たないため対象外）
+//   '名古屋市'(市本体) → null（区で終わらないため対象外）
+const WARD_RE = /^(.+?市)(.+区)$/
+export function parseWard(name: string): { city: string; ward: string } | null {
+  const m = name.match(WARD_RE)
+  return m ? { city: m[1], ward: m[2] } : null
+}
