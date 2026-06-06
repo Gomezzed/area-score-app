@@ -3,12 +3,16 @@
 // ============================================================
 
 export type Region =
-  | 'hokkaido_tohoku'
+  | 'hokkaido'
+  | 'tohoku'
   | 'kanto'
-  | 'chubu'
+  | 'tokai'
+  | 'hokuriku'
   | 'kinki'
-  | 'chugoku_shikoku'
-  | 'kyushu_okinawa'
+  | 'chugoku'
+  | 'shikoku'
+  | 'kyushu'
+  | 'okinawa'
 
 export interface Prefecture {
   code: string          // '01' .. '47'

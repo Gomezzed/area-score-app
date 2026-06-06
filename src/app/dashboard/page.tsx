@@ -29,17 +29,21 @@ export default function DashboardPage() {
   const { canAccessFull } = useSubscription()
   const { prefectures, loading: prefLoading } = usePrefectures()
 
-  const [region, setRegion] = useState<Region>('hokkaido_tohoku')
+  const [region, setRegion] = useState<Region>('hokkaido')
   const [selectedPrefCode, setSelectedPrefCode] = useState<string>('')
   const [selected, setSelected] = useState<MunicipalityWithStats | null>(null)
   // ドリルダウン中の政令指定都市（区一覧を表示）。null のときは市区町村トップレベル。
   const [expandedCity, setExpandedCity] = useState<string | null>(null)
 
-  // リージョン内の都道府県（コード順）
-  const regionPrefs = useMemo(
-    () => prefectures.filter((p) => p.region === region),
-    [prefectures, region],
-  )
+  // リージョン内の都道府県（REGIONS で定義した地理的表示順）
+  const regionPrefs = useMemo(() => {
+    const def = REGIONS.find((r) => r.id === region)
+    if (!def) return []
+    const byCode = new Map(prefectures.map((p) => [p.code, p]))
+    return def.prefectures
+      .map((p) => byCode.get(p.code))
+      .filter((p): p is NonNullable<typeof p> => p != null)
+  }, [prefectures, region])
 
   // リージョン切替時は先頭の都道府県をデフォルト選択
   useEffect(() => {
@@ -208,15 +212,15 @@ export default function DashboardPage() {
           >
             {REGIONS.map((r) => (
               <button
-                key={r.key}
-                onClick={() => setRegion(r.key)}
+                key={r.id}
+                onClick={() => setRegion(r.id)}
                 className={`px-4 min-h-[44px] sm:min-h-0 sm:py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
-                  r.key === region
+                  r.id === region
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-400 hover:text-white hover:bg-slate-700'
                 }`}
               >
-                {r.label}
+                {r.name}
               </button>
             ))}
           </div>
