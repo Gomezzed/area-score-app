@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { MunicipalityWithStats } from '@/types'
 import { formatPopulation, formatDelta, deltaColor, parseWard } from '@/lib/census'
-import { Search, ChevronRight, ArrowLeft } from 'lucide-react'
+import { Search, ChevronRight, ArrowLeft, Lock } from 'lucide-react'
 
 interface Props {
   municipalities: MunicipalityWithStats[]
@@ -14,6 +14,10 @@ interface Props {
   // ドリルダウン中の政令市名（null のときはトップレベル表示）
   drilldownCity?: string | null
   onBack?: () => void
+  // 無料プラン制限: このインデックス以降の項目をロック表示する（null で無制限）
+  lockedFromIndex?: number | null
+  // ロックされた項目クリック時のハンドラ（アップグレード導線）
+  onLockedClick?: () => void
 }
 
 export function MunicipalityList({
@@ -23,6 +27,8 @@ export function MunicipalityList({
   expandableNames,
   drilldownCity,
   onBack,
+  lockedFromIndex = null,
+  onLockedClick,
 }: Props) {
   const [search, setSearch] = useState('')
 
@@ -30,6 +36,11 @@ export function MunicipalityList({
   const filtered = q
     ? municipalities.filter((m) => m.name.toLowerCase().includes(q))
     : municipalities
+
+  // ロック判定は全体リスト内の順位で行う（検索で回避できないようにする）
+  const rankById = new Map(municipalities.map((m, i) => [m.id, i]))
+  const isLocked = (m: MunicipalityWithStats) =>
+    lockedFromIndex != null && (rankById.get(m.id) ?? 0) >= lockedFromIndex
 
   return (
     <div className="flex flex-col h-full">
@@ -71,6 +82,42 @@ export function MunicipalityList({
           const expandable = !drilldownCity && expandableNames?.has(m.name)
           const ward = drilldownCity ? parseWard(m.name) : null
           const displayName = ward ? ward.ward : m.name
+          const locked = isLocked(m)
+
+          // 無料プラン: ロック項目はぼかし + 鍵アイコン。クリックでアップグレード導線へ
+          if (locked) {
+            return (
+              <button
+                key={m.id}
+                onClick={() => onLockedClick?.()}
+                className="w-full text-left px-3 min-h-[44px] py-2.5 border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors relative group"
+                title="アップグレードして全データを表示"
+              >
+                <div className="select-none blur-[3px] opacity-60 pointer-events-none">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: deltaColor(m.deltaRate) }}
+                      />
+                      <span className="text-sm font-medium text-white truncate">{displayName}</span>
+                    </div>
+                    <span className="text-sm font-bold text-white whitespace-nowrap ml-2">
+                      {formatPopulation(m.pop2020)}
+                    </span>
+                  </div>
+                  <div className="pl-[1.125rem]">
+                    <span className={`text-xs font-semibold ${rateColor}`}>▲ —%</span>
+                  </div>
+                </div>
+                <span className="absolute inset-0 flex items-center justify-center gap-1.5 text-xs font-medium text-slate-300">
+                  <Lock className="w-3.5 h-3.5 text-blue-400" />
+                  アップグレードで表示
+                </span>
+              </button>
+            )
+          }
+
           return (
             <button
               key={m.id}

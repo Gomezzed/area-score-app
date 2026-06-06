@@ -6,8 +6,14 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // /login と /help は認証不要で通過
-  if (pathname === '/login' || pathname.startsWith('/help')) {
+  // 認証不要で通過する公開ルート
+  //   /（ランディング）/login /register /pricing /help /auth/callback（OAuth）
+  const PUBLIC_PREFIXES = ['/help', '/auth']
+  const PUBLIC_EXACT = ['/', '/login', '/register', '/pricing']
+  if (
+    PUBLIC_EXACT.includes(pathname) ||
+    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
+  ) {
     return supabaseResponse
   }
 
@@ -42,5 +48,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login', '/help', '/'],
+  matcher: ['/dashboard/:path*', '/login', '/register', '/pricing', '/help', '/auth/:path*', '/'],
 }

@@ -4,15 +4,18 @@ import dynamic from 'next/dynamic'
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
+import { useSubscription } from '@/hooks/useSubscription'
 import { usePrefectures, useMunicipalities } from '@/hooks/useCensus'
+// 注: ログアウトは useAuth().signOut を使用（supabase クライアントの直接importは不要）
 import { REGIONS, parseWard } from '@/lib/census'
+import { FREE_PLAN_LIMIT } from '@/lib/plans'
 import { PrefectureDropdown } from '@/components/ui/PrefectureDropdown'
 import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
 import { Region, MunicipalityWithStats } from '@/types'
-import { MapPin, LogOut, Download, RefreshCw, HelpCircle } from 'lucide-react'
+import { MapPin, LogOut, Download, RefreshCw, HelpCircle, Lock, Sparkles } from 'lucide-react'
 
 // Leaflet は SSR 不可のため dynamic import
 const MunicipalityMap = dynamic(
@@ -22,6 +25,8 @@ const MunicipalityMap = dynamic(
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { user, signOut } = useAuth()
+  const { canAccessFull } = useSubscription()
   const { prefectures, loading: prefLoading } = usePrefectures()
 
   const [region, setRegion] = useState<Region>('hokkaido_tohoku')
@@ -82,12 +87,21 @@ export default function DashboardPage() {
     })
   }, [expandedCity, topLevel, municipalities])
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
+  // 無料プラン: トップレベル一覧の上位 FREE_PLAN_LIMIT 件のみ閲覧可。
+  // ドリルダウン（区一覧）中はロックしない（アクセス可能な政令市配下のため）。
+  const lockedFromIndex = !canAccessFull && !expandedCity ? FREE_PLAN_LIMIT : null
+  // 地図には閲覧可能な市区町村のみ表示（ロック項目はマーカーから除外）
+  const mapMunicipalities = useMemo(
+    () => (lockedFromIndex == null ? displayed : displayed.slice(0, lockedFromIndex)),
+    [displayed, lockedFromIndex],
+  )
 
   function handleCSVDownload() {
+    // CSV出力は有料プラン（LIGHT以上）の機能
+    if (!canAccessFull) {
+      router.push('/pricing')
+      return
+    }
     if (!activePref || topLevel.length === 0) return
     // 政令市の行政区（区）は二重計上を避けるためトップレベル（市区町村）のみ出力
     const csv = generateMunicipalityCSV(topLevel, activePref)
@@ -140,11 +154,21 @@ export default function DashboardPage() {
             <h1 className="text-white font-bold text-base sm:text-lg truncate">エリア人口分析</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            {!canAccessFull && (
+              <Link
+                href="/pricing"
+                className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 px-2 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+                title="プランをアップグレード"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">アップグレード</span>
+              </Link>
+            )}
             <button
               onClick={handleCSVDownload}
               disabled={municipalities.length === 0}
               className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-              title="CSV出力"
+              title={canAccessFull ? 'CSV出力' : 'CSV出力は有料プラン（アップグレードが必要）'}
             >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">CSV出力</span>
@@ -157,12 +181,21 @@ export default function DashboardPage() {
               <HelpCircle className="w-4 h-4" />
               <span className="hidden sm:inline">ヘルプ</span>
             </Link>
+            {user?.email && (
+              <span
+                className="hidden md:block max-w-[160px] truncate text-xs text-slate-400 px-2"
+                title={user.email}
+              >
+                {user.email}
+              </span>
+            )}
             <button
-              onClick={handleLogout}
-              className="flex items-center justify-center min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
+              onClick={signOut}
+              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
               title="ログアウト"
             >
               <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">ログアウト</span>
             </button>
           </div>
         </div>
@@ -209,6 +242,20 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* 無料プラン: アップグレード導線バナー */}
+      {!canAccessFull && (
+        <Link
+          href="/pricing"
+          className="flex items-center gap-2 bg-blue-600/15 hover:bg-blue-600/25 border-b border-blue-700/40 px-3 sm:px-5 py-2 text-sm text-blue-200 transition-colors flex-shrink-0"
+        >
+          <Lock className="w-4 h-4 flex-shrink-0 text-blue-300" />
+          <span className="truncate">
+            無料プランでは上位{FREE_PLAN_LIMIT}件のみ表示。全データを見るにはアップグレードが必要です
+          </span>
+          <span className="ml-auto flex-shrink-0 font-medium underline">料金を見る</span>
+        </Link>
+      )}
+
       {/* Main content */}
       <div className="flex-1 relative overflow-hidden">
         {/* List + Map（モバイル: 縦積み / デスクトップ: 横並び） */}
@@ -222,6 +269,8 @@ export default function DashboardPage() {
               expandableNames={designatedNames}
               drilldownCity={expandedCity}
               onBack={handleBack}
+              lockedFromIndex={lockedFromIndex}
+              onLockedClick={() => router.push('/pricing')}
             />
           </aside>
 
@@ -230,7 +279,7 @@ export default function DashboardPage() {
             {activePref && (
               <MunicipalityMap
                 prefecture={activePref}
-                municipalities={displayed}
+                municipalities={mapMunicipalities}
                 selectedId={selected?.id ?? null}
                 onSelect={handleSelect}
               />
