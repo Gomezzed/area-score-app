@@ -15,7 +15,8 @@ import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
 import { Region, MunicipalityWithStats } from '@/types'
-import { MapPin, LogOut, Download, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2 } from 'lucide-react'
+import { MapPin, LogOut, Download, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, BarChart3 } from 'lucide-react'
+import { TownInflowDrawer } from '@/components/town/TownInflowDrawer'
 
 // Leaflet は SSR 不可のため dynamic import
 const MunicipalityMap = dynamic(
@@ -36,6 +37,8 @@ export default function DashboardPage() {
   const [expandedCity, setExpandedCity] = useState<string | null>(null)
   // 請求ポータルへの遷移中フラグ
   const [portalLoading, setPortalLoading] = useState(false)
+  // 町丁目分析ドロワーの開閉
+  const [townDrawerOpen, setTownDrawerOpen] = useState(false)
 
   // リージョン内の都道府県（REGIONS で定義した地理的表示順）
   const regionPrefs = useMemo(() => {
@@ -203,6 +206,15 @@ export default function DashboardPage() {
               </button>
             )}
             <button
+              onClick={() => setTownDrawerOpen(true)}
+              disabled={!activePref}
+              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-pink-700 hover:bg-pink-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+              title="町丁目別 若返り・ファミリー流入ランキングを表示"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">町丁目分析</span>
+            </button>
+            <button
               onClick={handleCSVDownload}
               disabled={municipalities.length === 0}
               className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
@@ -328,6 +340,15 @@ export default function DashboardPage() {
         {/* Detail panel: モバイルは全画面オーバーレイ / デスクトップは右サイドパネル */}
         <MunicipalityDetailPanel municipality={selected} onClose={() => setSelected(null)} />
       </div>
+
+      {/* 町丁目分析ドロワー（既存の地図/詳細パネルを壊さない独立レイヤ） */}
+      {townDrawerOpen && activePref && (
+        <TownInflowDrawer
+          cityNameEn={activePref.name_en}
+          cityName={activePref.name}
+          onClose={() => setTownDrawerOpen(false)}
+        />
+      )}
     </div>
   )
 }

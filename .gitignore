@@ -44,5 +44,9 @@ next-env.d.ts
 __pycache__/
 *.pyc
 
+# e-Stat 小地域 CSV キャッシュ (リポジトリに混入させない)
+tmp_estat_csv/
+scripts/estat_ids.json
+
 # Claude Code local state
 .claude/
