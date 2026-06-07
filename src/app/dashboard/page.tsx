@@ -15,7 +15,7 @@ import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
 import { Region, MunicipalityWithStats } from '@/types'
-import { MapPin, LogOut, Download, RefreshCw, HelpCircle, Lock, Sparkles } from 'lucide-react'
+import { MapPin, LogOut, Download, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2 } from 'lucide-react'
 
 // Leaflet は SSR 不可のため dynamic import
 const MunicipalityMap = dynamic(
@@ -34,6 +34,8 @@ export default function DashboardPage() {
   const [selected, setSelected] = useState<MunicipalityWithStats | null>(null)
   // ドリルダウン中の政令指定都市（区一覧を表示）。null のときは市区町村トップレベル。
   const [expandedCity, setExpandedCity] = useState<string | null>(null)
+  // 請求ポータルへの遷移中フラグ
+  const [portalLoading, setPortalLoading] = useState(false)
 
   // リージョン内の都道府県（REGIONS で定義した地理的表示順）
   const regionPrefs = useMemo(() => {
@@ -113,6 +115,24 @@ export default function DashboardPage() {
     downloadCSV(csv, `population-${activePref.name_en}-${date}.csv`)
   }
 
+  // 請求情報の管理: Stripe カスタマーポータルへ遷移
+  async function handleManageBilling() {
+    setPortalLoading(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok || !data.url) {
+        alert(data.error ?? '請求ポータルを開けませんでした。')
+        setPortalLoading(false)
+        return
+      }
+      window.location.assign(data.url)
+    } catch (err) {
+      alert(`通信エラー: ${String(err)}`)
+      setPortalLoading(false)
+    }
+  }
+
   // リスト項目クリック: 区を持つ政令市（トップレベル）はドリルダウン、それ以外は選択
   function handleSelect(m: MunicipalityWithStats) {
     if (!expandedCity && designatedNames.has(m.name)) {
@@ -158,7 +178,7 @@ export default function DashboardPage() {
             <h1 className="text-white font-bold text-base sm:text-lg truncate">エリア人口分析</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            {!canAccessFull && (
+            {!canAccessFull ? (
               <Link
                 href="/pricing"
                 className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 px-2 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -167,6 +187,20 @@ export default function DashboardPage() {
                 <Sparkles className="w-4 h-4" />
                 <span className="hidden sm:inline">アップグレード</span>
               </Link>
+            ) : (
+              <button
+                onClick={handleManageBilling}
+                disabled={portalLoading}
+                className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-60 rounded-lg text-sm transition-colors"
+                title="請求情報を管理（プラン変更・解約）"
+              >
+                {portalLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CreditCard className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">請求情報を管理</span>
+              </button>
             )}
             <button
               onClick={handleCSVDownload}

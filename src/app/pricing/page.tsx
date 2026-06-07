@@ -40,7 +40,7 @@ export default function PricingPage() {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId: plan.priceId, userId: user.id }),
+        body: JSON.stringify({ plan: plan.id }),
       })
       const data = await res.json()
       if (!res.ok || !data.url) {
@@ -152,7 +152,7 @@ export default function PricingPage() {
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-10">
-          表示価格は税別です。プランの変更・解約はダッシュボードからいつでも可能です。
+          表示価格は税込です。プランの変更・解約はダッシュボードからいつでも可能です。
         </p>
       </main>
     </div>

@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 // POST /api/stripe/portal
-//   body: { userId: string }
-//   res:  { url: string }  … Stripe カスタマーポータルへのリダイレクト先
-//   既存サブスクリプションの管理（プラン変更・解約）に使用。
+//   認証: Supabase Auth（未ログインは 401）
+//   res : { url: string }  … Stripe カスタマーポータルへのリダイレクト先
+//   既存サブスクリプションの管理（プラン変更・解約・支払い方法）に使用。
 export async function POST(request: NextRequest) {
   const stripe = getStripe()
   if (!stripe) {
@@ -15,15 +16,13 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  let userId: string | undefined
-  try {
-    const body = await request.json()
-    userId = body.userId
-  } catch {
-    return NextResponse.json({ error: 'リクエストボディが不正です' }, { status: 400 })
-  }
-  if (!userId) {
-    return NextResponse.json({ error: 'userId は必須です' }, { status: 400 })
+  // ── 認証（Cookie セッション） ──
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
   }
 
   const admin = getSupabaseAdmin()
@@ -37,7 +36,7 @@ export async function POST(request: NextRequest) {
   const { data } = await admin
     .from('subscriptions')
     .select('stripe_customer_id')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .maybeSingle()
 
   const customerId = data?.stripe_customer_id
@@ -55,8 +54,9 @@ export async function POST(request: NextRequest) {
     })
     return NextResponse.json({ url: session.url })
   } catch (err) {
+    console.error('[stripe/portal] session 作成に失敗:', err)
     return NextResponse.json(
-      { error: `ポータルセッション作成に失敗しました: ${String(err)}` },
+      { error: 'ポータルセッションの作成に失敗しました' },
       { status: 500 },
     )
   }
