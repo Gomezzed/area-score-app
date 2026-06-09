@@ -1,41 +1,64 @@
-import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { NextResponse, type NextRequest } from 'next/server'
 
-// Google OAuth 等のコールバック: 認可コードをセッションに交換し /dashboard へ。
-// Supabase Dashboard > Authentication > URL Configuration の
-// Redirect URLs に <origin>/auth/callback を登録しておくこと。
+/**
+ * Google OAuth (および他のOAuthプロバイダ) からのコールバックを処理する。
+ *
+ * フロー:
+ *   1. Google認証完了後、Supabaseがこのエンドポイントへ `?code=xxx` 付きでリダイレクト
+ *   2. exchangeCodeForSession でアクセストークンを取得しCookieへセット
+ *   3. /dashboard へ遷移（または `next` クエリで指定されたURL）
+ *
+ * Supabase Dashboard > Authentication > URL Configuration の
+ * Redirect URLs に <origin>/auth/callback を登録しておくこと。
+ */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = request.nextUrl
+  const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  // 任意の遷移先（未指定なら /dashboard）
   const next = searchParams.get('next') ?? '/dashboard'
+  const errorParam = searchParams.get('error')
+  const errorDescription = searchParams.get('error_description')
 
-  if (code) {
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          },
-        },
-      }
+  if (errorParam) {
+    console.error('[Auth Callback] OAuthエラー:', errorParam, errorDescription)
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(errorDescription ?? errorParam)}`
     )
-
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
-    }
   }
 
-  // コードが無い / 交換失敗時はエラー表示付きでログインへ
-  return NextResponse.redirect(`${origin}/login?error=auth`)
+  if (!code) {
+    console.error('[Auth Callback] code パラメータが存在しません')
+    return NextResponse.redirect(`${origin}/login?error=missing_code`)
+  }
+
+  const cookieStore = await cookies()
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+  if (error) {
+    console.error('[Auth Callback] セッション交換エラー:', error)
+    return NextResponse.redirect(
+      `${origin}/login?error=${encodeURIComponent(error.message)}`
+    )
+  }
+
+  return NextResponse.redirect(`${origin}${next}`)
 }
