@@ -1,9 +1,13 @@
 'use client'
 
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+} from 'recharts'
 import { MunicipalityWithStats } from '@/types'
 import { formatPopulation, formatDelta, deltaColor } from '@/lib/census'
+import { usePopulationHistory } from '@/hooks/usePopulationHistory'
 import { TransactionSection } from './TransactionSection'
-import { X, Users, Home, TrendingUp, TrendingDown } from 'lucide-react'
+import { X, Users, Home, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 
 interface Props {
   municipality: MunicipalityWithStats | null
@@ -79,14 +83,113 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
           <Row icon={<Home className="w-4 h-4 text-blue-400" />} label="世帯数（2020年）" value={m.households2020 == null ? '—' : `${m.households2020.toLocaleString('ja-JP')}世帯`} />
         </div>
 
+        {/* 人口推移（2015〜2025） — 不動産取引セクションの上に配置 */}
+        <PopulationSection municipalityId={m.id} />
+
         {/* マンション取引履歴 */}
         <TransactionSection municipalityId={m.id} />
+
+        {/* 駅乗降者数（Phase 2.5 予定） — 不動産取引セクションの下に配置 */}
+        <StationComingSoon />
 
         <p className="text-xs text-slate-500 mt-5">
           出典: 総務省統計局 国勢調査（e-Stat）／
           国土交通省 不動産取引価格情報
         </p>
       </div>
+  )
+}
+
+// 人口推移（2015〜2025）折れ線グラフ
+const TOOLTIP_STYLE = {
+  backgroundColor: '#1e293b',
+  border: '1px solid #475569',
+  borderRadius: '0.5rem',
+  fontSize: '12px',
+}
+
+// Y軸目盛り: 10000 以上は「万」単位に変換
+const formatMan = (v: number): string =>
+  v >= 10000
+    ? `${(v / 10000).toLocaleString('ja-JP', { maximumFractionDigits: 1 })}万`
+    : v.toLocaleString('ja-JP')
+
+function PopulationSection({ municipalityId }: { municipalityId: string }) {
+  const { data, loading } = usePopulationHistory(municipalityId)
+  const hasData = data.length > 0
+
+  return (
+    <div className="mt-5">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-white mb-3">
+        <Users className="w-4 h-4 text-blue-400" />
+        人口推移（2015〜2025）
+      </h3>
+
+      {loading && (
+        <div className="text-slate-500 text-sm py-8 text-center">読み込み中…</div>
+      )}
+
+      {!loading && !hasData && (
+        <div className="bg-slate-700/30 rounded-lg py-8 text-center">
+          <Users className="w-7 h-7 text-slate-600 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm">データ準備中（β版で順次公開）</p>
+        </div>
+      )}
+
+      {!loading && hasData && (
+        <div className="bg-slate-700/30 rounded-lg p-3">
+          <ResponsiveContainer width="100%" height={150}>
+            <LineChart data={data} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <XAxis dataKey="year" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#475569' }} tickLine={false} />
+              <YAxis
+                tick={{ fill: '#94a3b8', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                width={48}
+                domain={['auto', 'auto']}
+                tickFormatter={(v) => formatMan(Number(v))}
+              />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                labelStyle={{ color: '#e2e8f0' }}
+                formatter={(v) => [`${Number(v).toLocaleString('ja-JP')}人`, '人口']}
+                labelFormatter={(l) => `${l}年`}
+              />
+              <Line
+                type="monotone"
+                dataKey="population"
+                stroke="#60a5fa"
+                strokeWidth={2}
+                dot={{ r: 3, fill: '#60a5fa' }}
+                activeDot={{ r: 5 }}
+                connectNulls
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 駅乗降者数: Phase 2.5 で実装予定（プレースホルダ）
+function StationComingSoon() {
+  return (
+    <div className="mt-5">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-slate-500 mb-3">
+        <BarChart2 className="w-4 h-4 text-slate-500" />
+        駅乗降者数
+        <span className="bg-slate-700 text-slate-400 rounded px-1.5 py-0.5 text-[10px] font-medium">
+          Coming Soon
+        </span>
+      </h3>
+      <div className="bg-slate-700/30 rounded-lg p-4">
+        <p className="text-slate-500 text-xs leading-relaxed">
+          国土交通省 駅別乗降客数データ（XKT004）を Phase 2.5（2026年7月予定）で実装します。
+        </p>
+      </div>
+    </div>
   )
 }
 

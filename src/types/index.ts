@@ -34,6 +34,12 @@ export interface PopulationStat {
   population_delta_rate: number | null  // 増減率（%）
 }
 
+// 人口推移グラフ用の 1 点（年 × 人口）
+export interface PopulationHistoryPoint {
+  year: number
+  population: number
+}
+
 export interface Municipality {
   id: string
   prefecture_code: string
@@ -41,6 +47,8 @@ export interface Municipality {
   name: string
   lat: number | null
   lng: number | null
+  // 人口推移（2015〜2025）。2015/2020 は国勢調査実測、間は線形補間。未投入時は null。
+  population_history?: PopulationHistoryPoint[] | null
 }
 
 // 市区町村 + 2020/2015 国勢調査の統計を平坦化したビューモデル
