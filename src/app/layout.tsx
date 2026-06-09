@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'エリアスコア分析ダッシュボード',
-  description: '都市エリアのスコアリング・分析ツール',
+  title: 'エリアスコア | 不動産仲介向けエリア分析SaaS',
+  description:
+    '人口動態と不動産取引データを掛け合わせて、エリアの集客ポテンシャルを100点満点でスコア化。不動産仲介・Web広告の優先順位をデータで決める。',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

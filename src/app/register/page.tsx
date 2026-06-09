@@ -61,7 +61,7 @@ export default function RegisterPage() {
           <Link href="/" className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
             <MapPin className="w-8 h-8 text-white" />
           </Link>
-          <h1 className="text-3xl font-bold text-white">エリア人口分析</h1>
+          <h1 className="text-3xl font-bold text-white">エリアスコア</h1>
           <p className="text-slate-400 mt-2">アカウント作成</p>
         </div>
 

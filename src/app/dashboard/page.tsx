@@ -175,7 +175,7 @@ export default function DashboardPage() {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <MapPin className="w-4 h-4 text-white" />
             </div>
-            <h1 className="text-white font-bold text-base sm:text-lg truncate">エリア人口分析</h1>
+            <h1 className="text-white font-bold text-base sm:text-lg truncate">エリアスコア</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {!canAccessFull ? (

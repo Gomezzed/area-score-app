@@ -96,7 +96,7 @@ export default function HelpPage() {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <MapPin className="w-4 h-4 text-white" />
           </div>
-          <h1 className="text-white font-bold text-lg">エリアスコア分析</h1>
+          <h1 className="text-white font-bold text-lg">エリアスコア</h1>
           <span className="text-slate-500 text-sm hidden sm:inline">／</span>
           <span className="text-slate-400 text-sm hidden sm:inline">使い方ガイド</span>
         </div>

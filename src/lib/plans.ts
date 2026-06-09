@@ -100,3 +100,78 @@ export function planFromPriceId(priceId: string | null | undefined): PlanId {
   if (priceId === process.env.NEXT_PUBLIC_STRIPE_STANDARD_PRICE_ID) return 'standard'
   return 'free'
 }
+
+// ============================================================
+// βリリース用 料金プラン（表示専用）
+//   PO 確定の Starter / Standard / Platinum 3プラン構成。
+//   β特別価格を主表示・通常価格を斜線表示する Google One 形式。
+//   β価格は契約継続中ずっと据え置き。
+//
+//   ※ これは LP / 料金ページの表示専用データ。実際の課金
+//     プラミング（checkout / webhook / subscription）は上記の
+//     PLANS / PlanId を引き続き使用し、新プランIDの Checkout
+//     受付処理は別タスクで実装する。
+// ============================================================
+
+export type BetaPlanId = 'starter' | 'standard' | 'platinum'
+
+export interface BetaPlan {
+  id: BetaPlanId
+  name: string
+  description: string
+  betaPriceLabel: string // β特別価格（主表示）
+  regularPriceLabel: string // 通常価格（斜線・参考表示）
+  features: string[]
+  recommended?: boolean
+}
+
+export const BETA_PLANS: BetaPlan[] = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    description: '個人事業主・小規模仲介会社向け',
+    betaPriceLabel: '¥30,000',
+    regularPriceLabel: '¥50,000',
+    features: [
+      '都道府県・市区町村レベルのエリアスコア',
+      '人口動態グラフ',
+      'CSV出力',
+      '1ID',
+      'メールサポート',
+    ],
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    description: '中堅仲介会社向け',
+    betaPriceLabel: '¥50,000',
+    regularPriceLabel: '¥100,000',
+    features: [
+      'Starter の全機能',
+      '地図ヒートマップ',
+      'PDFレポート',
+      '5ID',
+      'メール優先サポート',
+    ],
+    recommended: true,
+  },
+  {
+    id: 'platinum',
+    name: 'Platinum',
+    description: '大手仲介会社・チェーン展開向け',
+    betaPriceLabel: '¥100,000',
+    regularPriceLabel: '¥300,000',
+    features: [
+      'Standard の全機能',
+      'エリア比較',
+      '20ID',
+      'Slack・Zoom サポート',
+      'PDFロゴ対応',
+    ],
+  },
+]
+
+// βプラン CTA の遷移先（plan パラメータ受付処理は別タスクで実装予定）
+export function betaCheckoutHref(plan: BetaPlanId): string {
+  return `/api/stripe/checkout?plan=${plan}`
+}

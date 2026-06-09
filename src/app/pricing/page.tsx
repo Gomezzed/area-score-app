@@ -1,65 +1,12 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { useSubscription } from '@/hooks/useSubscription'
-import { PLANS, type Plan } from '@/lib/plans'
-import { MapPin, Check, ArrowLeft, Loader2 } from 'lucide-react'
+import { BETA_PLANS, betaCheckoutHref } from '@/lib/plans'
+import { MapPin, Check, ArrowLeft } from 'lucide-react'
 
 export default function PricingPage() {
-  const router = useRouter()
   const { user } = useAuth()
-  const { plan: currentPlan } = useSubscription()
-  const [pendingId, setPendingId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSelect(plan: Plan) {
-    setError(null)
-
-    // 無料プラン: ログイン済みならダッシュボード、未ログインなら登録へ
-    if (plan.id === 'free') {
-      router.push(user ? '/dashboard' : '/register')
-      return
-    }
-
-    // 未ログインなら登録へ誘導
-    if (!user) {
-      router.push('/register')
-      return
-    }
-
-    if (!plan.priceId) {
-      setError('このプランは現在準備中です（Stripe Price ID 未設定）。')
-      return
-    }
-
-    setPendingId(plan.id)
-    try {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: plan.id }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.url) {
-        setError(data.error ?? 'チェックアウトを開始できませんでした。')
-        setPendingId(null)
-        return
-      }
-      window.location.assign(data.url)
-    } catch (err) {
-      setError(`通信エラー: ${String(err)}`)
-      setPendingId(null)
-    }
-  }
-
-  function buttonLabel(plan: Plan): string {
-    if (plan.id === currentPlan) return '現在のプラン'
-    if (plan.id === 'free') return user ? 'ダッシュボードへ' : '無料で始める'
-    return 'このプランを選ぶ'
-  }
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -70,7 +17,7 @@ export default function PricingPage() {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <MapPin className="w-4 h-4 text-white" />
             </div>
-            <span className="text-white font-bold text-lg">エリア人口分析</span>
+            <span className="text-white font-bold text-lg">エリアスコア</span>
           </Link>
           <Link
             href={user ? '/dashboard' : '/login'}
@@ -83,22 +30,25 @@ export default function PricingPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-12 sm:py-16">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
+          <span className="inline-flex items-center gap-2 bg-blue-600/15 border border-blue-500/40 text-blue-300 text-xs font-medium rounded-full px-3 py-1 mb-5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+            クローズドβ受付中
+          </span>
           <h1 className="text-3xl sm:text-4xl font-bold text-white">料金プラン</h1>
           <p className="text-slate-400 mt-3">
-            不動産営業の意思決定に必要なデータを、最適なプランで。
+            不動産仲介の意思決定に必要なデータを、最適なプランで。
           </p>
         </div>
 
-        {error && (
-          <div className="max-w-2xl mx-auto mb-8 bg-red-900/50 border border-red-700 text-red-300 rounded-lg p-3 text-sm text-center">
-            {error}
-          </div>
-        )}
+        <div className="max-w-2xl mx-auto mb-12 bg-blue-600/10 border border-blue-500/30 rounded-xl px-5 py-3 text-center">
+          <p className="text-blue-200 text-sm">
+            β期間中のご契約価格は、契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
+          </p>
+        </div>
 
         <div className="grid gap-6 md:grid-cols-3 items-start">
-          {PLANS.map((plan) => {
-            const isCurrent = plan.id === currentPlan
+          {BETA_PLANS.map((plan) => {
             const highlight = plan.recommended
             return (
               <div
@@ -111,17 +61,23 @@ export default function PricingPage() {
               >
                 {highlight && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    推奨
+                    おすすめ
                   </span>
                 )}
 
                 <h2 className="text-lg font-bold text-white">{plan.name}</h2>
                 <p className="text-slate-400 text-sm mt-1">{plan.description}</p>
 
-                <div className="mt-4 mb-6">
-                  <span className="text-3xl font-bold text-white">{plan.priceLabel}</span>
-                  {plan.price > 0 && <span className="text-slate-400 text-sm">/月</span>}
+                <div className="mt-5 mb-1 flex items-baseline gap-2">
+                  <span className="text-3xl font-bold text-white">{plan.betaPriceLabel}</span>
+                  <span className="text-slate-400 text-sm">/月</span>
+                  <span className="bg-blue-600/20 text-blue-300 text-[11px] font-bold px-1.5 py-0.5 rounded">
+                    β特別
+                  </span>
                 </div>
+                <p className="text-slate-500 text-sm mb-6">
+                  通常 <span className="line-through">{plan.regularPriceLabel}</span> / 月
+                </p>
 
                 <ul className="space-y-3 mb-8 flex-1">
                   {plan.features.map((f) => (
@@ -132,20 +88,16 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <button
-                  onClick={() => handleSelect(plan)}
-                  disabled={isCurrent || pendingId === plan.id}
-                  className={`w-full rounded-lg px-4 py-3 font-medium flex items-center justify-center gap-2 transition-colors ${
-                    isCurrent
-                      ? 'bg-slate-700 text-slate-400 cursor-default'
-                      : highlight
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                <a
+                  href={betaCheckoutHref(plan.id)}
+                  className={`w-full rounded-lg px-4 py-3 font-medium text-center transition-colors ${
+                    highlight
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-slate-700 hover:bg-slate-600 text-white'
                   }`}
                 >
-                  {pendingId === plan.id && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {buttonLabel(plan)}
-                </button>
+                  {plan.name}を始める
+                </a>
               </div>
             )
           })}
