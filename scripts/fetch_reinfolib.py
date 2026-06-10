@@ -375,6 +375,10 @@ def aggregate_mansion_by_city(records: list[dict]) -> dict[tuple[str, int, int],
     )
     for r in records:
         city_code = (r.get("MunicipalityCode") or "").strip()
+        # 都道府県コード 01〜09 は API の MunicipalityCode が 4 桁（先頭ゼロ欠落、
+        # 例: 札幌市中央区 "1101"）で返るため 5 桁ゼロ埋めで JIS コードに補完する。
+        if city_code:
+            city_code = city_code.zfill(5)
         if not (len(city_code) == 5 and city_code.isdigit()):
             continue
         key = (city_code, int(r["_year"]), int(r["_quarter"]))
