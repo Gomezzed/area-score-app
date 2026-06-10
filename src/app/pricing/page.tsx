@@ -88,16 +88,26 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <a
-                  href={betaCheckoutHref(plan.id)}
-                  className={`w-full rounded-lg px-4 py-3 font-medium text-center transition-colors ${
-                    highlight
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-slate-700 hover:bg-slate-600 text-white'
-                  }`}
-                >
-                  {plan.name}を始める
-                </a>
+                {plan.comingSoon ? (
+                  // β期間中は未提供（Stripe商品未作成）。CTA を出さず Coming Soon 表記。
+                  <span
+                    className="w-full rounded-lg px-4 py-3 font-medium text-center bg-slate-700/50 text-slate-400 cursor-not-allowed"
+                    aria-disabled="true"
+                  >
+                    Coming Soon
+                  </span>
+                ) : (
+                  <a
+                    href={betaCheckoutHref(plan.id)}
+                    className={`w-full rounded-lg px-4 py-3 font-medium text-center transition-colors ${
+                      highlight
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                    }`}
+                  >
+                    {plan.name}を始める
+                  </a>
+                )}
               </div>
             )
           })}

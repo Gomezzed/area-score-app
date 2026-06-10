@@ -6,7 +6,7 @@ import { priceIdForPlan, type PaidPlanId } from '@/lib/plans'
 
 // POST /api/stripe/checkout
 //   認証: Supabase Auth（未ログインは 401）
-//   body: { plan: 'light' | 'standard' }
+//   body: { plan: 'starter' | 'standard' }   ※ Free は Checkout 不可 / Platinum は未提供
 //   res : { url: string }  … Stripe Checkout へのリダイレクト先
 export async function POST(request: NextRequest) {
   const stripe = getStripe()
@@ -34,9 +34,10 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'リクエストボディが不正です' }, { status: 400 })
   }
-  if (plan !== 'light' && plan !== 'standard') {
+  // 課金対象は starter / standard のみ。Free は Checkout 不可、Platinum は β期間中未提供。
+  if (plan !== 'starter' && plan !== 'standard') {
     return NextResponse.json(
-      { error: "plan は 'light' または 'standard' を指定してください" },
+      { error: "plan は 'starter' または 'standard' を指定してください" },
       { status: 400 },
     )
   }

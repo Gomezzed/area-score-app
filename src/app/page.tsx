@@ -183,16 +183,26 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <a
-                href={betaCheckoutHref(plan.id)}
-                className={`w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                  plan.recommended
-                    ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                    : 'bg-slate-700 hover:bg-slate-600 text-white'
-                }`}
-              >
-                {plan.name}を始める
-              </a>
+              {plan.comingSoon ? (
+                // β期間中は未提供（Stripe商品未作成）。CTA を出さず Coming Soon 表記。
+                <span
+                  className="w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium bg-slate-700/50 text-slate-400 cursor-not-allowed"
+                  aria-disabled="true"
+                >
+                  Coming Soon
+                </span>
+              ) : (
+                <a
+                  href={betaCheckoutHref(plan.id)}
+                  className={`w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                    plan.recommended
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                      : 'bg-slate-700 hover:bg-slate-600 text-white'
+                  }`}
+                >
+                  {plan.name}を始める
+                </a>
+              )}
             </div>
           ))}
         </div>

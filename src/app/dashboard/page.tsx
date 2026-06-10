@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
+import { usePlanLimit, applyAreaVisibilityLimit, FREE_VISIBLE_AREA_LIMIT } from '@/hooks/usePlanLimit'
 import { usePrefectures, useMunicipalities } from '@/hooks/useCensus'
 // 注: ログアウトは useAuth().signOut を使用（supabase クライアントの直接importは不要）
 import { REGIONS, parseWard } from '@/lib/census'
-import { FREE_PLAN_LIMIT } from '@/lib/plans'
 import { PrefectureDropdown } from '@/components/ui/PrefectureDropdown'
 import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
@@ -26,7 +26,9 @@ const MunicipalityMap = dynamic(
 export default function DashboardPage() {
   const router = useRouter()
   const { user, signOut } = useAuth()
-  const { canAccessFull } = useSubscription()
+  const { plan, canAccessFull } = useSubscription()
+  // プラン別エンタイトルメント（エリア可視数・出力可否・駅単位の実利用可否）
+  const limit = usePlanLimit(plan)
   const { prefectures, loading: prefLoading } = usePrefectures()
 
   const [region, setRegion] = useState<Region>('hokkaido')
@@ -93,18 +95,21 @@ export default function DashboardPage() {
     })
   }, [expandedCity, topLevel, municipalities])
 
-  // 無料プラン: トップレベル一覧の上位 FREE_PLAN_LIMIT 件のみ閲覧可。
+  // 無料プラン: トップレベル一覧の上位 visibleAreaLimit 件のみ閲覧可。
   // ドリルダウン（区一覧）中はロックしない（アクセス可能な政令市配下のため）。
-  const lockedFromIndex = !canAccessFull && !expandedCity ? FREE_PLAN_LIMIT : null
-  // 地図には閲覧可能な市区町村のみ表示（ロック項目はマーカーから除外）
-  const mapMunicipalities = useMemo(
-    () => (lockedFromIndex == null ? displayed : displayed.slice(0, lockedFromIndex)),
+  //   ※ visibleAreaLimit は free のみ数値（=3）、starter/standard は null（無制限）。
+  const lockedFromIndex =
+    limit.visibleAreaLimit != null && !expandedCity ? limit.visibleAreaLimit : null
+  // 地図には閲覧可能な市区町村のみ表示（ロック項目はマーカーから除外）。
+  //   applyAreaVisibilityLimit は上位N件のみ可視化し残りを lockedCount として返す。
+  const { visible: mapMunicipalities } = useMemo(
+    () => applyAreaVisibilityLimit(displayed, lockedFromIndex),
     [displayed, lockedFromIndex],
   )
 
   function handleCSVDownload() {
-    // CSV出力は有料プラン（LIGHT以上）の機能
-    if (!canAccessFull) {
+    // 料金設計v2.1: CSV出力は Standard 以上の機能（Starter は PDF のみ可）
+    if (!limit.canExportCsv) {
       router.push('/pricing')
       return
     }
@@ -204,9 +209,13 @@ export default function DashboardPage() {
             )}
             <button
               onClick={handleCSVDownload}
-              disabled={municipalities.length === 0}
+              disabled={!limit.canExportCsv || municipalities.length === 0}
               className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-              title={canAccessFull ? 'CSV出力' : 'CSV出力は有料プラン（アップグレードが必要）'}
+              title={
+                limit.canExportCsv
+                  ? 'CSV出力'
+                  : 'CSV出力は Standardプラン以上で利用可能です'
+              }
             >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">CSV出力</span>
@@ -288,7 +297,7 @@ export default function DashboardPage() {
         >
           <Lock className="w-4 h-4 flex-shrink-0 text-blue-300" />
           <span className="truncate">
-            無料プランでは上位{FREE_PLAN_LIMIT}件のみ表示。全データを見るにはアップグレードが必要です
+            無料プランでは上位{FREE_VISIBLE_AREA_LIMIT}件のみ表示。全データを見るにはアップグレードが必要です
           </span>
           <span className="ml-auto flex-shrink-0 font-medium underline">料金を見る</span>
         </Link>

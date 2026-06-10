@@ -30,11 +30,11 @@ export async function getUserPlan(userId: string): Promise<PlanId> {
   if (!ACTIVE_STATUSES.has(data.status)) return 'free'
 
   const plan = data.plan as PlanId
-  return plan === 'light' || plan === 'standard' ? plan : 'free'
+  return plan === 'starter' || plan === 'standard' ? plan : 'free'
 }
 
 // 指定ユーザーが有効な有料プランを契約しているか。
 export async function hasActivePlan(userId: string): Promise<boolean> {
   const plan = await getUserPlan(userId)
-  return plan === 'light' || plan === 'standard'
+  return plan === 'starter' || plan === 'standard'
 }
