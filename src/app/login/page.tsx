@@ -5,6 +5,16 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { MapPin, LogIn } from 'lucide-react'
 
+// ログイン後の遷移先を ?redirect= から取得する。
+//   オープンリダイレクト防止のため内部パス（'/' 始まり・'//' や '/\' は除外）のみ許可。
+//   未指定 / 不正値は /dashboard にフォールバック。
+function safeRedirectTarget(): string {
+  if (typeof window === 'undefined') return '/dashboard'
+  const r = new URLSearchParams(window.location.search).get('redirect')
+  if (r && r.startsWith('/') && r[1] !== '/' && r[1] !== '\\') return r
+  return '/dashboard'
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,10 +25,13 @@ export default function LoginPage() {
   async function handleGoogleLogin() {
     setError(null)
     setGoogleLoading(true)
+    // OAuth はコールバック経由のため、戻り先を ?next= で /auth/callback に引き継ぐ
+    // （callback は next を見て最終遷移先へリダイレクトする）。
+    const target = safeRedirectTarget()
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(target)}`,
       },
     })
     if (authError) {
@@ -57,10 +70,12 @@ export default function LoginPage() {
         return
       }
 
-      console.log('[Login] 認証成功、ダッシュボードへ遷移')
+      const target = safeRedirectTarget()
+      console.log('[Login] 認証成功、遷移先:', target)
       // router.push だとプロキシがクッキーを認識する前にリクエストが来るため
-      // フルページリロードで遷移してセッションクッキーを確実に送信する
-      window.location.href = '/dashboard'
+      // フルページリロードで遷移してセッションクッキーを確実に送信する。
+      // ?redirect= があればそこへ（例: /pricing から来たユーザーを料金ページへ戻す）。
+      window.location.href = target
     } catch (err) {
       console.error('[Login] 予期しないエラー:', err)
       setError(`予期しないエラーが発生しました: ${String(err)}`)

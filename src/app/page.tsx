@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { BETA_PLANS, betaCheckoutHref } from '@/lib/plans'
+import { BETA_PLANS } from '@/lib/plans'
+import { CheckoutButton } from '@/components/ui/CheckoutButton'
 import {
   MapPin,
   TrendingUp,
@@ -183,17 +184,10 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              {plan.comingSoon ? (
-                // β期間中は未提供（Stripe商品未作成）。CTA を出さず Coming Soon 表記。
-                <span
-                  className="w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium bg-slate-700/50 text-slate-400 cursor-not-allowed"
-                  aria-disabled="true"
-                >
-                  Coming Soon
-                </span>
-              ) : (
-                <a
-                  href={betaCheckoutHref(plan.id)}
+              {plan.id === 'starter' || plan.id === 'standard' ? (
+                // 課金対象（Starter / Standard）: クライアントで POST → Stripe Checkout へ
+                <CheckoutButton
+                  plan={plan.id}
                   className={`w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
                     plan.recommended
                       ? 'bg-blue-600 hover:bg-blue-500 text-white'
@@ -201,7 +195,17 @@ export default function LandingPage() {
                   }`}
                 >
                   {plan.name}を始める
-                </a>
+                </CheckoutButton>
+              ) : (
+                // Platinum: β期間中は未提供（Stripe商品未作成）。disabled ボタンで Coming Soon 表記。
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium bg-slate-700/50 text-slate-400 cursor-not-allowed"
+                >
+                  Coming Soon
+                </button>
               )}
             </div>
           ))}
@@ -220,13 +224,13 @@ export default function LandingPage() {
           <p className="text-blue-100 mt-4 max-w-xl mx-auto">
             β期間中のご契約価格は、契約継続中ずっと据え置き。今のうちに、エリアスコアを営業の標準装備に。
           </p>
-          <a
-            href={betaCheckoutHref('standard')}
+          <CheckoutButton
+            plan="standard"
             className="inline-flex items-center justify-center gap-2 mt-8 bg-white hover:bg-slate-100 text-blue-700 font-semibold rounded-lg px-8 py-4 transition-colors"
           >
             Standardを始める
             <ArrowRight className="w-5 h-5" />
-          </a>
+          </CheckoutButton>
         </div>
       </section>
 

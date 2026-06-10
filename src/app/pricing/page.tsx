@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
-import { BETA_PLANS, betaCheckoutHref } from '@/lib/plans'
+import { BETA_PLANS } from '@/lib/plans'
+import { CheckoutButton } from '@/components/ui/CheckoutButton'
 import { MapPin, Check, ArrowLeft } from 'lucide-react'
 
 export default function PricingPage() {
@@ -88,17 +89,10 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                {plan.comingSoon ? (
-                  // β期間中は未提供（Stripe商品未作成）。CTA を出さず Coming Soon 表記。
-                  <span
-                    className="w-full rounded-lg px-4 py-3 font-medium text-center bg-slate-700/50 text-slate-400 cursor-not-allowed"
-                    aria-disabled="true"
-                  >
-                    Coming Soon
-                  </span>
-                ) : (
-                  <a
-                    href={betaCheckoutHref(plan.id)}
+                {plan.id === 'starter' || plan.id === 'standard' ? (
+                  // 課金対象（Starter / Standard）: クライアントで POST → Stripe Checkout へ
+                  <CheckoutButton
+                    plan={plan.id}
                     className={`w-full rounded-lg px-4 py-3 font-medium text-center transition-colors ${
                       highlight
                         ? 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -106,7 +100,17 @@ export default function PricingPage() {
                     }`}
                   >
                     {plan.name}を始める
-                  </a>
+                  </CheckoutButton>
+                ) : (
+                  // Platinum: β期間中は未提供（Stripe商品未作成）。disabled ボタンで Coming Soon 表記。
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    className="w-full rounded-lg px-4 py-3 font-medium text-center bg-slate-700/50 text-slate-400 cursor-not-allowed"
+                  >
+                    Coming Soon
+                  </button>
                 )}
               </div>
             )
