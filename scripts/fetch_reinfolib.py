@@ -649,10 +649,17 @@ def save_progress(progress: dict) -> None:
 def process_prefecture(sb: Client | None, api_key: str, pref_code: str, munis: list[dict],
                        years_quarters: list[tuple[int, int]], z: int, limiter: RateLimiter,
                        concurrency: int, subdivide: bool, do_tx: bool, do_st: bool,
-                       dry_run: bool, on_tile=None) -> dict:
+                       dry_run: bool, on_tile=None, all_munis: list[dict] | None = None) -> dict:
     pref_name = PREF_NAMES[pref_code]
     id_by_code = {m["city_code"]: m["id"] for m in munis}
-    resolve_city = make_city_resolver(munis)
+    # 県の bbox は隣県に張り出すため、駅は全国の市区町村から最近傍を解決して
+    # 真の所属に補正し、集計は当該県の市区町村のみに限定する。県内マスタだけで
+    # 解決すると県外駅が県内の境界市区町村に誤集約され、station_passengers_total
+    # が桁違いに膨張する不具合になる（処理順に依存して上書きされるため）。
+    resolve_pool = all_munis if all_munis else munis
+    resolve_city = make_city_resolver(resolve_pool)
+    muni_pref = {m["id"]: m["prefecture_code"] for m in resolve_pool}
+    pref_muni_ids = {m["id"] for m in munis}
     summary = {"tx_rows": 0, "stations": 0, "stations_unlinked": 0, "muni_updated": 0}
 
     # ── (A) マンション取引 → real_estate_transactions ──
@@ -688,7 +695,11 @@ def process_prefecture(sb: Client | None, api_key: str, pref_code: str, munis: l
             s["municipality_id"] = muni_id
             if muni_id is None:
                 unlinked += 1
-            elif s["passengers_latest"]:
+                continue
+            # 真の所属県に補正（pref_code はこの県の bbox を指すだけ）。
+            s["prefecture_code"] = muni_pref.get(muni_id, s.get("prefecture_code"))
+            # 集計は当該県の市区町村のみ。県外駅はその県のパスで集計される。
+            if muni_id in pref_muni_ids and s["passengers_latest"]:
                 totals[muni_id] += s["passengers_latest"]
         if unlinked:
             log.warning(f"    {unlinked}/{len(stations)} 駅が市区町村に紐付きません（municipality_id=NULL）")
@@ -831,7 +842,8 @@ def main() -> None:
 
     sb = None if args.dry_run else get_supabase()
     munis_by_pref = load_municipalities(sb if sb else get_supabase())
-    log.info(f"市区町村マスタ: {sum(len(v) for v in munis_by_pref.values())} 件")
+    all_munis = [m for v in munis_by_pref.values() for m in v]
+    log.info(f"市区町村マスタ: {len(all_munis)} 件")
 
     # ── 県ごとに処理（1県完了ごとに DB 反映＆進捗記録）──
     run_start = time.monotonic()
@@ -856,7 +868,7 @@ def main() -> None:
         try:
             s = process_prefecture(sb, api_key, pc, munis, years_quarters, args.zoom,
                                    limiter, args.concurrency, subdivide, do_tx, do_st,
-                                   args.dry_run, on_tile=on_tile)
+                                   args.dry_run, on_tile=on_tile, all_munis=all_munis)
             for k in agg:
                 agg[k] += s[k]
             # 完了記録（dry-run では記録しない＝再実行で再取得される）
