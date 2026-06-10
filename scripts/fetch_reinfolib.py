@@ -622,6 +622,17 @@ def update_station_aggregates(sb: Client, totals: dict[str, int]) -> None:
         ).eq("id", muni_id).execute()
 
 
+def reset_station_aggregates(sb: Client) -> None:
+    """全市区町村の station_passengers_total を 0 に戻す（--all 駅走査の前処理）。
+
+    bbox 重複の誤集約で残った旧値を一掃してから各県パスで正値を書き直す。これを
+    しないと、再割当後に駅が 0 件になる市区町村（誤集約された境界市区町村）の旧
+    巨大値が更新対象に入らず残存してしまう。"""
+    sb.table("municipalities").update(
+        {"station_passengers_total": 0}
+    ).neq("station_passengers_total", 0).execute()
+
+
 # ── レジューム（進捗ファイル）──────────────────────────────
 def load_progress(reset: bool) -> dict:
     if reset and os.path.exists(PROGRESS_FILE):
@@ -844,6 +855,12 @@ def main() -> None:
     munis_by_pref = load_municipalities(sb if sb else get_supabase())
     all_munis = [m for v in munis_by_pref.values() for m in v]
     log.info(f"市区町村マスタ: {len(all_munis)} 件")
+
+    # --all で駅を全件走査する場合、集計を一旦 0 にリセットしてから書き直す
+    # （bbox 重複の誤集約で残った旧値の残存を防ぐ）。
+    if args.all and do_st and not args.dry_run and sb is not None:
+        reset_station_aggregates(sb)
+        log.info("station_passengers_total を全件 0 にリセット（再集計のため）")
 
     # ── 県ごとに処理（1県完了ごとに DB 反映＆進捗記録）──
     run_start = time.monotonic()
