@@ -49,6 +49,24 @@ export interface Municipality {
   lng: number | null
   // 人口推移（2015〜2025）。2015/2020 は国勢調査実測、間は線形補間。未投入時は null。
   population_history?: PopulationHistoryPoint[] | null
+  // その市区町村に属する駅の最新乗降客数の合計（国交省 XKT015）。未投入時は 0。
+  station_passengers_total?: number | null
+}
+
+// 駅明細（国交省 不動産情報ライブラリ XKT015 / 駅別乗降客数）
+export interface Station {
+  id: string
+  municipality_id: string | null
+  prefecture_code: string | null
+  station_code: string | null   // S12_001c（駅コード）
+  group_code: string            // S12_001g（グループコード・重複排除キー）
+  name: string                  // S12_001_ja（駅名）
+  operator: string | null       // S12_002_ja（運営会社）
+  line_name: string | null      // S12_003_ja（路線名）
+  passengers_latest: number | null  // 最新乗降客数
+  passengers_year: number | null    // 上記の年（例: 2023）
+  lat: number | null
+  lng: number | null
 }
 
 // 市区町村 + 2020/2015 国勢調査の統計を平坦化したビューモデル
@@ -58,6 +76,7 @@ export interface MunicipalityWithStats extends Municipality {
   households2020: number | null
   delta: number | null        // 2015→2020 人口増減数
   deltaRate: number | null    // 2015→2020 人口増減率（%）
+  stationPassengersTotal: number  // 駅乗降客数合計（最新）。未投入時は 0。
 }
 
 // 不動産取引（中古マンション等）：市区町村 × 年 × 四半期

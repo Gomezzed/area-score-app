@@ -89,12 +89,12 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
         {/* マンション取引履歴 */}
         <TransactionSection municipalityId={m.id} />
 
-        {/* 駅乗降者数（Phase 2.5 予定） — 不動産取引セクションの下に配置 */}
-        <StationComingSoon />
+        {/* 駅乗降客数（XKT015 集約値） — 不動産取引セクションの下に配置 */}
+        <StationSection total={m.stationPassengersTotal} />
 
         <p className="text-xs text-slate-500 mt-5">
           出典: 総務省統計局 国勢調査（e-Stat）／
-          国土交通省 不動産取引価格情報
+          国土交通省 不動産情報ライブラリ（不動産価格情報 XIT001・駅別乗降客数 XKT015）
         </p>
       </div>
   )
@@ -173,22 +173,38 @@ function PopulationSection({ municipalityId }: { municipalityId: string }) {
   )
 }
 
-// 駅乗降者数: Phase 2.5 で実装予定（プレースホルダ）
-function StationComingSoon() {
+// 駅乗降客数: 市区町村単位の集約値（XKT015）。駅単位の明細は Phase 2.5 で実装予定。
+function StationSection({ total }: { total: number }) {
+  const hasData = total > 0
+
   return (
     <div className="mt-5">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-slate-500 mb-3">
-        <BarChart2 className="w-4 h-4 text-slate-500" />
-        駅乗降者数
-        <span className="bg-slate-700 text-slate-400 rounded px-1.5 py-0.5 text-[10px] font-medium">
-          Coming Soon
-        </span>
+      <h3 className="flex items-center gap-2 text-sm font-bold text-white mb-3">
+        <BarChart2 className="w-4 h-4 text-blue-400" />
+        駅乗降客数（最新）
       </h3>
-      <div className="bg-slate-700/30 rounded-lg p-4">
-        <p className="text-slate-500 text-xs leading-relaxed">
-          国土交通省 駅別乗降客数データ（XKT004）を Phase 2.5（2026年7月予定）で実装します。
-        </p>
-      </div>
+
+      {hasData ? (
+        <div className="bg-slate-700/50 rounded-xl p-4 text-center">
+          <div className="text-3xl font-black text-white">
+            {total.toLocaleString('ja-JP')}
+            <span className="text-base font-bold text-slate-400 ml-1">人/日</span>
+          </div>
+          <div className="text-slate-400 text-xs mt-1">
+            市区町村内の駅 乗降客数の合計（国交省 XKT015）
+          </div>
+          <p className="text-slate-500 text-[11px] mt-2 leading-relaxed">
+            駅ごとの明細（路線・運営会社別）は Phase 2.5（2026年7月予定）で公開します。
+          </p>
+        </div>
+      ) : (
+        <div className="bg-slate-700/30 rounded-lg p-4">
+          <p className="text-slate-500 text-xs leading-relaxed">
+            国土交通省 駅別乗降客数（XKT015）データ準備中（β版で順次公開）。
+            鉄道駅のない市区町村では表示されません。
+          </p>
+        </div>
+      )}
     </div>
   )
 }

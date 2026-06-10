@@ -45,6 +45,7 @@ interface MuniRow {
   name: string
   lat: number | null
   lng: number | null
+  station_passengers_total: number | null
   population_stats: PopulationStat[]
 }
 
@@ -58,7 +59,7 @@ export function useMunicipalities(prefectureCode: string) {
     setLoading(true)
     const { data, error: err } = await supabase
       .from('municipalities')
-      .select('id, prefecture_code, city_code, name, lat, lng, population_stats(year, population, households, population_delta, population_delta_rate)')
+      .select('id, prefecture_code, city_code, name, lat, lng, station_passengers_total, population_stats(year, population, households, population_delta, population_delta_rate)')
       .eq('prefecture_code', code)
 
     if (err) {
@@ -85,6 +86,7 @@ export function useMunicipalities(prefectureCode: string) {
         households2020: s2020?.households ?? null,
         delta: s2020?.population_delta ?? null,
         deltaRate: s2020?.population_delta_rate ?? null,
+        stationPassengersTotal: m.station_passengers_total ?? 0,
       }
     })
 

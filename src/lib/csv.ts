@@ -13,6 +13,7 @@ export function generateMunicipalityCSV(
     '世帯数(2020年)',
     '人口増減数',
     '人口増減率(%)',
+    '駅乗降客数合計(最新)',
   ]
 
   const rows = municipalities.map((m) => [
@@ -24,6 +25,7 @@ export function generateMunicipalityCSV(
     m.households2020 ?? '',
     m.delta ?? '',
     m.deltaRate ?? '',
+    m.stationPassengersTotal || '',
   ])
 
   const csvContent = [headers, ...rows]
