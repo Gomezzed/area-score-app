@@ -39,8 +39,8 @@ const PLANS: PricingPlan[] = [
   {
     id: 'starter',
     name: 'Starter',
-    monthly: '月額3万円',
-    annualNote: '年額契約で実質 月24,000円相当（20%OFF）',
+    monthly: '月額30,000円（税抜）',
+    annualNote: '年額契約で実質 月24,000円（税抜）相当（20%OFF）',
     description: '個人事業主・小規模仲介向け',
     features: [
       { label: '都道府県・市区町村レベルのスコア' },
@@ -53,8 +53,8 @@ const PLANS: PricingPlan[] = [
   {
     id: 'standard',
     name: 'Standard',
-    monthly: '月額5万円',
-    annualNote: '年額契約で実質 月40,000円相当（20%OFF）',
+    monthly: '月額50,000円（税抜）',
+    annualNote: '年額契約で実質 月40,000円（税抜）相当（20%OFF）',
     description: '中堅仲介会社向け',
     features: [
       { label: '駅単位データ' },
@@ -69,8 +69,8 @@ const PLANS: PricingPlan[] = [
   {
     id: 'platinum',
     name: 'Platinum',
-    monthly: '月額10万円',
-    annualNote: '年額契約で実質 月80,000円相当（20%OFF）',
+    monthly: '月額100,000円（税抜）',
+    annualNote: '年額契約で実質 月80,000円（税抜）相当（20%OFF）',
     description: '大手仲介会社・チェーン展開向け',
     features: [
       { label: 'エリア比較', comingSoon: true },
@@ -166,7 +166,7 @@ export function Pricing() {
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-8">
-          表示価格は月額（税抜）です。🕒 の機能は2026年7月提供予定で、現時点ではご利用いただけません。
+          ※表示価格はすべて税抜です。別途消費税がかかります。🕒 の機能は2026年7月提供予定で、現時点ではご利用いただけません。
         </p>
       </div>
     </section>
