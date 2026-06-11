@@ -71,13 +71,13 @@ export default function PricingPage() {
 
                 <div className="mt-5 mb-1 flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-white">{plan.betaPriceLabel}</span>
-                  <span className="text-slate-400 text-sm">/月</span>
+                  <span className="text-slate-400 text-sm">/月（税抜）</span>
                   <span className="bg-blue-600/20 text-blue-300 text-[11px] font-bold px-1.5 py-0.5 rounded">
                     β特別
                   </span>
                 </div>
                 <p className="text-slate-500 text-sm mb-6">
-                  通常 <span className="line-through">{plan.regularPriceLabel}</span> / 月
+                  通常 <span className="line-through">{plan.regularPriceLabel}</span> / 月（税抜）
                 </p>
 
                 <ul className="space-y-3 mb-8 flex-1">
@@ -118,7 +118,7 @@ export default function PricingPage() {
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-10">
-          表示価格は税込です。プランの変更・解約はダッシュボードからいつでも可能です。
+          ※表示価格はすべて税抜です。別途消費税がかかります。プランの変更・解約はダッシュボードからいつでも可能です。
         </p>
       </main>
     </div>

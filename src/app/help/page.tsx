@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MapPin, ArrowLeft, BookOpen, HelpCircle, Database, BarChart2, List } from 'lucide-react'
+import { MapPin, ArrowLeft, BookOpen, HelpCircle, Database, BarChart2, List, Info } from 'lucide-react'
 
 export const metadata: Metadata = {
   title: '使い方ガイド | エリアスコア分析',
@@ -234,6 +234,30 @@ export default function HelpPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Section 6: データ出典・免責事項 */}
+        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Info className="w-5 h-5 text-blue-400" />
+            データ出典・免責事項
+          </h3>
+          <ul className="space-y-2 mb-4">
+            {[
+              '人口データ: 総務省 e-Stat（政府統計の総合窓口）令和2年国勢調査',
+              '不動産取引データ: 国土交通省 不動産情報ライブラリ',
+              '駅乗降客数: 国土数値情報（国土交通省）',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
+                <span className="text-blue-400 mt-0.5 flex-shrink-0">•</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+          {/* REINFOLIB 出典クレジット（規約義務・文言は一字一句固定） */}
+          <p className="text-xs text-slate-500 leading-relaxed border-t border-slate-700/50 pt-4">
+            このサービスは、国土交通省不動産情報ライブラリのAPI機能を使用していますが、提供情報の最新性、正確性、完全性等が保証されたものではありません。
+          </p>
         </section>
 
         {/* Footer */}
