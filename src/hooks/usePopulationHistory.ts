@@ -22,25 +22,27 @@ export function usePopulationHistory(municipalityId: string) {
     let cancelled = false
     setLoading(true)
 
-    supabase
-      .from('municipalities')
-      .select('population_history')
-      .eq('id', municipalityId)
-      .single()
-      .then(({ data: row, error: err }) => {
-        if (cancelled) return
-        if (err) {
-          console.error('[usePopulationHistory] error:', err.code, err.message)
-          setError(new Error(err.message))
-          setData([])
-        } else {
-          const history = (row?.population_history ?? []) as PopulationHistoryPoint[]
-          // 年の昇順に整列（DB 側の格納順に依存しない）
-          setData([...history].sort((a, b) => a.year - b.year))
-          setError(null)
-        }
-        setLoading(false)
-      })
+    ;(async () => {
+      // セッション初期化完了を待つ（OAuth直後・直接アクセス時のレース対策）
+      await supabase.auth.getSession()
+      const { data: row, error: err } = await supabase
+        .from('municipalities')
+        .select('population_history')
+        .eq('id', municipalityId)
+        .single()
+      if (cancelled) return
+      if (err) {
+        console.error('[usePopulationHistory] error:', err.code, err.message)
+        setError(new Error(err.message))
+        setData([])
+      } else {
+        const history = (row?.population_history ?? []) as PopulationHistoryPoint[]
+        // 年の昇順に整列（DB 側の格納順に依存しない）
+        setData([...history].sort((a, b) => a.year - b.year))
+        setError(null)
+      }
+      setLoading(false)
+    })()
 
     return () => {
       cancelled = true

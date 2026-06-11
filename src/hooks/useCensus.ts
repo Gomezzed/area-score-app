@@ -12,6 +12,8 @@ export function usePrefectures() {
 
   const fetchPrefectures = useCallback(async () => {
     setLoading(true)
+    // セッション初期化完了を待つ（OAuth直後・直接アクセス時のレース対策）
+    await supabase.auth.getSession()
     const { data, error: err } = await supabase
       .from('prefectures')
       .select('*')
@@ -29,8 +31,15 @@ export function usePrefectures() {
 
   useEffect(() => {
     fetchPrefectures()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') fetchPrefectures()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // INITIAL_SESSION: 既存セッションでのページロード時に発火（OAuth後・直接アクセス）
+      if (
+        (event === 'INITIAL_SESSION' && session) ||
+        event === 'SIGNED_IN' ||
+        event === 'TOKEN_REFRESHED'
+      ) {
+        fetchPrefectures()
+      }
     })
     return () => subscription.unsubscribe()
   }, [fetchPrefectures])
@@ -57,6 +66,8 @@ export function useMunicipalities(prefectureCode: string) {
 
   const fetchMunicipalities = useCallback(async (code: string) => {
     setLoading(true)
+    // セッション初期化完了を待つ（OAuth直後・直接アクセス時のレース対策）
+    await supabase.auth.getSession()
     const { data, error: err } = await supabase
       .from('municipalities')
       .select('id, prefecture_code, city_code, name, lat, lng, station_passengers_total, population_stats(year, population, households, population_delta, population_delta_rate)')
@@ -101,6 +112,17 @@ export function useMunicipalities(prefectureCode: string) {
   useEffect(() => {
     if (!prefectureCode) return
     fetchMunicipalities(prefectureCode)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // INITIAL_SESSION: 既存セッションでのページロード時に発火（OAuth後・直接アクセス）
+      if (
+        (event === 'INITIAL_SESSION' && session) ||
+        event === 'SIGNED_IN' ||
+        event === 'TOKEN_REFRESHED'
+      ) {
+        fetchMunicipalities(prefectureCode)
+      }
+    })
+    return () => subscription.unsubscribe()
   }, [prefectureCode, fetchMunicipalities])
 
   return { municipalities, loading, error }

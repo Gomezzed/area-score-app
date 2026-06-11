@@ -60,22 +60,24 @@ export function useTransactions(municipalityId: string | null) {
     let cancelled = false
     setLoading(true)
 
-    supabase
-      .from('real_estate_transactions')
-      .select('id, municipality_id, prefecture_code, city_code, year, quarter, transaction_count, avg_price_man_yen, avg_price_per_sqm, avg_area_sqm')
-      .eq('municipality_id', municipalityId)
-      .then(({ data, error: err }) => {
-        if (cancelled) return
-        if (err) {
-          console.error('[useTransactions] error:', err.code, err.message)
-          setError(err.message)
-          setYearly([])
-        } else {
-          setYearly(summarizeByYear((data ?? []) as RealEstateTransaction[]))
-          setError(null)
-        }
-        setLoading(false)
-      })
+    ;(async () => {
+      // セッション初期化完了を待つ（OAuth直後・直接アクセス時のレース対策）
+      await supabase.auth.getSession()
+      const { data, error: err } = await supabase
+        .from('real_estate_transactions')
+        .select('id, municipality_id, prefecture_code, city_code, year, quarter, transaction_count, avg_price_man_yen, avg_price_per_sqm, avg_area_sqm')
+        .eq('municipality_id', municipalityId)
+      if (cancelled) return
+      if (err) {
+        console.error('[useTransactions] error:', err.code, err.message)
+        setError(err.message)
+        setYearly([])
+      } else {
+        setYearly(summarizeByYear((data ?? []) as RealEstateTransaction[]))
+        setError(null)
+      }
+      setLoading(false)
+    })()
 
     return () => {
       cancelled = true

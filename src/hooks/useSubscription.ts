@@ -15,6 +15,9 @@ export function useSubscription() {
     let mounted = true
 
     async function load() {
+      // セッション初期化完了を待つ（OAuth直後・直接アクセス時のレース対策）。
+      // getUser() 自体が初期化を待つが、明示しておく。
+      await supabase.auth.getSession()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         if (mounted) {
@@ -43,8 +46,20 @@ export function useSubscription() {
     }
 
     load()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // INITIAL_SESSION: 既存セッションでのページロード時に発火（OAuth後・直接アクセス）。
+      // プランは可視エリア数（Free上位N件）を左右するため、誤った free 固定を回復する。
+      if (
+        (event === 'INITIAL_SESSION' && session) ||
+        event === 'SIGNED_IN' ||
+        event === 'TOKEN_REFRESHED'
+      ) {
+        load()
+      }
+    })
     return () => {
       mounted = false
+      subscription.unsubscribe()
     }
   }, [])
 
