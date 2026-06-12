@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 
 // ② Hero（ダーク）
@@ -25,14 +26,14 @@ export function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-10">
-          <a
+          
             href="#contact"
             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg px-8 py-4 flex items-center justify-center gap-2 transition-colors"
           >
             無料でデモを見る
             <ArrowRight className="w-5 h-5" />
           </a>
-          <a
+          
             href="#pricing"
             className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold rounded-lg px-8 py-4 transition-colors"
           >
@@ -50,18 +51,16 @@ export function Hero() {
           <span>クローズドβ受付中</span>
         </div>
 
-        {/* ダッシュボードのスクリーンショット（プレースホルダ） */}
-        {/* TODO: public/lp/dashboard-hero.png に実際のダッシュボード画像を配置して差し替える */}
+        {/* ダッシュボードのスクリーンショット */}
         <div className="mt-14 max-w-4xl mx-auto">
           <div className="relative rounded-2xl border border-slate-700 bg-slate-800/60 overflow-hidden shadow-2xl">
-            <div className="aspect-[16/9] flex items-center justify-center text-slate-500 text-sm">
-              {/*
-                差し替え例:
-                <Image src="/lp/dashboard-hero.png" alt="エリアスコアのダッシュボード画面" fill className="object-cover" />
-              */}
-              <span className="px-4 text-center">
-                ダッシュボード画面（スクリーンショットを後日差し替え）
-              </span>
+            <div className="aspect-[16/9] relative">
+              <Image
+                src="/lp/dashboard-hero.png"
+                alt="エリアスコアのダッシュボード画面"
+                fill
+                className="object-cover"
+              />
             </div>
           </div>
         </div>
