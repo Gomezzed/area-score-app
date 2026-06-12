@@ -1,10 +1,6 @@
 import Image from 'next/image'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 
-// ② Hero（ダーク）
-//   H1（B案確定コピー）+ サブコピー + 主CTA「無料でデモを見る」→ #contact
-//   + 副CTA「料金を見る」→ #pricing + trust strip
-//   セクション最下部に from-slate-900 to-white のブリッジを挿入。
 export function Hero() {
   return (
     <section id="top" className="relative bg-slate-900 text-white">
@@ -41,7 +37,6 @@ export function Hero() {
           </a>
         </div>
 
-        {/* trust strip */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs sm:text-sm text-slate-400">
           <span className="inline-flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -51,7 +46,6 @@ export function Hero() {
           <span>クローズドβ受付中</span>
         </div>
 
-        {/* ダッシュボードのスクリーンショット */}
         <div className="mt-14 max-w-4xl mx-auto">
           <div className="relative rounded-2xl border border-slate-700 bg-slate-800/60 overflow-hidden shadow-2xl">
             <div className="aspect-[16/9] relative">
@@ -66,7 +60,6 @@ export function Hero() {
         </div>
       </div>
 
-      {/* ダーク → ライトのブリッジ */}
       <div className="h-16 sm:h-24 bg-gradient-to-b from-slate-900 to-white" />
     </section>
   )
