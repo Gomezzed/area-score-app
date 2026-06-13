@@ -15,7 +15,7 @@ import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
 import { Region, MunicipalityWithStats } from '@/types'
-import { MapPin, LogOut, Download, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2 } from 'lucide-react'
+import { MapPin, LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2 } from 'lucide-react'
 
 // Leaflet は SSR 不可のため dynamic import
 const MunicipalityMap = dynamic(
@@ -38,6 +38,8 @@ export default function DashboardPage() {
   const [expandedCity, setExpandedCity] = useState<string | null>(null)
   // 請求ポータルへの遷移中フラグ
   const [portalLoading, setPortalLoading] = useState(false)
+  // PDF 生成中フラグ（クライアント生成のため数百ms〜のロード）
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   // リージョン内の都道府県（REGIONS で定義した地理的表示順）
   const regionPrefs = useMemo(() => {
@@ -128,6 +130,26 @@ export default function DashboardPage() {
     downloadCSV(csv, `population-${activePref.name_en}-${date}.csv`)
   }
 
+  async function handlePDFDownload() {
+    // 料金設計v2.1: PDF出力は Starter 以上の機能（canExportPdf）。CSV と同じ参照経路。
+    if (!limit.canExportPdf) {
+      router.push('/pricing')
+      return
+    }
+    if (!activePref || topLevel.length === 0) return
+    setPdfLoading(true)
+    try {
+      // @react-pdf/renderer は重く SSR 不可のため、クリック時に動的 import。
+      // CSV と同じく topLevel（区を除いた市区町村）と activePref を渡す。
+      const { downloadAreaScorePDF } = await import('@/lib/pdf')
+      await downloadAreaScorePDF(topLevel, activePref)
+    } catch (err) {
+      alert(`PDF生成に失敗しました: ${String(err)}`)
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
   // 請求情報の管理: Stripe カスタマーポータルへ遷移
   async function handleManageBilling() {
     setPortalLoading(true)
@@ -215,6 +237,23 @@ export default function DashboardPage() {
                 <span className="hidden sm:inline">請求情報を管理</span>
               </button>
             )}
+            <button
+              onClick={handlePDFDownload}
+              disabled={!limit.canExportPdf || municipalities.length === 0 || pdfLoading}
+              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-blue-700 hover:bg-blue-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+              title={
+                limit.canExportPdf
+                  ? 'PDF出力'
+                  : 'PDF出力は Starterプラン以上で利用可能です'
+              }
+            >
+              {pdfLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileText className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">PDF出力</span>
+            </button>
             <button
               onClick={handleCSVDownload}
               disabled={!limit.canExportCsv || municipalities.length === 0}
