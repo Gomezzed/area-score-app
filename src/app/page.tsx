@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Header } from '@/components/marketing/Header'
+import { LandingHeader } from '@/components/landing/LandingHeader'
 import { Hero } from '@/components/marketing/Hero'
 import { Problem } from '@/components/marketing/Problem'
 import { Solution } from '@/components/marketing/Solution'
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 export default function LandingPage() {
   return (
     <main className="bg-white">
-      <Header />
+      <LandingHeader />
       <Hero />
       <Problem />
       <Solution />
