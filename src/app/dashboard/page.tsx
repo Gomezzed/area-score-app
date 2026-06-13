@@ -329,6 +329,7 @@ export default function DashboardPage() {
                 municipalities={mapMunicipalities}
                 selectedId={selected?.id ?? null}
                 onSelect={handleSelect}
+                canUseHeatmap={limit.canUseHeatmap}
               />
             )}
           </div>

@@ -9,7 +9,13 @@ interface Props {
   municipalities: MunicipalityWithStats[]
   selectedId: string | null
   onSelect: (m: MunicipalityWithStats) => void
+  // 料金v2.1: ヒートマップ（増減率カラー＋凡例）は Standard 以上のみ。
+  // false のときピンを中立色にし凡例を伏せる（ベースマップ・ピン配置・ポップアップは不変）。
+  canUseHeatmap: boolean
 }
+
+// ヒートマップ非対象プラン（Free/Starter）でのピン塗り色。増減率の色情報を伏せる中立グレー。
+const NEUTRAL_MARKER_COLOR = '#9ca3af'
 
 // lat/lng が未登録の市区町村を都道府県中心の周りに決定論的に配置する（フォールバック）
 function stableOffset(seed: string, index: number): { lat: number; lng: number } {
@@ -23,7 +29,7 @@ function stableOffset(seed: string, index: number): { lat: number; lng: number }
   return { lat: radius * Math.cos(angle), lng: radius * Math.sin(angle) }
 }
 
-export function MunicipalityMap({ prefecture, municipalities, selectedId, onSelect }: Props) {
+export function MunicipalityMap({ prefecture, municipalities, selectedId, onSelect, canUseHeatmap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
@@ -93,7 +99,9 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
 
       const points: [number, number][] = []
       municipalities.forEach((m, index) => {
-        const color = deltaColor(m.deltaRate)
+        const heatColor = deltaColor(m.deltaRate)
+        // ヒートマップ権限が無いプラン（Free/Starter）はピンを中立色にし、増減率の色情報を伏せる。
+        const color = canUseHeatmap ? heatColor : NEUTRAL_MARKER_COLOR
         let lat = m.lat
         let lng = m.lng
         // 実座標（市役所・区役所代表点）を優先。無ければ中心周りに散らす。
@@ -120,7 +128,7 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
           `<div style="font-family:sans-serif;min-width:150px">
             <div style="font-weight:bold;font-size:14px;margin-bottom:4px">${m.name}</div>
             <div style="font-size:13px">人口(2020): <b>${formatPopulation(m.pop2020)}</b></div>
-            <div style="font-size:12px;color:${color}">増減率: <b>${rateStr}</b></div>
+            <div style="font-size:12px;color:${heatColor}">増減率: <b>${rateStr}</b></div>
           </div>`,
           { className: 'muni-popup' },
         )
@@ -143,7 +151,7 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
     }
     // selectedId は意図的に除外（選択でフィットし直さない）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [municipalities, prefecture.code, prefecture.center_lat, prefecture.center_lng])
+  }, [municipalities, prefecture.code, prefecture.center_lat, prefecture.center_lng, canUseHeatmap])
 
   // ── 選択マーカーの強調 + パン + ポップアップ ──
   useEffect(() => {
@@ -174,16 +182,18 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
 
-      {/* 増減率 凡例 */}
-      <div className="absolute bottom-6 left-3 sm:left-4 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-lg px-3 py-2 z-[1000]">
-        <div className="text-xs font-semibold text-slate-400 mb-2">人口増減率（2015→2020）</div>
-        {DELTA_BUCKETS.map((b) => (
-          <div key={b.label} className="flex items-center gap-2 mb-1 last:mb-0">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: b.color }} />
-            <span className="text-xs text-slate-300">{b.label}</span>
-          </div>
-        ))}
-      </div>
+      {/* 増減率 凡例（ヒートマップ権限のある Standard 以上のみ表示） */}
+      {canUseHeatmap && (
+        <div className="absolute bottom-6 left-3 sm:left-4 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-lg px-3 py-2 z-[1000]">
+          <div className="text-xs font-semibold text-slate-400 mb-2">人口増減率（2015→2020）</div>
+          {DELTA_BUCKETS.map((b) => (
+            <div key={b.label} className="flex items-center gap-2 mb-1 last:mb-0">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: b.color }} />
+              <span className="text-xs text-slate-300">{b.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
