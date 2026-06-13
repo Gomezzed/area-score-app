@@ -77,6 +77,8 @@ export interface MunicipalityWithStats extends Municipality {
   delta: number | null        // 2015→2020 人口増減数
   deltaRate: number | null    // 2015→2020 人口増減率（%）
   stationPassengersTotal: number  // 駅乗降客数合計（最新）。未投入時は 0。
+  // L-2(表示版): Free で上位3件超のロック対象行。実数値を null 化し id/name のみ保持。
+  locked?: boolean
 }
 
 // 不動産取引（中古マンション等）：市区町村 × 年 × 四半期

@@ -11,6 +11,7 @@ import {
   type PlanId,
   type PlanEntitlements,
 } from '@/lib/plans'
+import type { MunicipalityWithStats } from '@/types'
 
 // 料金設計v2.1で Free が閲覧できるエリア数（上位N件）。plans.ts を単一の出所とする。
 export { FREE_VISIBLE_AREA_LIMIT }
@@ -58,4 +59,33 @@ export function applyAreaVisibilityLimit<T>(
     return { visible: areas, lockedCount: 0 }
   }
   return { visible: areas.slice(0, limit), lockedCount: areas.length - limit }
+}
+
+// L-2(表示版): ロック対象（上位N件超）の実数値フィールドを null 化したコピーを返す純粋ヘルパー。
+//   目的は「Free画面の見た目を変えず、4件目以降の実数値（人口・増減・世帯・駅乗降客数）を
+//   UI/クライアントに出さない」こと（数値の持ち逃げ抑制）。
+//   ⚠ id と name(string) は必ず維持する。MunicipalityList は key={m.id}・順位判定(rankById)・
+//      検索(m.name.toLowerCase())で両者に依存しており、欠落させるとクラッシュするため。
+//   limit が null（無制限＝有料プラン）または件数以下なら全件そのまま返す（他プランは無影響）。
+//   行は削除せず数値だけ伏せるため、既存のロック行表示（ぼかし＋オーバーレイ）は不変。
+//   ※ これはあくまで表示版。テーブル直クエリ自体は別途 RPC/RLS で塞ぐ必要がある（#14⑤）。
+export function maskLockedAreaValues(
+  areas: MunicipalityWithStats[],
+  limit: number | null,
+): MunicipalityWithStats[] {
+  if (limit == null || areas.length <= limit) return areas
+  return areas.map((m, i) =>
+    i < limit
+      ? m
+      : {
+          ...m,
+          pop2020: null,
+          pop2015: null,
+          households2020: null,
+          delta: null,
+          deltaRate: null,
+          stationPassengersTotal: 0,
+          locked: true,
+        },
+  )
 }

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
-import { usePlanLimit, applyAreaVisibilityLimit, FREE_VISIBLE_AREA_LIMIT } from '@/hooks/usePlanLimit'
+import { usePlanLimit, applyAreaVisibilityLimit, maskLockedAreaValues, FREE_VISIBLE_AREA_LIMIT } from '@/hooks/usePlanLimit'
 import { usePrefectures, useMunicipalities } from '@/hooks/useCensus'
 // 注: ログアウトは useAuth().signOut を使用（supabase クライアントの直接importは不要）
 import { REGIONS, parseWard } from '@/lib/census'
@@ -104,6 +104,14 @@ export default function DashboardPage() {
   //   applyAreaVisibilityLimit は上位N件のみ可視化し残りを lockedCount として返す。
   const { visible: mapMunicipalities } = useMemo(
     () => applyAreaVisibilityLimit(displayed, lockedFromIndex),
+    [displayed, lockedFromIndex],
+  )
+
+  // L-2(表示版): リストへ渡す前に、ロック対象（4件目以降）の実数値を null 化する。
+  //   id/name は維持（key・順位判定・検索のクラッシュ防止）。可視3件は実データのまま。
+  //   地図は上の mapMunicipalities（可視3件のみ）を使うため波及しない。
+  const listMunicipalities = useMemo(
+    () => maskLockedAreaValues(displayed, lockedFromIndex),
     [displayed, lockedFromIndex],
   )
 
@@ -310,7 +318,7 @@ export default function DashboardPage() {
           {/* Left: municipality list（モバイルは全幅・上段） */}
           <aside className="w-full md:w-72 flex-shrink-0 h-[42%] md:h-full border-b md:border-b-0 md:border-r border-slate-700 overflow-hidden">
             <MunicipalityList
-              municipalities={displayed}
+              municipalities={listMunicipalities}
               selectedId={selected?.id ?? null}
               onSelect={handleSelect}
               expandableNames={designatedNames}
