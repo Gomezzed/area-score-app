@@ -105,9 +105,9 @@ type Col = {
 const COLUMNS: Col[] = [
   { key: 'name', label: '市区町村', flex: 3, align: 'l', value: (m) => m.name },
   { key: 'code', label: 'コード', flex: 1.4, align: 'l', value: (m) => m.city_code ?? '—' },
-  { key: 'pop2020', label: '人口(2020)', flex: 2, align: 'r', value: (m) => fmtInt(m.pop2020) },
-  { key: 'pop2015', label: '人口(2015)', flex: 2, align: 'r', value: (m) => fmtInt(m.pop2015) },
-  { key: 'hh2020', label: '世帯数(2020)', flex: 2, align: 'r', value: (m) => fmtInt(m.households2020) },
+  { key: 'popLatest', label: '人口(2025速報)', flex: 2, align: 'r', value: (m) => fmtInt(m.popLatest) },
+  { key: 'popPrev', label: '人口(2020)', flex: 2, align: 'r', value: (m) => fmtInt(m.popPrev) },
+  { key: 'hhLatest', label: '世帯数(2025速報)', flex: 2, align: 'r', value: (m) => fmtInt(m.householdsLatest) },
   { key: 'delta', label: '人口増減数', flex: 1.8, align: 'r', value: (m) => fmtSigned(m.delta) },
   { key: 'deltaRate', label: '増減率(%)', flex: 1.5, align: 'r', value: (m) => fmtRate(m.deltaRate) },
   { key: 'station', label: '駅乗降客数', flex: 1.8, align: 'r', value: (m) => fmtStation(m.stationPassengersTotal) },
@@ -154,7 +154,7 @@ function AreaScoreReport({
         <View style={styles.header} fixed>
           <Text style={styles.title}>エリアスコア レポート</Text>
           <Text style={styles.subtitle}>
-            対象エリア: {prefecture.name} ／ 全{municipalities.length}市区町村（2020年国勢調査）
+            対象エリア: {prefecture.name} ／ 全{municipalities.length}市区町村（2025年国勢調査・速報）
           </Text>
           <Text style={styles.meta}>生成日: {generated}</Text>
         </View>
@@ -188,7 +188,7 @@ function AreaScoreReport({
         {/* フッター */}
         <View style={styles.footer} fixed>
           <Text style={{ fontFamily: 'NotoSansJP' }}>
-            出典: 総務省 2020年国勢調査 ／ 国土交通省 駅別乗降客数（最新）。エリアスコアが生成。
+            出典: 総務省 2025年国勢調査（速報集計）／ 国土交通省 駅別乗降客数（最新）。エリアスコアが生成。
           </Text>
           <Text
             style={{ fontFamily: 'NotoSansJP' }}

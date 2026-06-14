@@ -79,9 +79,10 @@ export function maskLockedAreaValues(
       ? m
       : {
           ...m,
-          pop2020: null,
-          pop2015: null,
-          households2020: null,
+          popLatest: null,
+          popPrev: null,
+          popPrev2: null,
+          householdsLatest: null,
           delta: null,
           deltaRate: null,
           stationPassengersTotal: 0,

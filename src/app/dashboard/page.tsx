@@ -327,7 +327,7 @@ export default function DashboardPage() {
       {/* Stats bar */}
       <div className="bg-slate-800/60 border-b border-slate-700 px-3 sm:px-5 py-2 flex items-center gap-4 sm:gap-6 flex-shrink-0">
         <span className="text-xs sm:text-xs text-slate-500 truncate">
-          {activePref?.name ?? '—'} ｜ 全{topLevel.length}市区町村（2020年国勢調査）
+          {activePref?.name ?? '—'} ｜ 全{topLevel.length}市区町村（2025年国勢調査・速報）
         </span>
         {muniLoading && (
           <span className="text-xs text-slate-500 flex items-center gap-1 flex-shrink-0">

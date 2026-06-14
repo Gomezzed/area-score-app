@@ -1,5 +1,18 @@
 import { Region } from '@/types'
 
+// 国勢調査の対象年（単一の出所。年更新・速報→確定の差し替えはここだけ）
+export const CENSUS = {
+  latest: 2025,
+  prev: 2020,
+  prev2: 2015,
+  isPreliminary: true,        // 速報フラグ（確定値公表後に false + ラベル更新）
+  latestLabel: '2025年（速報）',
+  latestShort: '2025速報',    // 地図ポップアップ等の短縮表記
+  prevLabel: '2020年',
+  prev2Label: '2015年',
+  deltaRangeLabel: '2020→2025', // 増減率の対象期間
+} as const
+
 // 地方区分（タブ表示順）。prefectures は地方タブ内の表示順（地理的順）。
 export interface RegionDef {
   id: Region

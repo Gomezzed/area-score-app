@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Prefecture, MunicipalityWithStats, PopulationStat } from '@/types'
+import { CENSUS } from '@/lib/census'
 
 // 全都道府県（コード順）
 export function usePrefectures() {
@@ -58,7 +59,7 @@ interface MuniRow {
   population_stats: PopulationStat[]
 }
 
-// 指定都道府県の市区町村 + 2015/2020 統計
+// 指定都道府県の市区町村 + 国勢調査統計（2025速報 / 2020 / 2015）
 export function useMunicipalities(prefectureCode: string) {
   const [municipalities, setMunicipalities] = useState<MunicipalityWithStats[]>([])
   const [loading, setLoading] = useState(false)
@@ -83,8 +84,9 @@ export function useMunicipalities(prefectureCode: string) {
 
     const rows = (data ?? []) as unknown as MuniRow[]
     const flattened: MunicipalityWithStats[] = rows.map((m) => {
-      const s2020 = m.population_stats?.find((s) => s.year === 2020)
-      const s2015 = m.population_stats?.find((s) => s.year === 2015)
+      const sLatest = m.population_stats?.find((s) => s.year === CENSUS.latest)
+      const sPrev = m.population_stats?.find((s) => s.year === CENSUS.prev)
+      const sPrev2 = m.population_stats?.find((s) => s.year === CENSUS.prev2)
       return {
         id: m.id,
         prefecture_code: m.prefecture_code,
@@ -92,17 +94,18 @@ export function useMunicipalities(prefectureCode: string) {
         name: m.name,
         lat: m.lat,
         lng: m.lng,
-        pop2020: s2020?.population ?? null,
-        pop2015: s2015?.population ?? null,
-        households2020: s2020?.households ?? null,
-        delta: s2020?.population_delta ?? null,
-        deltaRate: s2020?.population_delta_rate ?? null,
+        popLatest: sLatest?.population ?? null,
+        popPrev: sPrev?.population ?? null,
+        popPrev2: sPrev2?.population ?? null,
+        householdsLatest: sLatest?.households ?? null,
+        delta: sLatest?.population_delta ?? null,
+        deltaRate: sLatest?.population_delta_rate ?? null,
         stationPassengersTotal: m.station_passengers_total ?? 0,
       }
     })
 
-    // 人口（2020）降順
-    flattened.sort((a, b) => (b.pop2020 ?? -1) - (a.pop2020 ?? -1))
+    // 人口（最新=2025）降順
+    flattened.sort((a, b) => (b.popLatest ?? -1) - (a.popLatest ?? -1))
 
     setMunicipalities(flattened)
     setError(null)

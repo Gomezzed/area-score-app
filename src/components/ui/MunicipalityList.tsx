@@ -103,7 +103,7 @@ export function MunicipalityList({
                       <span className="text-sm font-medium text-white truncate">{displayName}</span>
                     </div>
                     <span className="text-sm font-bold text-white whitespace-nowrap ml-2">
-                      {formatPopulation(m.pop2020)}
+                      {formatPopulation(m.popLatest)}
                     </span>
                   </div>
                   <div className="pl-[1.125rem]">
@@ -141,7 +141,7 @@ export function MunicipalityList({
                 </div>
                 <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                   <span className="text-sm font-bold text-white whitespace-nowrap">
-                    {formatPopulation(m.pop2020)}
+                    {formatPopulation(m.popLatest)}
                   </span>
                   {expandable && <ChevronRight className="w-4 h-4 text-slate-500" />}
                 </div>

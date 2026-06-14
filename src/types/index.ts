@@ -27,7 +27,7 @@ export interface Prefecture {
 export interface PopulationStat {
   id: string
   municipality_id: string
-  year: number                          // 2015 | 2020
+  year: number                          // 2015 | 2020 | 2025
   population: number | null
   households: number | null
   population_delta: number | null       // 前回からの増減数
@@ -69,13 +69,14 @@ export interface Station {
   lng: number | null
 }
 
-// 市区町村 + 2020/2015 国勢調査の統計を平坦化したビューモデル
+// 市区町村 + 国勢調査統計（最新=2025速報 / 前回=2020 / 2015）を平坦化したビューモデル
 export interface MunicipalityWithStats extends Municipality {
-  pop2020: number | null
-  pop2015: number | null
-  households2020: number | null
-  delta: number | null        // 2015→2020 人口増減数
-  deltaRate: number | null    // 2015→2020 人口増減率（%）
+  popLatest: number | null         // 2025（速報）人口
+  popPrev: number | null           // 2020 人口（増減率の基準）
+  popPrev2: number | null          // 2015 人口（詳細パネルの参考値）
+  householdsLatest: number | null  // 2025（速報）世帯数
+  delta: number | null             // 2020→2025 人口増減数
+  deltaRate: number | null         // 2020→2025 人口増減率（%）
   stationPassengersTotal: number  // 駅乗降客数合計（最新）。未投入時は 0。
   // L-2(表示版): Free で上位3件超のロック対象行。実数値を null 化し id/name のみ保持。
   locked?: boolean

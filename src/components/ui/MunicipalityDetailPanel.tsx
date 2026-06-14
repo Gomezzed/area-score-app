@@ -4,7 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { MunicipalityWithStats } from '@/types'
-import { formatPopulation, formatDelta, deltaColor } from '@/lib/census'
+import { formatPopulation, formatDelta, deltaColor, CENSUS } from '@/lib/census'
 import { usePopulationHistory } from '@/hooks/usePopulationHistory'
 import { TransactionSection } from './TransactionSection'
 import { X, Users, Home, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
@@ -48,10 +48,10 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
           </button>
         </div>
 
-        {/* 人口（2020） */}
+        {/* 人口（最新=2025速報） */}
         <div className="bg-slate-700/50 rounded-xl p-4 mb-4 text-center">
-          <div className="text-3xl font-black text-white">{formatPopulation(m.pop2020)}</div>
-          <div className="text-slate-400 text-sm mt-1">人口（2020年・国勢調査）</div>
+          <div className="text-3xl font-black text-white">{formatPopulation(m.popLatest)}</div>
+          <div className="text-slate-400 text-sm mt-1">人口（{CENSUS.latestLabel}・国勢調査）</div>
         </div>
 
         {/* 増減率 */}
@@ -63,7 +63,7 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
               ) : (
                 <TrendingDown className="w-5 h-5 text-red-400" />
               )}
-              <span className="text-sm text-slate-300">人口増減率（2015→2020）</span>
+              <span className="text-sm text-slate-300">人口増減率（{CENSUS.deltaRangeLabel}）</span>
             </div>
             <span className={`text-xl font-bold ${m.deltaRate == null ? 'text-slate-500' : positive ? 'text-blue-400' : 'text-red-400'}`}>
               {m.deltaRate == null ? '—' : `${positive ? '+' : ''}${m.deltaRate.toFixed(2)}%`}
@@ -79,8 +79,9 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
 
         {/* 内訳 */}
         <div className="space-y-2">
-          <Row icon={<Users className="w-4 h-4 text-blue-400" />} label="人口（2015年）" value={formatPopulation(m.pop2015)} />
-          <Row icon={<Home className="w-4 h-4 text-blue-400" />} label="世帯数（2020年）" value={m.households2020 == null ? '—' : `${m.households2020.toLocaleString('ja-JP')}世帯`} />
+          <Row icon={<Users className="w-4 h-4 text-blue-400" />} label="人口（2020年）" value={formatPopulation(m.popPrev)} />
+          <Row icon={<Users className="w-4 h-4 text-blue-400" />} label="人口（2015年）" value={formatPopulation(m.popPrev2)} />
+          <Row icon={<Home className="w-4 h-4 text-blue-400" />} label={`世帯数（${CENSUS.latestLabel}）`} value={m.householdsLatest == null ? '—' : `${m.householdsLatest.toLocaleString('ja-JP')}世帯`} />
         </div>
 
         {/* 人口推移（2015〜2025） — 不動産取引セクションの上に配置 */}
