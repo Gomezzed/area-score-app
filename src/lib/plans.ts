@@ -10,7 +10,7 @@
 //     STANDARD : 月額 55,000円（税込）／ 全機能・CSV/PDF出力・ヒートマップ
 // ============================================================
 
-export type PlanId = 'free' | 'starter' | 'standard'
+export type PlanId = 'free' | 'starter' | 'standard' | 'platinum'
 
 // 課金対象（Stripe Checkout を開始できる）有料プラン
 export type PaidPlanId = 'starter' | 'standard'
@@ -80,7 +80,7 @@ export const PLAN_MAP: Record<PlanId, Plan> = PLANS.reduce(
 
 // 有料プラン（free 以外）は全エリアを閲覧可（= エリア可視数制限なし）
 export function canAccessFull(plan: PlanId): boolean {
-  return plan === 'starter' || plan === 'standard'
+  return plan !== 'free'
 }
 
 // ------------------------------------------------------------
@@ -88,6 +88,7 @@ export function canAccessFull(plan: PlanId): boolean {
 //   Free    : 上位3エリア閲覧のみ / ヒートマップ無 / 出力不可(PDF・CSV) / 1ID
 //   Starter : 全エリア / PDF出力のみ / CSV不可 / ヒートマップ無 / 1ID
 //   Standard: 全エリア / CSV+PDF出力 / ヒートマップ可 / 5ID / 駅単位の権限あり
+//   Platinum: Standard 全機能 + 町域取得優先/エリア比較/商圏レポート/アラート/PDFロゴ / 20ID
 //   ※ 駅単位は権限(stationLevelEntitled)を持つだけで、実利用は
 //      NEXT_PUBLIC_FEATURE_STATION_LEVEL との AND（usePlanLimit 側で評価）。
 // ------------------------------------------------------------
@@ -105,6 +106,12 @@ export interface PlanEntitlements {
   seatLimit: number
   // 駅単位データの利用権限（実利用はマスターフラグと AND）
   stationLevelEntitled: boolean
+  // ── Platinum 専用機能（料金v2.1）。free/starter/standard は false ──
+  townAcquisitionPriority: boolean // 町域取得優先
+  areaCompare: boolean // エリア比較
+  tradeAreaReport: boolean // 商圏レポート
+  alerts: boolean // アラート
+  pdfLogo: boolean // PDF ロゴ差し込み
 }
 
 export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
@@ -115,6 +122,11 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     canUseHeatmap: false,
     seatLimit: 1,
     stationLevelEntitled: false,
+    townAcquisitionPriority: false,
+    areaCompare: false,
+    tradeAreaReport: false,
+    alerts: false,
+    pdfLogo: false,
   },
   starter: {
     visibleAreaLimit: null,
@@ -123,6 +135,11 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     canUseHeatmap: false,
     seatLimit: 1,
     stationLevelEntitled: false,
+    townAcquisitionPriority: false,
+    areaCompare: false,
+    tradeAreaReport: false,
+    alerts: false,
+    pdfLogo: false,
   },
   standard: {
     visibleAreaLimit: null,
@@ -131,7 +148,54 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     canUseHeatmap: true,
     seatLimit: 5,
     stationLevelEntitled: true,
+    townAcquisitionPriority: false,
+    areaCompare: false,
+    tradeAreaReport: false,
+    alerts: false,
+    pdfLogo: false,
   },
+  // Platinum: Standard の全機能を最上位として継承しつつ、Platinum 専用機能を解放。
+  platinum: {
+    visibleAreaLimit: null, // 無制限（starter/standard と同じ null 表現を踏襲）
+    canExportPdf: true,
+    canExportCsv: true,
+    canUseHeatmap: true,
+    seatLimit: 20,
+    stationLevelEntitled: true,
+    townAcquisitionPriority: true,
+    areaCompare: true,
+    tradeAreaReport: true,
+    alerts: true,
+    pdfLogo: true,
+  },
+}
+
+// ------------------------------------------------------------
+// guard 層（許可判定の単一入口）。コンポーネント/APIは plan を直書きせず
+// canUse(plan, feature) を経由する（§3「許可は plans の1箇所で定義」）。
+//   - boolean 系の機能フラグのみ canUse の対象。
+//   - 数値系（visibleAreaLimit / seatLimit）は getEntitlement で取得する。
+// ------------------------------------------------------------
+
+// PlanEntitlements のうち boolean 値を持つキーだけを抽出した型。
+//   canUse はこの型のキーのみ受け付け、数値系キーの誤渡しを型で防ぐ。
+export type BooleanEntitlementKey = {
+  [K in keyof PlanEntitlements]: PlanEntitlements[K] extends boolean ? K : never
+}[keyof PlanEntitlements]
+
+// 指定プランが boolean 系機能を使えるか。未知の plan は free 相当にフォールバック。
+export function canUse(plan: PlanId, feature: BooleanEntitlementKey): boolean {
+  const ent = PLAN_ENTITLEMENTS[plan] ?? PLAN_ENTITLEMENTS.free
+  return ent[feature] === true
+}
+
+// 数値系を含む任意のエンタイトルメント値を取得する（visibleAreaLimit / seatLimit 等）。
+export function getEntitlement<K extends keyof PlanEntitlements>(
+  plan: PlanId,
+  key: K,
+): PlanEntitlements[K] {
+  const ent = PLAN_ENTITLEMENTS[plan] ?? PLAN_ENTITLEMENTS.free
+  return ent[key]
 }
 
 // プランID → Stripe Price ID（サーバーサイドの Checkout で使用）。
