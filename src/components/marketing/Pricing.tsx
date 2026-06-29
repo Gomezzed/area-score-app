@@ -1,29 +1,20 @@
 import Link from 'next/link'
 import { Check } from 'lucide-react'
 
-// ⑧ Pricing（ダーク）— 料金プラン v2.1
-//   Free / Starter / Standard / Platinum。Standard を「人気」バッジ＋ボーダーで強調。
-//   年額契約は全プラン20%OFF。
-//   🕒 機能は「2026年7月予定」と明記（景表法・優良誤認回避）。
-//   CTA 配線:
-//     - Free / Starter / Standard … 既存 /register へ href 誘導
-//     - Platinum … #contact へのアンカー（お問い合わせ）
-//   ※ 既存の Stripe Checkout（/api/stripe/checkout）は変更・複製しない。
-
 interface Feature {
   label: string
-  comingSoon?: boolean // 🕒 = 2026年7月予定
 }
 
 interface PricingPlan {
   id: string
   name: string
-  monthly: string // 月額表示
-  annualNote: string | null // 年額20%OFF時の実質月額メモ
+  monthly: string
+  annualNote: string | null
   description: string
   features: Feature[]
   cta: { label: string; href: string }
   recommended?: boolean
+  isEnterprise?: boolean
 }
 
 const PLANS: PricingPlan[] = [
@@ -34,7 +25,7 @@ const PLANS: PricingPlan[] = [
     annualNote: null,
     description: 'まずは無料で試したい方に',
     features: [{ label: '上位3エリアの閲覧のみ' }, { label: '1ID' }],
-    cta: { label: '無料で始める', href: '/register' },
+    cta: { label: '無料で始める', href: '/register?plan=free' },
   },
   {
     id: 'starter',
@@ -48,7 +39,7 @@ const PLANS: PricingPlan[] = [
       { label: '1ID' },
       { label: 'メールサポート' },
     ],
-    cta: { label: 'Starterを始める', href: '/register' },
+    cta: { label: 'Starterを始める', href: '/register?plan=starter' },
   },
   {
     id: 'standard',
@@ -63,7 +54,7 @@ const PLANS: PricingPlan[] = [
       { label: '5ID' },
       { label: 'メール優先サポート' },
     ],
-    cta: { label: 'Standardを始める', href: '/register' },
+    cta: { label: 'Standardを始める', href: '/register?plan=standard' },
     recommended: true,
   },
   {
@@ -73,14 +64,15 @@ const PLANS: PricingPlan[] = [
     annualNote: '年額契約で実質 月80,000円（税抜）相当（20%OFF）',
     description: '大手仲介会社・チェーン展開向け',
     features: [
-      { label: 'エリア比較', comingSoon: true },
-      { label: '商圏レポート', comingSoon: true },
-      { label: 'アラート', comingSoon: true },
+      { label: 'エリア比較' },
+      { label: '商圏レポート' },
+      { label: 'アラート機能' },
       { label: '20ID' },
       { label: 'Slack / Zoom サポート' },
       { label: 'PDFロゴ対応' },
     ],
-    cta: { label: 'お問い合わせ', href: '#contact' },
+    cta: { label: 'デモ・導入相談', href: '/contact' },
+    isEnterprise: true,
   },
 ]
 
@@ -104,20 +96,35 @@ export function Pricing() {
           {PLANS.map((plan) => (
             <div
               key={plan.id}
-              className={`relative rounded-2xl border p-6 flex flex-col h-full ${
-                plan.recommended
-                  ? 'border-blue-500 bg-slate-800 ring-1 ring-blue-500/40'
-                  : 'border-slate-700 bg-slate-800/60'
+              className={`relative rounded-2xl border p-6 flex flex-col h-full transition-all ${
+                plan.isEnterprise
+                  ? 'border-transparent bg-gradient-to-b from-purple-900/40 to-amber-900/20 ring-2 ring-purple-500/50 shadow-lg shadow-purple-500/20'
+                  : plan.recommended
+                    ? 'border-blue-500 bg-slate-800 ring-1 ring-blue-500/40'
+                    : 'border-slate-700 bg-slate-800/60'
               }`}
             >
-              {plan.recommended && (
+              {plan.isEnterprise && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-amber-600 text-white text-xs font-bold px-4 py-1 rounded-full whitespace-nowrap shadow-lg">
+                  エンタープライズ
+                </span>
+              )}
+
+              {plan.recommended && !plan.isEnterprise && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
                   人気
                 </span>
               )}
 
               <h3 className="text-lg font-bold">{plan.name}</h3>
-              <p className="text-slate-400 text-xs mt-1 min-h-8">{plan.description}</p>
+              <p className="text-slate-400 text-xs mt-1 min-h-8">
+                {plan.description}
+                {plan.isEnterprise && (
+                  <span className="block text-purple-300 text-[11px] mt-1 font-medium">
+                    ※紹介制・導入相談でのみご提供
+                  </span>
+                )}
+              </p>
 
               <div className="mt-4 mb-1">
                 <span className="text-2xl font-bold">{plan.monthly}</span>
@@ -129,44 +136,30 @@ export function Pricing() {
               <ul className="space-y-2.5 mb-6 flex-1">
                 {plan.features.map((feat) => (
                   <li key={feat.label} className="flex items-start gap-2 text-sm text-slate-200">
-                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <span>
-                      {feat.label}
-                      {feat.comingSoon && (
-                        <span className="ml-1 text-amber-400 text-xs font-medium whitespace-nowrap">
-                          🕒 2026年7月予定
-                        </span>
-                      )}
-                    </span>
+                    <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${plan.isEnterprise ? 'text-amber-400' : 'text-emerald-400'}`} />
+                    <span>{feat.label}</span>
                   </li>
                 ))}
               </ul>
 
-              {plan.cta.href.startsWith('#') ? (
-                <a
-                  href={plan.cta.href}
-                  className="w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium bg-slate-700 hover:bg-slate-600 text-white transition-colors"
-                >
-                  {plan.cta.label}
-                </a>
-              ) : (
-                <Link
-                  href={plan.cta.href}
-                  className={`w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                    plan.recommended
+              <Link
+                href={plan.cta.href}
+                className={`w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                  plan.isEnterprise
+                    ? 'bg-gradient-to-r from-purple-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white shadow-lg'
+                    : plan.recommended
                       ? 'bg-blue-600 hover:bg-blue-500 text-white'
                       : 'bg-slate-700 hover:bg-slate-600 text-white'
-                  }`}
-                >
-                  {plan.cta.label}
-                </Link>
-              )}
+                }`}
+              >
+                {plan.cta.label}
+              </Link>
             </div>
           ))}
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-8">
-          ※表示価格はすべて税抜です。別途消費税がかかります。🕒 の機能は2026年7月提供予定で、現時点ではご利用いただけません。
+          ※表示価格はすべて税抜です。別途消費税がかかります。すべてのプランは2026年7月1日より利用可能です。
         </p>
       </div>
     </section>
