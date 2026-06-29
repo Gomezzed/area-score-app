@@ -23,6 +23,7 @@ import {
   pdf,
 } from '@react-pdf/renderer'
 import type { MunicipalityWithStats, Prefecture } from '@/types'
+import { CENSUS } from '@/lib/census'
 
 // 日本語フォント登録（PO確定: woff 1本）。src はブラウザ origin 基準の公開パス。
 Font.register({
@@ -220,6 +221,163 @@ export async function downloadAreaScorePDF(
   const link = document.createElement('a')
   link.href = url
   link.download = `area-score_${safeName(prefecture.name)}_${ymd}.pdf`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+// ============================================================
+// PDF-B: 商圏レポート（T11・Platinum）。選択中市区町村の商圏サマリを1枚PDFに。
+//   - 既存 Font.register('NotoSansJP') と pdf().toBlob() 作法を踏襲（同モジュールで再利用）。
+//   - 原則1: 確定（公表値・事実）と推定（ルールベース参考値）を PDF 内でも明確に分離。
+//     推定セクションには「推定」表記＋根拠(reason)＋免責を付け、確定と混ぜない。
+//   - pdfLogo エンタイトルメント時はブランド文字ヘッダを差し込む（画像ロゴ資産が未用意のため
+//     現状はテキストのブランドマーク。資産が来たら <Image> に差し替え可）。
+// ============================================================
+
+export interface TradeAreaConfirmed {
+  popLatest: number | null
+  popPrev: number | null
+  popPrev2: number | null
+  householdsLatest: number | null
+  delta: number | null
+  deltaRate: number | null
+  stationPassengersTotal: number
+}
+export type TradeAreaInferred =
+  | { hasData: false }
+  | {
+      hasData: true
+      asOf: string
+      townCount: number
+      rankCounts: { S: number; A: number; B: number; C: number; D: number }
+      topAcquisitionScore: number | null
+      topReason: string | null
+    }
+export interface TradeAreaSummary {
+  name: string
+  prefectureName: string | null
+  confirmed: TradeAreaConfirmed
+  inferred: TradeAreaInferred
+  // pdfLogo エンタイトルメント（Platinum）。ブランドヘッダの出し分け。
+  withLogo: boolean
+}
+
+const taStyles = StyleSheet.create({
+  brand: { fontFamily: 'NotoSansJP', fontSize: 10, color: '#1e3a8a', marginBottom: 2 },
+  sectionHead: {
+    fontFamily: 'NotoSansJP',
+    fontSize: 11,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  confirmedHead: { backgroundColor: '#eff6ff', borderLeftWidth: 3, borderLeftColor: '#3b82f6', color: '#1e3a8a' },
+  inferredHead: { backgroundColor: '#fff7ed', borderLeftWidth: 3, borderLeftColor: '#f59e0b', color: '#9a3412' },
+  metricRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#e2e8f0',
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+  },
+  metricLabel: { fontFamily: 'NotoSansJP', fontSize: 9, color: '#475569' },
+  metricValue: { fontFamily: 'NotoSansJP', fontSize: 9, color: '#0f172a' },
+  note: { fontFamily: 'NotoSansJP', fontSize: 8, color: '#64748b', paddingHorizontal: 6, marginTop: 4, lineHeight: 1.4 },
+  reason: { fontFamily: 'NotoSansJP', fontSize: 7.5, color: '#475569', paddingHorizontal: 6, marginTop: 3, lineHeight: 1.4 },
+})
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={taStyles.metricRow}>
+      <Text style={taStyles.metricLabel}>{label}</Text>
+      <Text style={taStyles.metricValue}>{value}</Text>
+    </View>
+  )
+}
+
+function TradeAreaReport({ summary }: { summary: TradeAreaSummary }) {
+  const c = summary.confirmed
+  const inf = summary.inferred
+  const generated = todayLabel()
+  const areaTitle = [summary.prefectureName, summary.name].filter(Boolean).join(' ')
+  return (
+    <Document title={`商圏レポート ${areaTitle}`} author="エリアスコア">
+      <Page size="A4" style={styles.page}>
+        {/* ヘッダー（pdfLogo 時はブランド文字ヘッダ） */}
+        <View style={styles.header} fixed>
+          {summary.withLogo && <Text style={taStyles.brand}>エリアスコア</Text>}
+          <Text style={styles.title}>商圏レポート</Text>
+          <Text style={styles.subtitle}>対象エリア: {areaTitle || '—'}</Text>
+          <Text style={styles.meta}>生成日: {generated}</Text>
+        </View>
+
+        {/* 確定（公表値・事実） */}
+        <Text style={[taStyles.sectionHead, taStyles.confirmedHead]}>確定（公表値・事実）</Text>
+        <Metric label={`人口（${CENSUS.latestLabel}）`} value={fmtInt(c.popLatest)} />
+        <Metric label={`人口（${CENSUS.prevLabel}）`} value={fmtInt(c.popPrev)} />
+        <Metric label={`人口（${CENSUS.prev2Label}）`} value={fmtInt(c.popPrev2)} />
+        <Metric label={`世帯数（${CENSUS.latestLabel}）`} value={fmtInt(c.householdsLatest)} />
+        <Metric label={`人口増減数（${CENSUS.deltaRangeLabel}）`} value={fmtSigned(c.delta)} />
+        <Metric
+          label={`人口増減率（${CENSUS.deltaRangeLabel}）`}
+          value={c.deltaRate == null ? '—' : `${fmtRate(c.deltaRate)}%`}
+        />
+        <Metric label="駅乗降客数（合計・最新）" value={fmtStation(c.stationPassengersTotal)} />
+
+        {/* 推定（ルールベース・参考値） */}
+        <Text style={[taStyles.sectionHead, taStyles.inferredHead]}>推定（ルールベース・参考値）［推定］</Text>
+        {!inf.hasData ? (
+          <Text style={taStyles.note}>このエリアの詳細スコア（町域別）は順次対応予定です。</Text>
+        ) : (
+          <>
+            <Metric
+              label="最高 取得スコア（推定）"
+              value={inf.topAcquisitionScore == null ? '—' : inf.topAcquisitionScore.toFixed(1)}
+            />
+            <Metric
+              label="推定ランク内訳（S/A/B/C/D）"
+              value={`S${inf.rankCounts.S} / A${inf.rankCounts.A} / B${inf.rankCounts.B} / C${inf.rankCounts.C} / D${inf.rankCounts.D}`}
+            />
+            <Metric
+              label="対象町域数 / 基準月"
+              value={`${inf.townCount.toLocaleString('ja-JP')} 町域 / ${inf.asOf}`}
+            />
+            {inf.topReason && (
+              <Text style={taStyles.reason}>最高スコア町域の計算根拠（推定）: {inf.topReason}</Text>
+            )}
+          </>
+        )}
+
+        <Text style={taStyles.note}>
+          ※「推定」はルールベースの参考値です。物件の特定・売買の可否を断定するものではありません。
+        </Text>
+
+        {/* フッター */}
+        <View style={styles.footer} fixed>
+          <Text style={{ fontFamily: 'NotoSansJP' }}>
+            出典: 総務省 国勢調査（e-Stat）／ 国土交通省 駅別乗降客数。エリアスコアが生成。
+          </Text>
+          <Text
+            style={{ fontFamily: 'NotoSansJP' }}
+            render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+          />
+        </View>
+      </Page>
+    </Document>
+  )
+}
+
+// クリック時に呼ぶ: Blob 生成 → ダウンロード（downloadAreaScorePDF と同じ UX）。
+export async function downloadTradeAreaPDF(summary: TradeAreaSummary): Promise<void> {
+  const blob = await pdf(<TradeAreaReport summary={summary} />).toBlob()
+  const d = new Date()
+  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `trade-area_${safeName(summary.name)}_${ymd}.pdf`
   link.click()
   URL.revokeObjectURL(url)
 }

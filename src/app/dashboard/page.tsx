@@ -13,9 +13,11 @@ import { REGIONS, parseWard } from '@/lib/census'
 import { PrefectureDropdown } from '@/components/ui/PrefectureDropdown'
 import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
+import { TownHighlightsPanel } from '@/components/ui/TownHighlightsPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
+import { canUse } from '@/lib/plans'
 import { Region, MunicipalityWithStats } from '@/types'
-import { MapPin, LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2 } from 'lucide-react'
+import { MapPin, LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale } from 'lucide-react'
 
 // Leaflet は SSR 不可のため dynamic import
 const MunicipalityMap = dynamic(
@@ -40,6 +42,8 @@ export default function DashboardPage() {
   const [portalLoading, setPortalLoading] = useState(false)
   // PDF 生成中フラグ（クライアント生成のため数百ms〜のロード）
   const [pdfLoading, setPdfLoading] = useState(false)
+  // 注目町域 TOP20 スライドオーバーの開閉（Platinum のみ）
+  const [highlightsOpen, setHighlightsOpen] = useState(false)
 
   // リージョン内の都道府県（REGIONS で定義した地理的表示順）
   const regionPrefs = useMemo(() => {
@@ -267,6 +271,39 @@ export default function DashboardPage() {
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">CSV出力</span>
             </button>
+            {/* 注目町域 TOP20（Platinum のみ・canUse で自己ゲート。plan 直書き禁止） */}
+            {canUse(plan, 'townAcquisitionPriority') && (
+              <button
+                onClick={() => setHighlightsOpen(true)}
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 rounded-lg text-sm font-bold transition-colors"
+                title="注目町域 TOP20（Platinum）"
+              >
+                <Trophy className="w-4 h-4" />
+                <span className="hidden sm:inline">注目TOP20</span>
+              </button>
+            )}
+            {/* エリア比較（Platinum のみ・canUse で自己ゲート。存在するルート /dashboard/compare へ） */}
+            {canUse(plan, 'areaCompare') && (
+              <Link
+                href="/dashboard/compare"
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 rounded-lg text-sm font-bold transition-colors"
+                title="エリア比較（Platinum）"
+              >
+                <Scale className="w-4 h-4" />
+                <span className="hidden sm:inline">エリア比較</span>
+              </Link>
+            )}
+            {/* 商圏レポート（Platinum のみ・canUse で自己ゲート。存在するルート /dashboard/trade-area へ） */}
+            {canUse(plan, 'tradeAreaReport') && (
+              <Link
+                href="/dashboard/trade-area"
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 rounded-lg text-sm font-bold transition-colors"
+                title="商圏レポート（Platinum）"
+              >
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">商圏レポート</span>
+              </Link>
+            )}
             <Link
               href="/help"
               className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
@@ -384,6 +421,9 @@ export default function DashboardPage() {
 
         {/* Detail panel: モバイルは全画面オーバーレイ / デスクトップは右サイドパネル */}
         <MunicipalityDetailPanel municipality={selected} onClose={() => setSelected(null)} />
+
+        {/* 注目町域 TOP20（Platinum・自己ゲート）。詳細パネルと同じ absolute オーバーレイで flex に干渉しない */}
+        <TownHighlightsPanel open={highlightsOpen} onClose={() => setHighlightsOpen(false)} />
       </div>
     </div>
   )
