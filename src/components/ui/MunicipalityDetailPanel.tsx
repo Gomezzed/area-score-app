@@ -8,6 +8,7 @@ import { formatPopulation, formatDelta, deltaColor, CENSUS } from '@/lib/census'
 import { usePopulationHistory } from '@/hooks/usePopulationHistory'
 import { TransactionSection } from './TransactionSection'
 import { TownPrioritySection } from './TownPrioritySection'
+import { StationDrilldownSection } from './StationDrilldownSection'
 import { X, Users, Home, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 
 interface Props {
@@ -93,6 +94,9 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
 
         {/* 駅乗降客数（XKT015 集約値） — 不動産取引セクションの下に配置 */}
         <StationSection total={m.stationPassengersTotal} />
+
+        {/* 駅単位ドリルダウン（Standard+・自己ゲート / 機能フラグ尊重）。条件未達なら何も描画しない。 */}
+        <StationDrilldownSection municipalityId={m.id} />
 
         {/* 町域別 仕入れ優先度（Platinum 専用・自己ゲート）。非platinum では何も描画しない。 */}
         <TownPrioritySection />
