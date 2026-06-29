@@ -159,7 +159,7 @@ export function Pricing() {
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-8">
-          ※表示価格はすべて税抜です。別途消費税がかかります。すべてのプランは2026年7月1日より利用可能です。
+          ※表示価格はすべて税抜です。別途消費税がかかります。すべてのプランをご利用いただけます。
         </p>
       </div>
     </section>
