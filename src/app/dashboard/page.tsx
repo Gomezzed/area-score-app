@@ -17,7 +17,7 @@ import { TownHighlightsPanel } from '@/components/ui/TownHighlightsPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
 import { canUse } from '@/lib/plans'
 import { Region, MunicipalityWithStats } from '@/types'
-import { MapPin, LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy } from 'lucide-react'
+import { MapPin, LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale } from 'lucide-react'
 
 // Leaflet は SSR 不可のため dynamic import
 const MunicipalityMap = dynamic(
@@ -281,6 +281,17 @@ export default function DashboardPage() {
                 <Trophy className="w-4 h-4" />
                 <span className="hidden sm:inline">注目TOP20</span>
               </button>
+            )}
+            {/* エリア比較（Platinum のみ・canUse で自己ゲート。存在するルート /dashboard/compare へ） */}
+            {canUse(plan, 'areaCompare') && (
+              <Link
+                href="/dashboard/compare"
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 rounded-lg text-sm font-bold transition-colors"
+                title="エリア比較（Platinum）"
+              >
+                <Scale className="w-4 h-4" />
+                <span className="hidden sm:inline">エリア比較</span>
+              </Link>
             )}
             <Link
               href="/help"
