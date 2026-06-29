@@ -293,6 +293,17 @@ export default function DashboardPage() {
                 <span className="hidden sm:inline">エリア比較</span>
               </Link>
             )}
+            {/* 商圏レポート（Platinum のみ・canUse で自己ゲート。存在するルート /dashboard/trade-area へ） */}
+            {canUse(plan, 'tradeAreaReport') && (
+              <Link
+                href="/dashboard/trade-area"
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 rounded-lg text-sm font-bold transition-colors"
+                title="商圏レポート（Platinum）"
+              >
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">商圏レポート</span>
+              </Link>
+            )}
             <Link
               href="/help"
               className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
