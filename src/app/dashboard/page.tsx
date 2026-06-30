@@ -423,7 +423,12 @@ export default function DashboardPage() {
         <MunicipalityDetailPanel municipality={selected} onClose={() => setSelected(null)} />
 
         {/* 注目町域 TOP20（Platinum・自己ゲート）。詳細パネルと同じ absolute オーバーレイで flex に干渉しない */}
-        <TownHighlightsPanel open={highlightsOpen} onClose={() => setHighlightsOpen(false)} />
+        <TownHighlightsPanel
+          open={highlightsOpen}
+          onClose={() => setHighlightsOpen(false)}
+          cityCode={selected?.city_code ?? null}
+          muniName={selected?.name ?? null}
+        />
       </div>
     </div>
   )
