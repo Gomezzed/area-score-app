@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { guardFeature } from '@/lib/subscription'
+import { toMuniCode6 } from '@/lib/muni-code'
 
 // GET /api/towns?muni_code=352080[&as_of=YYYY-MM-DD]
 //   Platinum の目玉「町域別 仕入れ優先度」を返す Route Handler。
@@ -42,10 +43,19 @@ export async function GET(request: NextRequest) {
   const denied = await guardFeature('townAcquisitionPriority')
   if (denied) return denied
 
-  const muniCode = request.nextUrl.searchParams.get('muni_code')
+  const muniCodeParam = request.nextUrl.searchParams.get('muni_code')
+  if (!muniCodeParam) {
+    return NextResponse.json(
+      { error: 'muni_code クエリパラメータが必要です（例: ?muni_code=352080 または 35208）' },
+      { status: 400 },
+    )
+  }
+  // 入口で 6桁の全国地方公共団体コードへ正規化（フロントは5桁 JIS を渡しうる）。
+  // JIS X 0402 の検査数字を付与（ゼロ埋め不可）。不正な桁数/文字は 400。
+  const muniCode = toMuniCode6(muniCodeParam)
   if (!muniCode) {
     return NextResponse.json(
-      { error: 'muni_code クエリパラメータが必要です（例: ?muni_code=352080）' },
+      { error: 'muni_code が不正です（5桁 JIS または 6桁コードを指定してください）' },
       { status: 400 },
     )
   }
@@ -67,8 +77,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'データ取得に失敗しました' }, { status: 500 })
     }
     if (!latest) {
-      // 行なし（RLS で 0 行 / 未投入自治体）。空配列で返す。
-      return NextResponse.json({ muniCode, asOf: null, items: [] })
+      // 行なし（RLS で 0 行 / public 未同期の自治体）。対応自治体リストは持たず、
+      // 「当該 muni_code を引いて空か」だけで判定する（岩国等への固定フォールバックはしない）。
+      return NextResponse.json({ available: false, muniCode, asOf: null, items: [] })
     }
     asOf = latest.as_of as string
   }
@@ -110,5 +121,6 @@ export async function GET(request: NextRequest) {
     },
   }))
 
-  return NextResponse.json({ muniCode, asOf, items })
+  // available は「当該 muni_code に実データがあるか」。0件なら準備中（フォールバック無し）。
+  return NextResponse.json({ available: items.length > 0, muniCode, asOf, items })
 }

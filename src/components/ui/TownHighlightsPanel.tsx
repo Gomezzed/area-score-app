@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import {
-  X, Trophy, Sparkles, Info, TrendingUp, TrendingDown, ArrowUp, ArrowDown, Minus,
+  X, Trophy, Sparkles, Info, TrendingUp, TrendingDown, ArrowUp, ArrowDown, Minus, Clock,
 } from 'lucide-react'
 import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
-
-// デモは岩国市(muni_code=352080)のみ実データ投入済み（将来は選択エリア連動）。
-const DEMO_MUNI_CODE = '352080'
+import { toMuniCode6 } from '@/lib/muni-code'
 
 type RankChange = 'up' | 'down' | 'same' | 'new' | null
 
@@ -34,6 +32,7 @@ interface HighlightItem {
 }
 
 interface HighlightsResponse {
+  available: boolean
   muniCode: string
   asOf: string | null
   prevAsOf: string | null
@@ -56,50 +55,58 @@ const fmtScore = (v: number | null): string => (v == null ? '—' : v.toFixed(1)
 export function TownHighlightsPanel({
   open,
   onClose,
-  muniCode = DEMO_MUNI_CODE,
+  cityCode,
+  muniName,
 }: {
   open: boolean
   onClose: () => void
-  muniCode?: string
+  cityCode?: string | null
+  muniName?: string | null
 }) {
   const { plan } = useSubscription()
   const allowed = canUse(plan, 'townAcquisitionPriority')
 
-  const [data, setData] = useState<HighlightsResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // 5桁 JIS → 6桁（JIS X 0402 検査数字付与）。不正/欠損は null（＝準備中扱い）。
+  const muniCode6 = toMuniCode6(cityCode)
+
+  // フェッチ結果は「どの muniCode6 のものか」を併せて保持する（切替時の古いデータ排除＋
+  //   effect 本体での同期 setState 回避。setState は全て await 後に行う）。
+  const [result, setResult] = useState<
+    { code: string; data: HighlightsResponse | null; failed: boolean } | null
+  >(null)
 
   useEffect(() => {
-    if (!allowed || !open) return
+    if (!allowed || !open || !muniCode6) return
+    const code = muniCode6
     let mounted = true
-    // setState は await 後のコールバック内でのみ行う（effect 本体での同期 setState を避ける）。
+    // 選択中市区町村が変わるたび再取得（依存配列に muniCode6）。
     async function load() {
       try {
-        const res = await fetch(`/api/towns/highlights?muni_code=${encodeURIComponent(muniCode)}`)
+        const res = await fetch(`/api/towns/highlights?muni_code=${encodeURIComponent(code)}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = (await res.json()) as HighlightsResponse
-        if (mounted) {
-          setData(json)
-          setError(null)
-          setLoading(false)
-        }
+        if (mounted) setResult({ code, data: json, failed: false })
       } catch {
-        if (mounted) {
-          setError('読み込みに失敗しました')
-          setLoading(false)
-        }
+        if (mounted) setResult({ code, data: null, failed: true })
       }
     }
     load()
     return () => {
       mounted = false
     }
-  }, [allowed, open, muniCode])
+  }, [allowed, open, muniCode6])
 
   // 非platinum はパネルごと非表示（描画しない）。
   if (!allowed) return null
 
+  // 現在の選択コードに一致する結果のみ採用（切替直後の古いデータを排除）。
+  const matched = result && result.code === muniCode6 ? result : null
+  const data = matched?.data ?? null
+  const error = matched?.failed ?? false
+  const loading = !!muniCode6 && matched == null
   const items = data?.items ?? []
+  // 準備中: コード不正/未選択、または API が available:false（当該自治体に実データ無し）。
+  const notReady = !muniCode6 || (!loading && !error && data != null && data.available === false)
 
   return (
     <div
@@ -127,23 +134,32 @@ export function TownHighlightsPanel({
           </button>
         </div>
         <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
-          岩国市（デモ）{data?.asOf ? ` ・基準月 ${data.asOf}` : ''}。
+          {muniName ? `${muniName}` : '選択中の市区町村'}
+          {data?.available && data?.asOf ? ` ・基準月 ${data.asOf}` : ''}。
           取得優先ランク（S→A→B→C→D）と取得スコア順の上位20町域。確定値（公表事実）と推定スコア（ルールベース参考値）を分けて表示します。
         </p>
 
-        {loading && <div className="text-slate-500 text-sm py-8 text-center">読み込み中…</div>}
-
-        {!loading && error && (
-          <div className="bg-slate-700/30 rounded-lg py-8 text-center text-slate-500 text-sm">{error}</div>
+        {!notReady && loading && (
+          <div className="text-slate-500 text-sm py-8 text-center">読み込み中…</div>
         )}
 
-        {!loading && !error && items.length === 0 && (
+        {!notReady && !loading && error && (
           <div className="bg-slate-700/30 rounded-lg py-8 text-center text-slate-500 text-sm">
-            対象データがありません
+            読み込みに失敗しました
           </div>
         )}
 
-        {!loading && !error && items.length > 0 && (
+        {notReady && (
+          <div className="bg-slate-700/30 rounded-lg py-8 px-4 text-center">
+            <Clock className="w-7 h-7 text-slate-600 mx-auto mb-2" />
+            <p className="text-slate-400 text-sm font-medium">
+              {muniName ? `${muniName} の町域別データは現在準備中です` : '町域別データは現在準備中です'}
+            </p>
+            <p className="text-slate-500 text-[11px] mt-1">対応自治体から順次拡大しています。</p>
+          </div>
+        )}
+
+        {!notReady && !loading && !error && items.length > 0 && (
           <>
             <div className="space-y-2.5">
               {items.map((t) => (

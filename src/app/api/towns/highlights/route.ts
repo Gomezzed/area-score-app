@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { guardFeature } from '@/lib/subscription'
+import { toMuniCode6 } from '@/lib/muni-code'
 
 // GET /api/towns/highlights?muni_code=352080
 //   Platinum 専用「注目町域 TOP20」。最新月を inferred_priority_rank(S>A>B>C>D)→
@@ -10,7 +11,6 @@ import { guardFeature } from '@/lib/subscription'
 //   - 原則1: 確定(confirmed)と推定(inferred)を別フィールドに分離。rankChange は推定ランクの
 //            月次変化なので inferred 側に置く（確定とは混ぜない）。
 
-const DEFAULT_MUNI_CODE = '352080' // デモは岩国のみ実データ投入済み（将来は選択エリア連動）
 const TOP_N = 20
 
 // ランク重み（小さいほど上位）。inferred_priority_rank は文字列のため、
@@ -50,7 +50,21 @@ export async function GET(request: NextRequest) {
   const denied = await guardFeature('townAcquisitionPriority')
   if (denied) return denied
 
-  const muniCode = request.nextUrl.searchParams.get('muni_code') ?? DEFAULT_MUNI_CODE
+  const muniCodeParam = request.nextUrl.searchParams.get('muni_code')
+  if (!muniCodeParam) {
+    return NextResponse.json(
+      { error: 'muni_code クエリパラメータが必要です（例: ?muni_code=352080 または 35208）' },
+      { status: 400 },
+    )
+  }
+  // 入口で 6桁へ正規化（JIS X 0402 検査数字付与）。岩国等への固定フォールバックはしない。
+  const muniCode = toMuniCode6(muniCodeParam)
+  if (!muniCode) {
+    return NextResponse.json(
+      { error: 'muni_code が不正です（5桁 JIS または 6桁コードを指定してください）' },
+      { status: 400 },
+    )
+  }
   const supabase = await createSupabaseServerClient()
 
   // 最新月
@@ -65,7 +79,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'データ取得に失敗しました' }, { status: 500 })
   }
   if (!latestRow) {
-    return NextResponse.json({ muniCode, asOf: null, prevAsOf: null, items: [] })
+    // 当該 muni_code に実データなし（RLS 0 行 / public 未同期）。準備中として返す。
+    return NextResponse.json({ available: false, muniCode, asOf: null, prevAsOf: null, items: [] })
   }
   const asOf = latestRow.as_of as string
 
@@ -159,5 +174,5 @@ export async function GET(request: NextRequest) {
     }
   })
 
-  return NextResponse.json({ muniCode, asOf, prevAsOf, items })
+  return NextResponse.json({ available: items.length > 0, muniCode, asOf, prevAsOf, items })
 }

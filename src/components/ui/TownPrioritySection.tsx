@@ -1,13 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Target, Sparkles, Info, TrendingUp, TrendingDown } from 'lucide-react'
+import { Target, Sparkles, Info, TrendingUp, TrendingDown, Clock } from 'lucide-react'
 import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
+import { toMuniCode6 } from '@/lib/muni-code'
 
-// デモは岩国市(muni_code=352080)のみ public.town_monthly_metrics に実データ投入済み。
-// 将来は詳細パネルで選択中エリアの muni_code を渡して連動させる（暫定ハードコードは最小限）。
-const DEMO_MUNI_CODE = '352080'
 // 側パネルに収めるため上位 N 件のみ表示（全件数は注記で示す）。
 const MAX_VISIBLE = 10
 
@@ -33,6 +31,7 @@ interface TownItem {
 }
 
 interface TownResponse {
+  available: boolean
   muniCode: string
   asOf: string | null
   items: TownItem[]
@@ -53,47 +52,61 @@ const fmtInt = (v: number | null): string => (v == null ? '—' : v.toLocaleStri
 // 町域別 仕入れ優先度（Platinum 専用）。
 //   表示可否は canUse(plan,'townAcquisitionPriority') でゲート（plan 直書き禁止・T1 と同一定義）。
 //   非platinum はセクションごと非表示（=パネルに何も出さない）。
-export function TownPrioritySection({ muniCode = DEMO_MUNI_CODE }: { muniCode?: string }) {
+//   対象自治体は「選択中市区町村の city_code(5桁JIS)」を 6桁へ正規化して API に渡し、
+//   実データの有無（available）だけで出し分ける。対応自治体のハードコードは持たない。
+export function TownPrioritySection({
+  cityCode,
+  muniName,
+}: {
+  cityCode?: string | null
+  muniName?: string | null
+}) {
   const { plan } = useSubscription()
   const allowed = canUse(plan, 'townAcquisitionPriority')
 
-  const [data, setData] = useState<TownResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // 5桁 JIS → 6桁（JIS X 0402 検査数字付与）。不正/欠損は null（＝準備中扱い）。
+  const muniCode6 = toMuniCode6(cityCode)
+
+  // フェッチ結果は「どの muniCode6 のものか」を併せて保持する。
+  //   こうすると選択切替時に古いデータを表示しないよう派生でき、
+  //   effect 本体での同期 setState（カスケード再レンダ）を避けられる（全て await 後に setState）。
+  const [result, setResult] = useState<
+    { code: string; data: TownResponse | null; failed: boolean } | null
+  >(null)
 
   useEffect(() => {
-    if (!allowed) return
+    if (!allowed || !muniCode6) return
+    const code = muniCode6
     let mounted = true
-    // setState は await 後のコールバック内でのみ行う（effect 本体での同期 setState を避ける）。
-    // loading は初期値 true。デモは muniCode 固定のため再フェッチ時のリセットは不要。
+    // 選択中市区町村が変わるたび再取得（依存配列に muniCode6）。
     async function load() {
       try {
-        const res = await fetch(`/api/towns?muni_code=${encodeURIComponent(muniCode)}`)
+        const res = await fetch(`/api/towns?muni_code=${encodeURIComponent(code)}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = (await res.json()) as TownResponse
-        if (mounted) {
-          setData(json)
-          setError(null)
-          setLoading(false)
-        }
+        if (mounted) setResult({ code, data: json, failed: false })
       } catch {
-        if (mounted) {
-          setError('読み込みに失敗しました')
-          setLoading(false)
-        }
+        if (mounted) setResult({ code, data: null, failed: true })
       }
     }
     load()
     return () => {
       mounted = false
     }
-  }, [allowed, muniCode])
+  }, [allowed, muniCode6])
 
   // 非platinum はセクション非表示（パネル非表示要件）。
   if (!allowed) return null
 
+  // 現在の選択コードに一致する結果のみ採用（切替直後の古いデータを排除）。
+  const matched = result && result.code === muniCode6 ? result : null
+  const data = matched?.data ?? null
+  const error = matched?.failed ?? false
+  const loading = !!muniCode6 && matched == null // 当該コードの取得が未完了
   const items = data?.items ?? []
   const visible = items.slice(0, MAX_VISIBLE)
+  // 準備中: コード不正/未選択、または API が available:false（当該自治体に実データ無し）。
+  const notReady = !muniCode6 || (!loading && !error && data != null && data.available === false)
 
   return (
     <div className="mt-6 border-t border-slate-700 pt-5">
@@ -105,23 +118,32 @@ export function TownPrioritySection({ muniCode = DEMO_MUNI_CODE }: { muniCode?: 
         </span>
       </h3>
       <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
-        岩国市（デモ）{data?.asOf ? ` ・基準月 ${data.asOf}` : ''}。
+        {muniName ? `${muniName}` : '選択中の市区町村'}
+        {data?.available && data?.asOf ? ` ・基準月 ${data.asOf}` : ''}。
         確定値（公表事実）と推定スコア（ルールベース参考値）を分けて表示します。
       </p>
 
-      {loading && <div className="text-slate-500 text-sm py-6 text-center">読み込み中…</div>}
-
-      {!loading && error && (
-        <div className="bg-slate-700/30 rounded-lg py-6 text-center text-slate-500 text-sm">{error}</div>
+      {!notReady && loading && (
+        <div className="text-slate-500 text-sm py-6 text-center">読み込み中…</div>
       )}
 
-      {!loading && !error && visible.length === 0 && (
+      {!notReady && !loading && error && (
         <div className="bg-slate-700/30 rounded-lg py-6 text-center text-slate-500 text-sm">
-          対象データがありません
+          読み込みに失敗しました
         </div>
       )}
 
-      {!loading && !error && visible.length > 0 && (
+      {notReady && (
+        <div className="bg-slate-700/30 rounded-lg py-6 px-4 text-center">
+          <Clock className="w-6 h-6 text-slate-600 mx-auto mb-2" />
+          <p className="text-slate-400 text-sm font-medium">
+            {muniName ? `${muniName} の町域別データは現在準備中です` : '町域別データは現在準備中です'}
+          </p>
+          <p className="text-slate-500 text-[11px] mt-1">対応自治体から順次拡大しています。</p>
+        </div>
+      )}
+
+      {!notReady && !loading && !error && visible.length > 0 && (
         <>
           <div className="space-y-3">
             {visible.map((t) => (

@@ -98,8 +98,9 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
         {/* 駅単位ドリルダウン（Standard+・自己ゲート / 機能フラグ尊重）。条件未達なら何も描画しない。 */}
         <StationDrilldownSection municipalityId={m.id} />
 
-        {/* 町域別 仕入れ優先度（Platinum 専用・自己ゲート）。非platinum では何も描画しない。 */}
-        <TownPrioritySection />
+        {/* 町域別 仕入れ優先度（Platinum 専用・自己ゲート）。非platinum では何も描画しない。
+            選択中市区町村の city_code(5桁JIS) を渡し、実データの有無で自動出し分け。 */}
+        <TownPrioritySection cityCode={m.city_code} muniName={m.name} />
 
         <p className="text-xs text-slate-500 mt-5">
           出典: 総務省統計局 国勢調査（e-Stat）／
