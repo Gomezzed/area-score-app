@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Train } from 'lucide-react'
 import { useSubscription } from '@/hooks/useSubscription'
-import { canUse } from '@/lib/plans'
+import { usePlanLimit } from '@/hooks/usePlanLimit'
 
 interface StationItem {
   stationId: string
@@ -26,14 +26,14 @@ interface StationsResponse {
 const fmtInt = (v: number | null): string => (v == null ? '—' : v.toLocaleString('ja-JP'))
 
 // 駅単位ドリルダウン（Standard 以上）。
-//   表示可否 = canUse(plan,'stationLevelEntitled')（権限）AND マスターフラグ
-//   NEXT_PUBLIC_FEATURE_STATION_LEVEL（既存 usePlanLimit と同じ AND 設計を踏襲。plan 直書き禁止）。
+//   表示可否 = usePlanLimit(plan).stationLevelEnabled
+//   （= 権限 stationLevelEntitled AND マスターフラグ NEXT_PUBLIC_FEATURE_STATION_LEVEL。
+//    フラグ評価は usePlanLimit に一本化し、本コンポーネントでは再評価しない。plan 直書き禁止）。
 //   条件未達（free/starter またはフラグ off）はセクションごと非表示。
 export function StationDrilldownSection({ municipalityId }: { municipalityId: string }) {
   const { plan } = useSubscription()
-  const entitled = canUse(plan, 'stationLevelEntitled')
-  const featureOn = process.env.NEXT_PUBLIC_FEATURE_STATION_LEVEL === 'true'
-  const allowed = entitled && featureOn
+  // 実利用可否の単一ソース（権限 AND フラグの評価は usePlanLimit 側）
+  const { stationLevelEnabled: allowed } = usePlanLimit(plan)
 
   const [items, setItems] = useState<StationItem[] | null>(null)
   const [loading, setLoading] = useState(true)
