@@ -9,6 +9,7 @@ import { usePopulationHistory } from '@/hooks/usePopulationHistory'
 import { TransactionSection } from './TransactionSection'
 import { TownPrioritySection } from './TownPrioritySection'
 import { StationDrilldownSection } from './StationDrilldownSection'
+import { MarketMetricsSection } from './MarketMetricsSection'
 import { X, Users, Home, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 
 interface Props {
@@ -97,6 +98,10 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
 
         {/* 駅単位ドリルダウン（Standard+・自己ゲート / 機能フラグ尊重）。条件未達なら何も描画しない。 */}
         <StationDrilldownSection municipalityId={m.id} />
+
+        {/* 相場・公示価格（Standard+・自己ゲート / 機能フラグ尊重・T8）。muni_code(5桁JIS)未確定
+            または条件未達なら何も描画しない。確定(公示価格)/参考(取引価格中央値)は個別に出し分け。 */}
+        <MarketMetricsSection muniCode={m.city_code} />
 
         {/* 町域別 仕入れ優先度（Platinum 専用・自己ゲート）。非platinum では何も描画しない。
             選択中市区町村の city_code(5桁JIS) を渡し、実データの有無で自動出し分け。 */}
