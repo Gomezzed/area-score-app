@@ -63,7 +63,7 @@ PREF_NAMES = {
 
 CITY_CODE_KEYS = (
     "MunicipalityCode", "municipalityCode", "MunicipalityCD", "municipalityCd",
-    "CityCode", "cityCode", "city_code", "city", "Code", "code",
+    "CityCode", "cityCode", "city_code", "city", "Code", "code", "id",
 )
 CITY_NAME_KEYS = (
     "MunicipalityName", "municipalityName", "CityName", "cityName",
