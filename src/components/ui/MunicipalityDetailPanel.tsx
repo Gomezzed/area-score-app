@@ -183,7 +183,8 @@ function PopulationSection({ municipalityId }: { municipalityId: string }) {
   )
 }
 
-// 駅乗降客数: 市区町村単位の集約値（XKT015）。駅単位の明細は Phase 2.5 で実装予定。
+// 駅乗降客数: 市区町村単位の集約値（XKT015）。駅単位の明細は StationDrilldownSection で提供済み。
+// 路線・運営会社別の内訳（stations は group_code 単位で1行のため未保持）が Phase 2.5。
 function StationSection({ total }: { total: number }) {
   const hasData = total > 0
 
@@ -204,7 +205,7 @@ function StationSection({ total }: { total: number }) {
             市区町村内の駅 乗降客数の合計（国交省 XKT015）
           </div>
           <p className="text-slate-500 text-[11px] mt-2 leading-relaxed">
-            駅ごとの明細（路線・運営会社別）は Phase 2.5（2026年7月予定）で公開します。
+            路線・運営会社別の内訳は Phase 2.5（2026年7月予定）で公開予定です。
           </p>
         </div>
       ) : (
