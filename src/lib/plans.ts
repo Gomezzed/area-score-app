@@ -106,6 +106,8 @@ export interface PlanEntitlements {
   seatLimit: number
   // 駅単位データの利用権限（実利用はマスターフラグと AND）
   stationLevelEntitled: boolean
+  // 相場・公示価格データの利用権限（実利用はマスターフラグと AND・T8）
+  marketMetricsEntitled: boolean
   // ── Platinum 専用機能（料金v2.1）。free/starter/standard は false ──
   townAcquisitionPriority: boolean // 町域取得優先
   areaCompare: boolean // エリア比較
@@ -122,6 +124,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     canUseHeatmap: false,
     seatLimit: 1,
     stationLevelEntitled: false,
+    marketMetricsEntitled: false,
     townAcquisitionPriority: false,
     areaCompare: false,
     tradeAreaReport: false,
@@ -135,6 +138,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     canUseHeatmap: false,
     seatLimit: 1,
     stationLevelEntitled: false,
+    marketMetricsEntitled: false,
     townAcquisitionPriority: false,
     areaCompare: false,
     tradeAreaReport: false,
@@ -148,6 +152,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     canUseHeatmap: true,
     seatLimit: 5,
     stationLevelEntitled: true,
+    marketMetricsEntitled: true,
     townAcquisitionPriority: false,
     areaCompare: false,
     tradeAreaReport: false,
@@ -162,6 +167,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     canUseHeatmap: true,
     seatLimit: 20,
     stationLevelEntitled: true,
+    marketMetricsEntitled: true,
     townAcquisitionPriority: true,
     areaCompare: true,
     tradeAreaReport: true,

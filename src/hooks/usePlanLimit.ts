@@ -23,10 +23,16 @@ export { FREE_VISIBLE_AREA_LIMIT }
 const STATION_LEVEL_FEATURE_ENABLED =
   process.env.NEXT_PUBLIC_FEATURE_STATION_LEVEL === 'true'
 
+// 相場・公示価格機能のマスターフラグ（既定 false・T8）。挙動は駅単位と同じ AND 設計。
+const MARKET_METRICS_FEATURE_ENABLED =
+  process.env.NEXT_PUBLIC_FEATURE_MARKET_METRICS === 'true'
+
 export interface PlanLimit extends PlanEntitlements {
   plan: PlanId
   // 駅単位の実利用可否 = 権限(stationLevelEntitled) AND マスターフラグ
   stationLevelEnabled: boolean
+  // 相場・公示価格の実利用可否 = 権限(marketMetricsEntitled) AND マスターフラグ
+  marketMetricsEnabled: boolean
 }
 
 // 現在のプランから機能制限（エンタイトルメント）を導出するフック。
@@ -39,6 +45,7 @@ export function usePlanLimit(plan: PlanId): PlanLimit {
       plan,
       ...ent,
       stationLevelEnabled: ent.stationLevelEntitled && STATION_LEVEL_FEATURE_ENABLED,
+      marketMetricsEnabled: ent.marketMetricsEntitled && MARKET_METRICS_FEATURE_ENABLED,
     }
   }, [plan])
 }

@@ -9,6 +9,7 @@ import { usePopulationHistory } from '@/hooks/usePopulationHistory'
 import { TransactionSection } from './TransactionSection'
 import { TownPrioritySection } from './TownPrioritySection'
 import { StationDrilldownSection } from './StationDrilldownSection'
+import { MarketMetricsSection } from './MarketMetricsSection'
 import { X, Users, Home, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 
 interface Props {
@@ -98,6 +99,10 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
         {/* 駅単位ドリルダウン（Standard+・自己ゲート / 機能フラグ尊重）。条件未達なら何も描画しない。 */}
         <StationDrilldownSection municipalityId={m.id} />
 
+        {/* 相場・公示価格（Standard+・自己ゲート / 機能フラグ尊重・T8）。muni_code(5桁JIS)未確定
+            または条件未達なら何も描画しない。確定(公示価格)/参考(取引価格中央値)は個別に出し分け。 */}
+        <MarketMetricsSection muniCode={m.city_code} />
+
         {/* 町域別 仕入れ優先度（Platinum 専用・自己ゲート）。非platinum では何も描画しない。
             選択中市区町村の city_code(5桁JIS) を渡し、実データの有無で自動出し分け。 */}
         <TownPrioritySection cityCode={m.city_code} muniName={m.name} />
@@ -183,7 +188,8 @@ function PopulationSection({ municipalityId }: { municipalityId: string }) {
   )
 }
 
-// 駅乗降客数: 市区町村単位の集約値（XKT015）。駅単位の明細は Phase 2.5 で実装予定。
+// 駅乗降客数: 市区町村単位の集約値（XKT015）。駅単位の明細は StationDrilldownSection で提供済み。
+// 路線・運営会社別の内訳（stations は group_code 単位で1行のため未保持）が Phase 2.5。
 function StationSection({ total }: { total: number }) {
   const hasData = total > 0
 
@@ -204,7 +210,7 @@ function StationSection({ total }: { total: number }) {
             市区町村内の駅 乗降客数の合計（国交省 XKT015）
           </div>
           <p className="text-slate-500 text-[11px] mt-2 leading-relaxed">
-            駅ごとの明細（路線・運営会社別）は Phase 2.5（2026年7月予定）で公開します。
+            路線・運営会社別の内訳は Phase 2.5（2026年7月予定）で公開予定です。
           </p>
         </div>
       ) : (
