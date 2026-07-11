@@ -1,0 +1,44 @@
+# Dependabot 設定 ─ 依存パッケージの脆弱性アラート＋自動更新PR
+# 参考: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# これは「バージョン更新（version updates）」の設定。
+# 「セキュリティ更新（security updates / 脆弱性アラート）」は
+# GitHub リポジトリ設定の Web 画面でのオンが別途必要（README/監査記録の手順参照）。
+version: 2
+updates:
+  # ── npm（アプリ本体の依存）──
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    # メジャー更新（破壊的変更の可能性）はまとめず個別PRにし、レビューしやすくする。
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── GitHub Actions（ワークフローで使うアクションの更新）──
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci)"
