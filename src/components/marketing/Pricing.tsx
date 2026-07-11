@@ -13,6 +13,8 @@ interface PricingPlan {
   description: string
   features: Feature[]
   cta: { label: string; href: string }
+  // 副CTA（Platinum のみ: セルフ決済に加えて導入相談を併存させる）
+  secondaryCta?: { label: string; href: string }
   recommended?: boolean
   isEnterprise?: boolean
 }
@@ -71,7 +73,8 @@ const PLANS: PricingPlan[] = [
       { label: 'Slack / Zoom サポート' },
       { label: 'PDFロゴ対応' },
     ],
-    cta: { label: 'デモ・導入相談', href: '/contact' },
+    cta: { label: '申し込む', href: '/register?plan=platinum' },
+    secondaryCta: { label: '相談する', href: '/contact' },
     isEnterprise: true,
   },
 ]
@@ -121,7 +124,7 @@ export function Pricing() {
                 {plan.description}
                 {plan.isEnterprise && (
                   <span className="block text-purple-300 text-[11px] mt-1 font-medium">
-                    ※紹介制・導入相談でのみご提供
+                    ※お申し込み・導入相談の両方に対応
                   </span>
                 )}
               </p>
@@ -154,6 +157,14 @@ export function Pricing() {
               >
                 {plan.cta.label}
               </Link>
+              {plan.secondaryCta && (
+                <Link
+                  href={plan.secondaryCta.href}
+                  className="w-full text-center mt-2 text-xs font-medium text-purple-300 hover:text-purple-200 transition-colors"
+                >
+                  {plan.secondaryCta.label}
+                </Link>
+              )}
             </div>
           ))}
         </div>

@@ -32,7 +32,7 @@
 - **正データ＝iwakuni.town_monthly_metrics。change_metrics は旧世代として除外。**
 
 ## 3. プラン×機能マップ（料金v2.1・唯一の定義）
-許可は `lib/plans/config.ts` の1箇所だけで定義し、UI(非表示)/API(403)/DB(RLS)の3層が全てそこを参照する。各コンポーネントに `plan === 'platinum'` を直書きしない。
+許可は `src/lib/plans.ts` の1箇所だけで定義し、UI(非表示)/API(403)/DB(RLS)の3層が全てそこを参照する。各コンポーネントに `plan === 'platinum'` を直書きしない。
 
 | 機能キー | 必要プラン |
 |---|---|

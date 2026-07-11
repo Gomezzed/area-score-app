@@ -13,7 +13,7 @@
 export type PlanId = 'free' | 'starter' | 'standard' | 'platinum'
 
 // 課金対象（Stripe Checkout を開始できる）有料プラン
-export type PaidPlanId = 'starter' | 'standard'
+export type PaidPlanId = 'starter' | 'standard' | 'platinum'
 
 export interface Plan {
   id: PlanId
@@ -203,6 +203,7 @@ export function getEntitlement<K extends keyof PlanEntitlements>(
 export function priceIdForPlan(plan: PaidPlanId): string | null {
   if (plan === 'starter') return process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ?? null
   if (plan === 'standard') return process.env.NEXT_PUBLIC_STRIPE_STANDARD_PRICE_ID ?? null
+  if (plan === 'platinum') return process.env.NEXT_PUBLIC_STRIPE_PLATINUM_PRICE_ID ?? null
   return null
 }
 
@@ -211,6 +212,7 @@ export function planFromPriceId(priceId: string | null | undefined): PlanId {
   if (!priceId) return 'free'
   if (priceId === process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID) return 'starter'
   if (priceId === process.env.NEXT_PUBLIC_STRIPE_STANDARD_PRICE_ID) return 'standard'
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PLATINUM_PRICE_ID) return 'platinum'
   return 'free'
 }
 
@@ -283,8 +285,8 @@ export const BETA_PLANS: BetaPlan[] = [
       'Slack・Zoom サポート',
       'PDFロゴ対応',
     ],
-    // β期間中は Stripe 商品・型とも未作成。LP/料金ページは Coming Soon 表記。
-    comingSoon: true,
+    // セルフ決済を解放（NEXT_PUBLIC_STRIPE_PLATINUM_PRICE_ID）。導入相談(/contact)は副導線として併存。
+    comingSoon: false,
   },
 ]
 

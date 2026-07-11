@@ -89,28 +89,25 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                {plan.id === 'starter' || plan.id === 'standard' ? (
-                  // 課金対象（Starter / Standard）: クライアントで POST → Stripe Checkout へ
-                  <CheckoutButton
-                    plan={plan.id}
-                    className={`w-full rounded-lg px-4 py-3 font-medium text-center transition-colors ${
-                      highlight
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-slate-700 hover:bg-slate-600 text-white'
-                    }`}
+                {/* 課金対象（Starter / Standard / Platinum）: クライアントで POST → Stripe Checkout へ */}
+                <CheckoutButton
+                  plan={plan.id}
+                  className={`w-full rounded-lg px-4 py-3 font-medium text-center transition-colors ${
+                    highlight
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-slate-700 hover:bg-slate-600 text-white'
+                  }`}
+                >
+                  {plan.id === 'platinum' ? '今すぐ申し込む' : `${plan.name}を始める`}
+                </CheckoutButton>
+                {plan.id === 'platinum' && (
+                  // Platinum は導入相談も併存（セルフ決済 + 商談の2導線）。
+                  <Link
+                    href="/contact"
+                    className="mt-3 block w-full text-center text-sm text-slate-400 hover:text-white transition-colors"
                   >
-                    {plan.name}を始める
-                  </CheckoutButton>
-                ) : (
-                  // Platinum: β期間中は未提供（Stripe商品未作成）。disabled ボタンで Coming Soon 表記。
-                  <button
-                    type="button"
-                    disabled
-                    aria-disabled="true"
-                    className="w-full rounded-lg px-4 py-3 font-medium text-center bg-slate-700/50 text-slate-400 cursor-not-allowed"
-                  >
-                    Coming Soon
-                  </button>
+                    導入を相談する
+                  </Link>
                 )}
               </div>
             )
