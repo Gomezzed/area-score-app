@@ -147,7 +147,7 @@ function PopulationSection({ municipalityId }: { municipalityId: string }) {
       {!loading && !hasData && (
         <div className="bg-slate-700/30 rounded-lg py-8 text-center">
           <Users className="w-7 h-7 text-slate-600 mx-auto mb-2" />
-          <p className="text-slate-500 text-sm">データ準備中（β版で順次公開）</p>
+          <p className="text-slate-500 text-sm">データ準備中（順次公開）</p>
         </div>
       )}
 
@@ -210,13 +210,13 @@ function StationSection({ total }: { total: number }) {
             市区町村内の駅 乗降客数の合計（国交省 XKT015）
           </div>
           <p className="text-slate-500 text-[11px] mt-2 leading-relaxed">
-            路線・運営会社別の内訳は Phase 2.5（2026年7月予定）で公開予定です。
+            路線・運営会社別の内訳は今後のアップデートで公開予定です。
           </p>
         </div>
       ) : (
         <div className="bg-slate-700/30 rounded-lg p-4">
           <p className="text-slate-500 text-xs leading-relaxed">
-            国土交通省 駅別乗降客数（XKT015）データ準備中（β版で順次公開）。
+            国土交通省 駅別乗降客数（XKT015）データ準備中（順次公開）。
             鉄道駅のない市区町村では表示されません。
           </p>
         </div>
