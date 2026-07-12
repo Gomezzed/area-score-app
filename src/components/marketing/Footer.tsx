@@ -86,7 +86,7 @@ export function Footer() {
 
         <div className="border-t border-slate-800/70 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-xs text-slate-500">© 2026 エリアスコア</p>
-          <p className="text-xs text-slate-500">クローズドβ受付中</p>
+          <p className="text-xs text-slate-500">先行申込受付中（2026年8月31日まで）</p>
         </div>
       </div>
     </footer>

@@ -13,7 +13,7 @@
 export type PlanId = 'free' | 'starter' | 'standard' | 'platinum'
 
 // 課金対象（Stripe Checkout を開始できる）有料プラン
-export type PaidPlanId = 'starter' | 'standard'
+export type PaidPlanId = 'starter' | 'standard' | 'platinum'
 
 export interface Plan {
   id: PlanId
@@ -51,7 +51,6 @@ export const PLANS: Plan[] = [
       '全市区町村データ閲覧',
       'PDFレポート出力',
       '人口増減率の詳細分析',
-      '1ID',
     ],
     priceId: process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ?? null,
   },
@@ -66,7 +65,6 @@ export const PLANS: Plan[] = [
       'CSV出力',
       '地図ヒートマップ',
       'エリア比較機能',
-      '5ID',
     ],
     priceId: process.env.NEXT_PUBLIC_STRIPE_STANDARD_PRICE_ID ?? null,
     recommended: true,
@@ -221,57 +219,58 @@ export function planFromPriceId(priceId: string | null | undefined): PlanId {
 }
 
 // ============================================================
-// βリリース用 料金プラン（表示専用）
-//   PO 確定の Starter / Standard / Platinum 3プラン構成。
-//   β特別価格を主表示・通常価格を斜線表示する Google One 形式。
-//   β価格は契約継続中ずっと据え置き。
+// 正式リリース用 料金プラン（表示専用）
+//   Free / Starter / Standard / Platinum の4プラン構成（LP と同順）。
+//   先行申込価格（2026年8月31日までのご契約に適用）を主表示し、
+//   通常価格を打ち消し表示する Google One 形式。
+//   先行申込価格は契約継続中ずっと据え置き。
 //
 //   ※ これは LP / 料金ページの表示専用データ。実際の課金
 //     プラミング（checkout / webhook / subscription）は上記の
-//     PLANS / PlanId を引き続き使用し、新プランIDの Checkout
-//     受付処理は別タスクで実装する。
+//     PlanId / priceIdForPlan / planFromPriceId を使用する。
 // ============================================================
 
-export type BetaPlanId = 'starter' | 'standard' | 'platinum'
+export type BetaPlanId = PlanId
 
 export interface BetaPlan {
   id: BetaPlanId
   name: string
-  description: string
-  betaPriceLabel: string // β特別価格（主表示）
-  regularPriceLabel: string // 通常価格（斜線・参考表示）
+  betaPriceLabel: string // 先行申込価格（主表示。2026/8/31 までのご契約に適用）
+  // 通常価格（打ち消し表示）。Free は割引対象外のため null（期限バッジも出さない）。
+  regularPriceLabel: string | null
   features: string[]
   recommended?: boolean
-  // β期間中は未提供（Stripe 商品未作成）。CTA を出さず「Coming Soon」表記にする。
-  comingSoon?: boolean
 }
 
 export const BETA_PLANS: BetaPlan[] = [
   {
+    id: 'free',
+    name: 'Free',
+    betaPriceLabel: '¥0',
+    regularPriceLabel: null,
+    features: ['上位3エリアの閲覧のみ'],
+  },
+  {
     id: 'starter',
     name: 'Starter',
-    description: '個人事業主・小規模仲介会社向け',
     betaPriceLabel: '¥30,000',
     regularPriceLabel: '¥50,000',
     features: [
       '都道府県・市区町村レベルのエリアスコア',
       '人口動態グラフ',
       'CSV出力',
-      '1ID',
       'メールサポート',
     ],
   },
   {
     id: 'standard',
     name: 'Standard',
-    description: '中堅仲介会社向け',
     betaPriceLabel: '¥50,000',
     regularPriceLabel: '¥100,000',
     features: [
       'Starter の全機能',
       '地図ヒートマップ',
       'PDFレポート',
-      '5ID',
       'メール優先サポート',
     ],
     recommended: true,
@@ -279,22 +278,13 @@ export const BETA_PLANS: BetaPlan[] = [
   {
     id: 'platinum',
     name: 'Platinum',
-    description: '大手仲介会社・チェーン展開向け',
     betaPriceLabel: '¥100,000',
     regularPriceLabel: '¥300,000',
     features: [
       'Standard の全機能',
       'エリア比較',
-      '20ID',
       'Slack・Zoom サポート',
       'PDFロゴ対応',
     ],
-    // β期間中は Stripe 商品・型とも未作成。LP/料金ページは Coming Soon 表記。
-    comingSoon: true,
   },
 ]
-
-// βプラン CTA の遷移先（plan パラメータ受付処理は別タスクで実装予定）
-export function betaCheckoutHref(plan: BetaPlanId): string {
-  return `/api/stripe/checkout?plan=${plan}`
-}
