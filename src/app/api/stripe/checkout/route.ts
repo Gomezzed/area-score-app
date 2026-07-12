@@ -70,6 +70,8 @@ export async function POST(request: NextRequest) {
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
+      // live スモーク用（100%OFFプロモーションコード検証）。検証後に外すかは PO 判断。
+      allow_promotion_codes: true,
       // Webhook 側で Supabase ユーザーを特定するための識別子
       client_reference_id: user.id,
       metadata: { supabase_user_id: user.id },
