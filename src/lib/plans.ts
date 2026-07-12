@@ -207,6 +207,7 @@ export function getEntitlement<K extends keyof PlanEntitlements>(
 export function priceIdForPlan(plan: PaidPlanId): string | null {
   if (plan === 'starter') return process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID ?? null
   if (plan === 'standard') return process.env.NEXT_PUBLIC_STRIPE_STANDARD_PRICE_ID ?? null
+  if (plan === 'platinum') return process.env.NEXT_PUBLIC_STRIPE_PLATINUM_PRICE_ID ?? null
   return null
 }
 
@@ -215,6 +216,7 @@ export function planFromPriceId(priceId: string | null | undefined): PlanId {
   if (!priceId) return 'free'
   if (priceId === process.env.NEXT_PUBLIC_STRIPE_STARTER_PRICE_ID) return 'starter'
   if (priceId === process.env.NEXT_PUBLIC_STRIPE_STANDARD_PRICE_ID) return 'standard'
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PLATINUM_PRICE_ID) return 'platinum'
   return 'free'
 }
 
