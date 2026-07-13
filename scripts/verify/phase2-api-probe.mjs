@@ -78,7 +78,13 @@ async function main() {
     let status = null
     let body = null
     try {
-      const res = await fetch(url, { headers: { cookie }, redirect: 'manual' })
+      // キャッシュバスター＋no-cache。偽PASS は生まないが、CDN/ブラウザ由来の
+      // 古いレスポンスによる偽FAIL（無用なパニック）を防ぐ。
+      const bustedUrl = url + (url.includes('?') ? '&' : '?') + '_=' + Date.now()
+      const res = await fetch(bustedUrl, {
+        headers: { cookie, 'Cache-Control': 'no-cache' },
+        redirect: 'manual',
+      })
       status = res.status
       body = await res.json().catch(() => null)
     } catch (e) {
@@ -115,6 +121,17 @@ async function main() {
     })
   }
 
+  // 【4】PLAN_MISMATCH 分離（401 が無い前提）:
+  //   403 を返したものの body.plan が全件そろって同一値かつ EXPECT_PLAN と異なる場合は、
+  //   「ガード破れ」ではなく「SQL 未実行 or EXPECT_PLAN の打ち間違い」。
+  const forbiddenPlans = results.filter((r) => r.status === 403 && r.bodyPlan != null).map((r) => r.bodyPlan)
+  const uniqForbidden = [...new Set(forbiddenPlans)]
+  const planMismatch =
+    !sawUnauthorized && forbiddenPlans.length > 0 && uniqForbidden.length === 1 && uniqForbidden[0] !== expectPlan
+  if (planMismatch) {
+    for (const r of results) if (r.status === 403) r.verdict = 'PLAN_MISMATCH'
+  }
+
   // トップレベルに baseUrl と expectPlan を明示（どこを・どの期待値で検証したかを証跡に残す）。
   console.log(JSON.stringify({ baseUrl: base, expectPlan, timestamp: nowISO, results }, null, 2))
 
@@ -125,6 +142,14 @@ async function main() {
       '\n  この実行の結果はテスト無効として扱ってください。',
     )
     process.exit(2)
+  }
+  if (planMismatch) {
+    console.error(
+      `\n[phase2-api-probe] ⚠ PLAN_MISMATCH: DB は '${uniqForbidden[0]}' と認識しています（EXPECT_PLAN=${expectPlan}）。` +
+      '\n  ガード破れではなく、SQL 切替の未実行 or EXPECT_PLAN の打ち間違いです。' +
+      '\n  RLS プローブが出力した plan の値を、そのまま EXPECT_PLAN に渡してください。',
+    )
+    process.exit(3)
   }
 }
 

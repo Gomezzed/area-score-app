@@ -27,12 +27,50 @@ const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const email = process.env.TU1_EMAIL
 const password = process.env.TU1_PASSWORD
 
+// 本番プロジェクト以外での実行を拒否する（BASE_URL 必須化と対称）。
+// source 後のシェルに .env.local や別プロジェクトの値が残っていると、本番でない DB の
+// RLS を検証して「合格」と誤報告するため。
+const REQUIRED_REF = 'bstohiamtnlgcjulgedy'
+
 function fail(msg) {
   console.error(`[phase2-rls-probe] ${msg}`)
   process.exit(1)
 }
-if (!url || !anon) fail('NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY が未設定です')
+
+// 【1】本番プロジェクトのアサート（最優先）。
+if (!url || !url.includes(REQUIRED_REF)) {
+  fail(`Refusing to run: SUPABASE_URL must point at production project ${REQUIRED_REF}`)
+}
+if (!anon) fail('NEXT_PUBLIC_SUPABASE_ANON_KEY が未設定です')
 if (!email || !password) fail('TU1_EMAIL / TU1_PASSWORD が未設定です（~/.area-score-secrets を source したか確認）')
+
+// 【2】anon キーであることのアサート（service_role だと RLS をバイパスし、
+//      全プランで全件が返って「free でも Platinum 専用データが取れる」偽陽性の重大レポートを生む）。
+//      キーの値そのものは出力しない。role 文字列のみで判定する。
+function assertAnonKey(key) {
+  if (key.startsWith('eyJ')) {
+    const parts = key.split('.')
+    if (parts.length !== 3) fail('Refusing to run: ANON_KEY is a malformed JWT')
+    let role
+    try {
+      role = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')).role
+    } catch {
+      fail('Refusing to run: cannot decode ANON_KEY payload')
+    }
+    if (role === 'service_role') fail('Refusing to run: service_role key bypasses RLS')
+    if (role !== 'anon') fail(`Refusing to run: expected role 'anon', got '${role ?? 'unknown'}'`)
+  } else if (key.startsWith('sb_publishable_')) {
+    // 新形式の publishable キー。RLS 適用対象なので OK。
+  } else if (key.startsWith('sb_secret_')) {
+    fail('Refusing to run: sb_secret_ key bypasses RLS')
+  } else {
+    fail('Refusing to run: unrecognized ANON_KEY format (expected anon JWT or sb_publishable_)')
+  }
+}
+assertAnonKey(anon)
+
+// 証跡用の project ref（URL から抽出。一致は上でアサート済み）。
+const projectRef = (url.match(/https?:\/\/([a-z0-9]+)\.supabase\.co/) || [])[1] || REQUIRED_REF
 
 // anon キーのクライアント（RLS 被適用）。service_role は使わない。
 const sb = createClient(url, anon, { auth: { persistSession: false } })
@@ -92,7 +130,8 @@ async function main() {
     })
   }
 
-  console.log(JSON.stringify({ plan, timestamp: nowISO, results }, null, 2))
+  // 【3】どのプロジェクトを検証したかを証跡に刻む。
+  console.log(JSON.stringify({ supabaseUrl: url, projectRef, plan, timestamp: nowISO, results }, null, 2))
 
   await sb.auth.signOut()
 }
