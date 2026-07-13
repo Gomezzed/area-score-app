@@ -13,7 +13,7 @@ import { Footer } from '@/components/marketing/Footer'
 
 const title = 'エリアスコア ｜「どのエリアで媒介を取るか」を、勘ではなく数字で決める。'
 const description =
-  '人口動態 × 駅乗降客数 × 不動産取引データをエリアスコアで可視化。営業エリアの意思決定を30分→5分に短縮する、不動産・マーケティング向け地域分析SaaS。クローズドβ受付中。'
+  '人口動態 × 駅乗降客数 × 不動産取引データをエリアスコアで可視化。営業エリアの意思決定を30分→5分に短縮する、不動産・マーケティング向け地域分析SaaS。先行申込受付中。'
 
 export const metadata: Metadata = {
   title,

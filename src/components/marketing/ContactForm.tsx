@@ -58,7 +58,7 @@ export function ContactForm() {
         <div className="text-center mb-10">
           <p className="text-blue-400 font-semibold text-sm mb-3">お問い合わせ</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            無料デモ・クローズドβのお申し込み
+            無料デモ・先行導入のお申し込み
           </h2>
           <p className="text-slate-400 mt-4 leading-relaxed">
             導入のご相談・デモのご希望は、こちらのフォームからお気軽にどうぞ。

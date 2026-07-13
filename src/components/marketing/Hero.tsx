@@ -7,7 +7,7 @@ export function Hero() {
       <div className="max-w-6xl mx-auto px-4 pt-16 pb-24 sm:pt-24 sm:pb-32 text-center">
         <div className="inline-flex items-center gap-2 bg-blue-600/15 border border-blue-500/40 text-blue-300 text-xs font-medium rounded-full px-3 py-1 mb-7">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-          クローズドβ受付中
+          先行申込受付中（2026年8月31日まで）
         </div>
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.25]">
           「どのエリアで媒介を取るか」を、<br className="hidden sm:block" /><span className="text-blue-400">勘ではなく数字で決める。</span>
@@ -22,7 +22,7 @@ export function Hero() {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs sm:text-sm text-slate-400">
           <span className="inline-flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-emerald-400" />e-Stat・国土交通省 公式データ使用</span>
           <span className="hidden sm:inline text-slate-600">／</span>
-          <span>クローズドβ受付中</span>
+          <span>先行申込受付中（2026年8月31日まで）</span>
         </div>
         <div className="mt-14 max-w-4xl mx-auto">
           <div className="relative rounded-2xl border border-slate-700 bg-slate-800/60 overflow-hidden shadow-2xl">

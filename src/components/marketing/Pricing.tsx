@@ -1,5 +1,15 @@
 import Link from 'next/link'
 import { Check } from 'lucide-react'
+import { CheckoutButton } from '@/components/ui/CheckoutButton'
+import type { PaidPlanId } from '@/lib/plans'
+
+// ⑧ Pricing（ダーク）— 正式リリース向け 4プラン構成
+//   Free / Starter / Standard / Platinum。Standard を「おすすめ」バッジ＋ボーダーで強調。
+//   有料プランは先行申込価格（2026/8/31 までのご契約に適用・契約継続中据え置き）を
+//   主表示し、通常価格を打ち消し線で併記する。
+//   CTA 配線:
+//     - Free / Starter / Standard … 既存 /register へ href 誘導
+//     - Platinum … CheckoutButton（POST /api/stripe/checkout → Stripe Checkout）
 
 interface Feature {
   label: string
@@ -8,13 +18,12 @@ interface Feature {
 interface PricingPlan {
   id: string
   name: string
-  monthly: string
-  annualNote: string | null
-  description: string
+  monthly: string // 月額表示（先行申込価格）
+  regular: string | null // 通常価格（打ち消し表示）。Free は割引対象外のため null。
   features: Feature[]
-  cta: { label: string; href: string }
+  // checkoutPlan があれば Stripe Checkout（CheckoutButton）、なければ href リンク。
+  cta: { label: string; href?: string; checkoutPlan?: PaidPlanId }
   recommended?: boolean
-  isEnterprise?: boolean
 }
 
 const PLANS: PricingPlan[] = [
@@ -22,21 +31,18 @@ const PLANS: PricingPlan[] = [
     id: 'free',
     name: 'Free',
     monthly: '0円',
-    annualNote: null,
-    description: 'まずは無料で試したい方に',
-    features: [{ label: '上位3エリアの閲覧のみ' }, { label: '1ID' }],
+    regular: null,
+    features: [{ label: '上位3エリアの閲覧のみ' }],
     cta: { label: '無料で始める', href: '/register?plan=free' },
   },
   {
     id: 'starter',
     name: 'Starter',
     monthly: '月額30,000円（税抜）',
-    annualNote: '年額契約で実質 月24,000円（税抜）相当（20%OFF）',
-    description: '個人事業主・小規模仲介向け',
+    regular: '¥50,000',
     features: [
       { label: '都道府県・市区町村レベルのスコア' },
       { label: 'PDFレポート出力' },
-      { label: '1ID' },
       { label: 'メールサポート' },
     ],
     cta: { label: 'Starterを始める', href: '/register?plan=starter' },
@@ -45,13 +51,11 @@ const PLANS: PricingPlan[] = [
     id: 'standard',
     name: 'Standard',
     monthly: '月額50,000円（税抜）',
-    annualNote: '年額契約で実質 月40,000円（税抜）相当（20%OFF）',
-    description: '中堅仲介会社向け',
+    regular: '¥100,000',
     features: [
       { label: '駅単位データ' },
       { label: '地図ヒートマップ' },
       { label: 'PDF＋CSV出力（Salesforce連携）' },
-      { label: '5ID' },
       { label: 'メール優先サポート' },
     ],
     cta: { label: 'Standardを始める', href: '/register?plan=standard' },
@@ -61,18 +65,15 @@ const PLANS: PricingPlan[] = [
     id: 'platinum',
     name: 'Platinum',
     monthly: '月額100,000円（税抜）',
-    annualNote: '年額契約で実質 月80,000円（税抜）相当（20%OFF）',
-    description: '大手仲介会社・チェーン展開向け',
+    regular: '¥300,000',
     features: [
       { label: 'エリア比較' },
       { label: '商圏レポート' },
       { label: 'アラート機能' },
-      { label: '20ID' },
       { label: 'Slack / Zoom サポート' },
       { label: 'PDFロゴ対応' },
     ],
-    cta: { label: 'デモ・導入相談', href: '/contact' },
-    isEnterprise: true,
+    cta: { label: 'Platinumを始める', checkoutPlan: 'platinum' },
   },
 ]
 
@@ -85,10 +86,8 @@ export function Pricing() {
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             事業規模に合わせて選べる4プラン。
           </h2>
-          <p className="text-slate-400 mt-4">
-            <span className="inline-block bg-emerald-500/15 text-emerald-300 text-sm font-semibold rounded-full px-3 py-1">
-              年額契約なら全プラン20%OFF
-            </span>
+          <p className="text-blue-300 text-sm mt-4">
+            2026年8月31日までにご契約いただいた価格は、契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
           </p>
         </div>
 
@@ -97,69 +96,64 @@ export function Pricing() {
             <div
               key={plan.id}
               className={`relative rounded-2xl border p-6 flex flex-col h-full transition-all ${
-                plan.isEnterprise
-                  ? 'border-transparent bg-gradient-to-b from-purple-900/40 to-amber-900/20 ring-2 ring-purple-500/50 shadow-lg shadow-purple-500/20'
-                  : plan.recommended
-                    ? 'border-blue-500 bg-slate-800 ring-1 ring-blue-500/40'
-                    : 'border-slate-700 bg-slate-800/60'
+                plan.recommended
+                  ? 'border-blue-500 bg-slate-800 ring-1 ring-blue-500/40'
+                  : 'border-slate-700 bg-slate-800/60'
               }`}
             >
-              {plan.isEnterprise && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-amber-600 text-white text-xs font-bold px-4 py-1 rounded-full whitespace-nowrap shadow-lg">
-                  エンタープライズ
-                </span>
-              )}
-
-              {plan.recommended && !plan.isEnterprise && (
+              {plan.recommended && (
                 <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
-                  人気
+                  おすすめ
                 </span>
               )}
 
               <h3 className="text-lg font-bold">{plan.name}</h3>
-              <p className="text-slate-400 text-xs mt-1 min-h-8">
-                {plan.description}
-                {plan.isEnterprise && (
-                  <span className="block text-purple-300 text-[11px] mt-1 font-medium">
-                    ※紹介制・導入相談でのみご提供
-                  </span>
-                )}
-              </p>
 
               <div className="mt-4 mb-1">
                 <span className="text-2xl font-bold">{plan.monthly}</span>
               </div>
-              <p className="text-emerald-300/80 text-[11px] mb-5 min-h-4">
-                {plan.annualNote ?? ''}
+              <p className="text-slate-500 text-xs mb-5 min-h-4">
+                {plan.regular ? (
+                  <>
+                    通常 <span className="line-through">{plan.regular}</span> / 月（税抜）
+                  </>
+                ) : null}
               </p>
 
               <ul className="space-y-2.5 mb-6 flex-1">
                 {plan.features.map((feat) => (
                   <li key={feat.label} className="flex items-start gap-2 text-sm text-slate-200">
-                    <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${plan.isEnterprise ? 'text-amber-400' : 'text-emerald-400'}`} />
+                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                     <span>{feat.label}</span>
                   </li>
                 ))}
               </ul>
 
-              <Link
-                href={plan.cta.href}
-                className={`w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                  plan.isEnterprise
-                    ? 'bg-gradient-to-r from-purple-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white shadow-lg'
-                    : plan.recommended
+              {plan.cta.checkoutPlan ? (
+                <CheckoutButton
+                  plan={plan.cta.checkoutPlan}
+                  className="w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors bg-slate-700 hover:bg-slate-600 text-white mt-auto"
+                >
+                  {plan.cta.label}
+                </CheckoutButton>
+              ) : (
+                <Link
+                  href={plan.cta.href ?? '/register'}
+                  className={`w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors mt-auto ${
+                    plan.recommended
                       ? 'bg-blue-600 hover:bg-blue-500 text-white'
                       : 'bg-slate-700 hover:bg-slate-600 text-white'
-                }`}
-              >
-                {plan.cta.label}
-              </Link>
+                  }`}
+                >
+                  {plan.cta.label}
+                </Link>
+              )}
             </div>
           ))}
         </div>
 
         <p className="text-center text-xs text-slate-500 mt-8">
-          ※表示価格はすべて税抜です。別途消費税がかかります。すべてのプランをご利用いただけます。
+          ※表示価格はすべて税抜です。別途消費税がかかります。プランの変更・解約はダッシュボードからいつでも可能です。
         </p>
       </div>
     </section>

@@ -6,7 +6,7 @@ import { priceIdForPlan, type PaidPlanId } from '@/lib/plans'
 
 // POST /api/stripe/checkout
 //   認証: Supabase Auth（未ログインは 401）
-//   body: { plan: 'starter' | 'standard' }   ※ Free は Checkout 不可 / Platinum は未提供
+//   body: { plan: 'starter' | 'standard' | 'platinum' }   ※ Free は Checkout 不可
 //   res : { url: string }  … Stripe Checkout へのリダイレクト先
 export async function POST(request: NextRequest) {
   const stripe = getStripe()
@@ -34,10 +34,10 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'リクエストボディが不正です' }, { status: 400 })
   }
-  // 課金対象は starter / standard のみ。Free は Checkout 不可、Platinum は β期間中未提供。
-  if (plan !== 'starter' && plan !== 'standard') {
+  // 課金対象は starter / standard / platinum。Free は Checkout 不可。
+  if (plan !== 'starter' && plan !== 'standard' && plan !== 'platinum') {
     return NextResponse.json(
-      { error: "plan は 'starter' または 'standard' を指定してください" },
+      { error: "plan は 'starter' / 'standard' / 'platinum' のいずれかを指定してください" },
       { status: 400 },
     )
   }
@@ -70,6 +70,8 @@ export async function POST(request: NextRequest) {
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
+      // live スモーク用（100%OFFプロモーションコード検証）。検証後に外すかは PO 判断。
+      allow_promotion_codes: true,
       // Webhook 側で Supabase ユーザーを特定するための識別子
       client_reference_id: user.id,
       metadata: { supabase_user_id: user.id },

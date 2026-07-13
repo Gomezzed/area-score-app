@@ -6,14 +6,14 @@ import { supabase } from '@/lib/supabase'
 import type { PaidPlanId } from '@/lib/plans'
 
 interface Props {
-  // 課金対象プラン。Free / Platinum はこのボタンを使わない（呼び出し側で出し分け）。
+  // 課金対象プラン（starter / standard / platinum）。Free はこのボタンを使わない（呼び出し側で出し分け）。
   plan: PaidPlanId
   // 呼び出し側のデザインをそのまま引き継ぐ（料金カードの見た目を壊さないため）。
   className?: string
   children: ReactNode
 }
 
-// Starter / Standard の課金CTA（クライアント配線）。
+// Starter / Standard / Platinum の課金CTA（クライアント配線）。
 //   クリックで POST /api/stripe/checkout に { plan } を送り、返ってきた
 //   Stripe Checkout の session.url へ遷移する。
 //
