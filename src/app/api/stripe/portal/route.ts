@@ -39,11 +39,17 @@ export async function POST(request: NextRequest) {
     .eq('user_id', user.id)
     .maybeSingle()
 
+  // 社内コンプアカウント（stripe_customer_id = NULL）は Stripe 上に顧客が存在せず、
+  // ポータルセッションを作成できない。SDK 例外や 500 にせず、請求管理の対象外である
+  // ことを 409 で明示する（フロントは該当ユーザーにボタン自体を描画しない）。
   const customerId = data?.stripe_customer_id
   if (!customerId) {
     return NextResponse.json(
-      { error: 'Stripe顧客が見つかりません。先にプランをご契約ください。' },
-      { status: 404 },
+      {
+        error: 'billing_not_available',
+        message: 'このアカウントは請求管理の対象外です',
+      },
+      { status: 409 },
     )
   }
 
