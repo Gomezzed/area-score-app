@@ -56,7 +56,9 @@ export function CheckoutButton({ plan, className = '', children }: Props) {
       }
 
       // 失敗（4xx/5xx もしくは url 欠落）: route の error メッセージを優先表示。
+      // 既契約ガード等は { error: <code>, message: <日本語> } を返すため message を優先。
       const message =
+        data?.message ??
         data?.error ??
         `チェックアウトを開始できませんでした（HTTP ${res.status}）。時間をおいて再度お試しください。`
       window.alert(message)

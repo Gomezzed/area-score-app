@@ -53,15 +53,34 @@ export async function POST(request: NextRequest) {
 
   const origin = request.nextUrl.origin
 
-  // 既存の Stripe 顧客があれば再利用（subscriptions テーブルから引く）
+  // ── 再Checkoutガード（二重課金防止・Session 作成より前） ──
+  // 既に有効（active / past_due）な subscriptions 行を持つユーザーは、新規 Checkout を
+  // 通さない。/pricing 直叩き・API 直叩きでも Stripe 側に 2 本目の active サブスクが
+  // 作られないようにする。コンプ行（stripe_customer_id = NULL・active）も対象に含める
+  // ── これを通すと Webhook がコンプ設定を上書きしてしまうため。
+  //   行なし（free）・status=canceled 等は従来どおり Checkout 可。
   let customerId: string | undefined
   const admin = getSupabaseAdmin()
   if (admin) {
+    // 既存の Stripe 顧客の再利用と再Checkout判定を 1 クエリで賄う。
     const { data } = await admin
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('status, stripe_customer_id')
       .eq('user_id', user.id)
       .maybeSingle()
+
+    const ACTIVE_STATUSES = new Set(['active', 'past_due'])
+    if (data && ACTIVE_STATUSES.has(data.status)) {
+      return NextResponse.json(
+        {
+          error: 'already_subscribed',
+          message:
+            '既にご契約中のプランがあります。プラン変更・解約はダッシュボードの「請求情報を管理」から行えます。',
+        },
+        { status: 409 },
+      )
+    }
+
     customerId = data?.stripe_customer_id ?? undefined
   }
 
