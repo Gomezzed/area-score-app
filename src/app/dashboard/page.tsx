@@ -28,7 +28,7 @@ const MunicipalityMap = dynamic(
 export default function DashboardPage() {
   const router = useRouter()
   const { user, signOut } = useAuth()
-  const { plan, canAccessFull } = useSubscription()
+  const { plan, canAccessFull, hasBillingAccount } = useSubscription()
   // プラン別エンタイトルメント（エリア可視数・出力可否・駅単位の実利用可否）
   const limit = usePlanLimit(plan)
   const { prefectures, loading: prefLoading } = usePrefectures()
@@ -159,9 +159,10 @@ export default function DashboardPage() {
     setPortalLoading(true)
     try {
       const res = await fetch('/api/stripe/portal', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok || !data.url) {
-        alert(data.error ?? '請求ポータルを開けませんでした。')
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.url) {
+        // route は { error: <code>, message: <日本語> } 形式。人間向けは message を優先。
+        alert(data?.message ?? data?.error ?? '請求ポータルを開けませんでした。')
         setPortalLoading(false)
         return
       }
@@ -226,7 +227,9 @@ export default function DashboardPage() {
                 <Sparkles className="w-4 h-4" />
                 <span className="hidden sm:inline">アップグレード</span>
               </Link>
-            ) : (
+            ) : hasBillingAccount ? (
+              // 有効プランかつ Stripe 顧客が存在する場合のみ請求ポータルへの導線を出す。
+              // コンプアカウント（stripe_customer_id = NULL）はポータル対象外のため描画しない。
               <button
                 onClick={handleManageBilling}
                 disabled={portalLoading}
@@ -240,7 +243,7 @@ export default function DashboardPage() {
                 )}
                 <span className="hidden sm:inline">請求情報を管理</span>
               </button>
-            )}
+            ) : null}
             <button
               onClick={handlePDFDownload}
               disabled={!limit.canExportPdf || municipalities.length === 0 || pdfLoading}
