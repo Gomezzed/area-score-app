@@ -16,6 +16,7 @@ import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
 import { TownHighlightsPanel } from '@/components/ui/TownHighlightsPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
+import { SheetsExportButton } from '@/components/ui/SheetsExportButton'
 import { canUse } from '@/lib/plans'
 import { LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale } from 'lucide-react'
 import { Logo } from '@/components/Logo'
@@ -225,6 +226,13 @@ function DashboardContent() {
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">CSV出力</span>
             </button>
+            {/* Sheets 出力（Standard 以上・canExportSheets。フラグ ON 時のみ描画） */}
+            {limit.canExportSheets && (
+              <SheetsExportButton
+                prefectureNameEn={activePref?.name_en}
+                disabled={topLevel.length === 0}
+              />
+            )}
             {/* 注目町域 TOP20（Platinum のみ・canUse で自己ゲート。plan 直書き禁止） */}
             {canUse(plan, 'townAcquisitionPriority') && (
               <button

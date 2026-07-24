@@ -19,3 +19,9 @@
 対象レコードは `created_by='H5-ledger-repair'` で識別できる。
 
 証拠表は H5 の PR を参照する。
+
+## Pending Applies（未適用・PO 適用待ち）
+
+| version（ファイル prefix） | 内容 | 状態 |
+|---|---|---|
+| `20260706000000_add_user_integrations` | `public.user_integrations`（Google 連携 refresh_token 暗号保管・RLS 自分の行のみ） | **未適用**。feat/sheets-export の PR。本番適用は Supabase コネクタ `apply_migration` 経由で PO が実施する（SQL エディタ手動適用は禁止）。 |
