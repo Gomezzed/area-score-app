@@ -1,22 +1,22 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
 import { usePlanLimit, applyAreaVisibilityLimit, maskLockedAreaValues, FREE_VISIBLE_AREA_LIMIT } from '@/hooks/usePlanLimit'
-import { usePrefectures, useMunicipalities } from '@/hooks/useCensus'
+import { usePrefectures } from '@/hooks/useCensus'
+import { useDashboardUrlState } from '@/hooks/useDashboardUrlState'
 // 注: ログアウトは useAuth().signOut を使用（supabase クライアントの直接importは不要）
-import { REGIONS, parseWard } from '@/lib/census'
+import { REGIONS } from '@/lib/census'
 import { PrefectureDropdown } from '@/components/ui/PrefectureDropdown'
 import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
 import { TownHighlightsPanel } from '@/components/ui/TownHighlightsPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
 import { canUse } from '@/lib/plans'
-import { Region, MunicipalityWithStats } from '@/types'
 import { MapPin, LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale } from 'lucide-react'
 
 // Leaflet は SSR 不可のため dynamic import
@@ -25,7 +25,28 @@ const MunicipalityMap = dynamic(
   { ssr: false, loading: () => <div className="w-full h-full bg-slate-700 animate-pulse rounded-lg" /> },
 )
 
+// 共通のフルスクリーン ローディング（Suspense fallback と prefLoading で共用）
+function DashboardLoading() {
+  return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="text-slate-400 flex items-center gap-3 text-sm">
+        <RefreshCw className="w-5 h-5 animate-spin" />
+        読み込み中...
+      </div>
+    </div>
+  )
+}
+
+// useSearchParams を使う本体は Suspense 境界の内側に置く（App Router 要件）
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardContent />
+    </Suspense>
+  )
+}
+
+function DashboardContent() {
   const router = useRouter()
   const { user, signOut } = useAuth()
   const { plan, canAccessFull, hasBillingAccount } = useSubscription()
@@ -33,73 +54,33 @@ export default function DashboardPage() {
   const limit = usePlanLimit(plan)
   const { prefectures, loading: prefLoading } = usePrefectures()
 
-  const [region, setRegion] = useState<Region>('hokkaido')
-  const [selectedPrefCode, setSelectedPrefCode] = useState<string>('')
-  const [selected, setSelected] = useState<MunicipalityWithStats | null>(null)
-  // ドリルダウン中の政令指定都市（区一覧を表示）。null のときは市区町村トップレベル。
-  const [expandedCity, setExpandedCity] = useState<string | null>(null)
+  // 表示状態（都道府県 / 政令市ドリル / 選択エリア）は URL クエリを単一の情報源として導出。
+  //   region / activePref / expandedCity / selected と、市区町村データ・派生一覧・
+  //   ドリル/選択アクションをまとめて取得する（詳細は useDashboardUrlState）。
+  const {
+    region,
+    regionPrefs,
+    activePref,
+    municipalities,
+    muniLoading,
+    designatedNames,
+    topLevel,
+    displayed,
+    expandedCity,
+    selected,
+    selectPref,
+    selectRegion,
+    exitCity,
+    closeArea,
+    handleSelect,
+  } = useDashboardUrlState(prefectures)
+
   // 請求ポータルへの遷移中フラグ
   const [portalLoading, setPortalLoading] = useState(false)
   // PDF 生成中フラグ（クライアント生成のため数百ms〜のロード）
   const [pdfLoading, setPdfLoading] = useState(false)
   // 注目町域 TOP20 スライドオーバーの開閉（Platinum のみ）
   const [highlightsOpen, setHighlightsOpen] = useState(false)
-
-  // リージョン内の都道府県（REGIONS で定義した地理的表示順）
-  const regionPrefs = useMemo(() => {
-    const def = REGIONS.find((r) => r.id === region)
-    if (!def) return []
-    const byCode = new Map(prefectures.map((p) => [p.code, p]))
-    return def.prefectures
-      .map((p) => byCode.get(p.code))
-      .filter((p): p is NonNullable<typeof p> => p != null)
-  }, [prefectures, region])
-
-  // リージョン切替時は先頭の都道府県をデフォルト選択
-  useEffect(() => {
-    if (regionPrefs.length === 0) return
-    if (!regionPrefs.some((p) => p.code === selectedPrefCode)) {
-      setSelectedPrefCode(regionPrefs[0].code)
-      setSelected(null)
-      setExpandedCity(null)
-    }
-  }, [regionPrefs, selectedPrefCode])
-
-  const activePref = prefectures.find((p) => p.code === selectedPrefCode) ?? regionPrefs[0]
-  const { municipalities, loading: muniLoading } = useMunicipalities(activePref?.code ?? '')
-
-  // ── 政令指定都市（区）の階層構造を名称から導出 ──
-  const cityNames = useMemo(() => new Set(municipalities.map((m) => m.name)), [municipalities])
-  // 「市」本体が同一都道府県内に存在する区のみを行政区として扱う
-  const isWard = useMemo(
-    () => (m: MunicipalityWithStats) => {
-      const w = parseWard(m.name)
-      return !!(w && cityNames.has(w.city))
-    },
-    [cityNames],
-  )
-  // 区を持つ政令市の名称集合（リストで展開シェブロンを表示する対象）
-  const designatedNames = useMemo(() => {
-    const s = new Set<string>()
-    for (const m of municipalities) {
-      const w = parseWard(m.name)
-      if (w && cityNames.has(w.city)) s.add(w.city)
-    }
-    return s
-  }, [municipalities, cityNames])
-
-  // トップレベル（区を除く）／ 指定都市ドリルダウン時はその区一覧
-  const topLevel = useMemo(
-    () => municipalities.filter((m) => !isWard(m)),
-    [municipalities, isWard],
-  )
-  const displayed = useMemo(() => {
-    if (!expandedCity) return topLevel
-    return municipalities.filter((m) => {
-      const w = parseWard(m.name)
-      return w && w.city === expandedCity
-    })
-  }, [expandedCity, topLevel, municipalities])
 
   // 無料プラン: トップレベル一覧の上位 visibleAreaLimit 件のみ閲覧可。
   // ドリルダウン（区一覧）中はロックしない（アクセス可能な政令市配下のため）。
@@ -173,36 +154,8 @@ export default function DashboardPage() {
     }
   }
 
-  // リスト項目クリック: 区を持つ政令市（トップレベル）はドリルダウン、それ以外は選択
-  function handleSelect(m: MunicipalityWithStats) {
-    if (!expandedCity && designatedNames.has(m.name)) {
-      setExpandedCity(m.name)
-      setSelected(null)
-      return
-    }
-    setSelected((prev) => (prev?.id === m.id ? null : m))
-  }
-
-  function handleBack() {
-    setExpandedCity(null)
-    setSelected(null)
-  }
-
-  function handlePrefSelect(code: string) {
-    setSelectedPrefCode(code)
-    setSelected(null)
-    setExpandedCity(null)
-  }
-
   if (prefLoading) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-slate-400 flex items-center gap-3 text-sm">
-          <RefreshCw className="w-5 h-5 animate-spin" />
-          読み込み中...
-        </div>
-      </div>
-    )
+    return <DashboardLoading />
   }
 
   return (
@@ -343,7 +296,7 @@ export default function DashboardPage() {
             {REGIONS.map((r) => (
               <button
                 key={r.id}
-                onClick={() => setRegion(r.id)}
+                onClick={() => selectRegion(r.id)}
                 className={`px-4 min-h-[44px] sm:min-h-0 sm:py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                   r.id === region
                     ? 'bg-blue-600 text-white'
@@ -357,8 +310,8 @@ export default function DashboardPage() {
           <div className="flex-shrink-0 w-full sm:w-auto">
             <PrefectureDropdown
               prefectures={regionPrefs}
-              selectedCode={selectedPrefCode}
-              onSelect={handlePrefSelect}
+              selectedCode={activePref?.code ?? ''}
+              onSelect={selectPref}
             />
           </div>
         </div>
@@ -402,7 +355,7 @@ export default function DashboardPage() {
               onSelect={handleSelect}
               expandableNames={designatedNames}
               drilldownCity={expandedCity}
-              onBack={handleBack}
+              onBack={exitCity}
               lockedFromIndex={lockedFromIndex}
               onLockedClick={() => router.push('/pricing')}
             />
@@ -423,7 +376,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Detail panel: モバイルは全画面オーバーレイ / デスクトップは右サイドパネル */}
-        <MunicipalityDetailPanel municipality={selected} onClose={() => setSelected(null)} />
+        <MunicipalityDetailPanel municipality={selected} onClose={closeArea} />
 
         {/* 注目町域 TOP20（Platinum・自己ゲート）。詳細パネルと同じ absolute オーバーレイで flex に干渉しない */}
         <TownHighlightsPanel
