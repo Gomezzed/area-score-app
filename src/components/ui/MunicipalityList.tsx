@@ -14,8 +14,6 @@ interface Props {
   // ドリルダウン中の政令市名（null のときはトップレベル表示）
   drilldownCity?: string | null
   onBack?: () => void
-  // 無料プラン制限: このインデックス以降の項目をロック表示する（null で無制限）
-  lockedFromIndex?: number | null
   // ロックされた項目クリック時のハンドラ（アップグレード導線）
   onLockedClick?: () => void
 }
@@ -27,7 +25,6 @@ export function MunicipalityList({
   expandableNames,
   drilldownCity,
   onBack,
-  lockedFromIndex = null,
   onLockedClick,
 }: Props) {
   const [search, setSearch] = useState('')
@@ -37,10 +34,9 @@ export function MunicipalityList({
     ? municipalities.filter((m) => m.name.toLowerCase().includes(q))
     : municipalities
 
-  // ロック判定は全体リスト内の順位で行う（検索で回避できないようにする）
-  const rankById = new Map(municipalities.map((m, i) => [m.id, i]))
-  const isLocked = (m: MunicipalityWithStats) =>
-    lockedFromIndex != null && (rankById.get(m.id) ?? 0) >= lockedFromIndex
+  // ロック判定はサーバー（get_municipalities_gated）が確定した m.locked を使用する。
+  //   Free 閲覧ルール v3 に従いロック行は数値が NULL 化されて届く。検索では回避できない。
+  const isLocked = (m: MunicipalityWithStats) => m.locked === true
 
   return (
     <div className="flex flex-col h-full">

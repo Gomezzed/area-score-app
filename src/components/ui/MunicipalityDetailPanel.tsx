@@ -10,14 +10,16 @@ import { TransactionSection } from './TransactionSection'
 import { TownPrioritySection } from './TownPrioritySection'
 import { StationDrilldownSection } from './StationDrilldownSection'
 import { MarketMetricsSection } from './MarketMetricsSection'
+import { type PlanId } from '@/lib/plans'
 import { X, Users, Home, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 
 interface Props {
   municipality: MunicipalityWithStats | null
   onClose: () => void
+  plan: PlanId
 }
 
-export function MunicipalityDetailPanel({ municipality: m, onClose }: Props) {
+export function MunicipalityDetailPanel({ municipality: m, onClose, plan }: Props) {
   const open = m != null
 
   return (
@@ -27,12 +29,12 @@ export function MunicipalityDetailPanel({ municipality: m, onClose }: Props) {
       }`}
       aria-hidden={!open}
     >
-      {m && <PanelBody m={m} onClose={onClose} />}
+      {m && <PanelBody m={m} onClose={onClose} plan={plan} />}
     </div>
   )
 }
 
-function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => void }) {
+function PanelBody({ m, onClose, plan }: { m: MunicipalityWithStats; onClose: () => void; plan: PlanId }) {
   const positive = (m.deltaRate ?? 0) >= 0
 
   return (
@@ -87,11 +89,13 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
           <Row icon={<Home className="w-4 h-4 text-blue-400" />} label={`世帯数（${CENSUS.latestLabel}）`} value={m.householdsLatest == null ? '—' : `${m.householdsLatest.toLocaleString('ja-JP')}世帯`} />
         </div>
 
-        {/* 人口推移（2015〜2025） — 不動産取引セクションの上に配置 */}
-        <PopulationSection municipalityId={m.id} />
+        {/* 人口推移（2015〜2025） — 不動産取引セクションの上に配置。
+            city_code をキーに get_population_history_gated 経由で取得（ロック対象は空集合）。 */}
+        <PopulationSection cityCode={m.city_code} />
 
-        {/* マンション取引履歴 */}
-        <TransactionSection municipalityId={m.id} />
+        {/* マンション取引履歴。free は real_estate_transactions を閲覧不可（starter+）のため
+            fetch 自体を発火させない（空振りリクエストとコンソールエラーを出さない）。 */}
+        <TransactionSection municipalityId={plan === 'free' ? null : m.id} />
 
         {/* 駅乗降客数（XKT015 集約値） — 不動産取引セクションの下に配置 */}
         <StationSection total={m.stationPassengersTotal} />
@@ -129,8 +133,8 @@ const formatMan = (v: number): string =>
     ? `${(v / 10000).toLocaleString('ja-JP', { maximumFractionDigits: 1 })}万`
     : v.toLocaleString('ja-JP')
 
-function PopulationSection({ municipalityId }: { municipalityId: string }) {
-  const { data, loading } = usePopulationHistory(municipalityId)
+function PopulationSection({ cityCode }: { cityCode: string | null }) {
+  const { data, loading } = usePopulationHistory(cityCode)
   const hasData = data.length > 0
 
   return (
