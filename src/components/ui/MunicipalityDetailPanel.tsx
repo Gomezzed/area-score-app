@@ -134,7 +134,7 @@ const formatMan = (v: number): string =>
     : v.toLocaleString('ja-JP')
 
 function PopulationSection({ cityCode }: { cityCode: string | null }) {
-  const { data, loading } = usePopulationHistory(cityCode)
+  const { data, loading, error } = usePopulationHistory(cityCode)
   const hasData = data.length > 0
 
   return (
@@ -148,14 +148,22 @@ function PopulationSection({ cityCode }: { cityCode: string | null }) {
         <div className="text-slate-500 text-sm py-8 text-center">読み込み中…</div>
       )}
 
-      {!loading && !hasData && (
+      {/* RPC 失敗（例: セッション未確立時の 401）は「準備中」と区別して明示する */}
+      {!loading && error && (
+        <div className="bg-slate-700/30 rounded-lg py-8 text-center">
+          <Users className="w-7 h-7 text-slate-600 mx-auto mb-2" />
+          <p className="text-amber-400 text-sm">読み込みに失敗しました。再読み込みしてください</p>
+        </div>
+      )}
+
+      {!loading && !error && !hasData && (
         <div className="bg-slate-700/30 rounded-lg py-8 text-center">
           <Users className="w-7 h-7 text-slate-600 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">データ準備中（順次公開）</p>
         </div>
       )}
 
-      {!loading && hasData && (
+      {!loading && !error && hasData && (
         <div className="bg-slate-700/30 rounded-lg p-3">
           <ResponsiveContainer width="100%" height={150}>
             <LineChart data={data} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
