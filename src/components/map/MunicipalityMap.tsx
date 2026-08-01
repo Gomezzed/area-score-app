@@ -184,12 +184,12 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
 
       {/* 増減率 凡例（ヒートマップ権限のある Standard 以上のみ表示） */}
       {canUseHeatmap && (
-        <div className="absolute bottom-6 left-3 sm:left-4 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-lg px-3 py-2 z-[1000]">
-          <div className="text-xs font-semibold text-slate-400 mb-2">人口増減率（{CENSUS.deltaRangeLabel}）</div>
+        <div className="absolute bottom-6 left-3 sm:left-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg px-3 py-2 z-[1000]">
+          <div className="text-xs font-semibold text-slate-500 mb-2">人口増減率（{CENSUS.deltaRangeLabel}）</div>
           {DELTA_BUCKETS.map((b) => (
             <div key={b.label} className="flex items-center gap-2 mb-1 last:mb-0">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: b.color }} />
-              <span className="text-xs text-slate-300">{b.label}</span>
+              <span className="text-xs text-slate-700">{b.label}</span>
             </div>
           ))}
         </div>

@@ -43,7 +43,7 @@ const RANK_STYLE: Record<string, string> = {
   A: 'bg-amber-500 text-white ring-2 ring-amber-300/40',
   B: 'bg-blue-500 text-white',
   C: 'bg-slate-500 text-white',
-  D: 'bg-slate-600 text-slate-300',
+  D: 'bg-slate-200 text-slate-600',
 }
 
 const fmtScore = (v: number | null): string => (v == null ? '—' : v.toFixed(1))
@@ -109,11 +109,11 @@ export function TownPrioritySection({
   const notReady = !muniCode6 || (!loading && !error && data != null && data.available === false)
 
   return (
-    <div className="mt-6 border-t border-slate-700 pt-5">
-      <h3 className="flex flex-wrap items-center gap-2 text-sm font-bold text-white mb-1">
-        <Target className="w-4 h-4 text-amber-400" />
+    <div className="mt-6 border-t border-slate-200 pt-5">
+      <h3 className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-900 mb-1">
+        <Target className="w-4 h-4 text-brand-700" />
         町域別 仕入れ優先度
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-900">
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FAEEDA] text-[#854F0B]">
           <Sparkles className="w-3 h-3" /> Platinum
         </span>
       </h3>
@@ -128,15 +128,15 @@ export function TownPrioritySection({
       )}
 
       {!notReady && !loading && error && (
-        <div className="bg-slate-700/30 rounded-lg py-6 text-center text-slate-500 text-sm">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg py-6 text-center text-slate-500 text-sm">
           読み込みに失敗しました
         </div>
       )}
 
       {notReady && (
-        <div className="bg-slate-700/30 rounded-lg py-6 px-4 text-center">
-          <Clock className="w-6 h-6 text-slate-600 mx-auto mb-2" />
-          <p className="text-slate-400 text-sm font-medium">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg py-6 px-4 text-center">
+          <Clock className="w-6 h-6 text-slate-400 mx-auto mb-2" />
+          <p className="text-slate-500 text-sm font-medium">
             {muniName ? `${muniName} の町域別データは現在準備中です` : '町域別データは現在準備中です'}
           </p>
           <p className="text-slate-500 text-[11px] mt-1">対応自治体から順次拡大しています。</p>
@@ -169,35 +169,35 @@ export function TownPrioritySection({
 
 function TownCard({ t }: { t: TownItem }) {
   const rank = t.inferred.priorityRank ?? '—'
-  const rankStyle = RANK_STYLE[rank] ?? 'bg-slate-600 text-slate-300'
+  const rankStyle = RANK_STYLE[rank] ?? 'bg-slate-200 text-slate-600'
   const emphasized = rank === 'S' || rank === 'A'
 
   return (
     <div
       className={`rounded-xl overflow-hidden border ${
-        emphasized ? 'border-amber-500/40' : 'border-slate-700'
-      } bg-slate-800/60`}
+        emphasized ? 'border-amber-300' : 'border-slate-200'
+      } bg-slate-50`}
     >
       {/* ヘッダー: ランク + 町名(+出張所) + 取得スコア */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-slate-700/40">
+      <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-200">
         <span className={`flex items-center justify-center w-7 h-7 rounded-lg text-sm font-black ${rankStyle}`}>
           {rank}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-white truncate">{t.townName}</div>
+          <div className="text-sm font-bold text-slate-900 truncate">{t.townName}</div>
           {t.officeName && <div className="text-[10px] text-slate-400 truncate">{t.officeName}</div>}
         </div>
         <div className="text-right flex-shrink-0">
-          <div className="text-[10px] text-amber-300/70 leading-none">推定 取得スコア</div>
-          <div className="text-base font-black text-amber-300 leading-tight">
+          <div className="text-[10px] text-[#854F0B]/80 leading-none">推定 取得スコア</div>
+          <div className="text-base font-black text-[#854F0B] leading-tight">
             {fmtScore(t.inferred.acquisitionScore)}
           </div>
         </div>
       </div>
 
       {/* 確定（事実）— 青帯。バッジなし（公表値そのもの） */}
-      <div className="px-3 py-2 border-l-4 border-blue-400">
-        <div className="text-[10px] font-bold text-blue-300 mb-1">確定（公表値・事実 / 増減は前年比）</div>
+      <div className="px-3 py-2 border-l-4 border-brand-700 bg-white">
+        <div className="text-[10px] font-bold text-brand-700 mb-1">確定（公表値・事実 / 増減は前年比）</div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
           <Fact label="世帯数" value={fmtInt(t.confirmed.households)} delta={t.confirmed.householdsYoyDelta} />
           <Fact label="人口" value={fmtInt(t.confirmed.population)} delta={t.confirmed.populationYoyDelta} />
@@ -205,24 +205,24 @@ function TownCard({ t }: { t: TownItem }) {
       </div>
 
       {/* 推定（参考値）— 橙帯。必ず「推定」バッジ + 計算根拠(reason) */}
-      <div className="px-3 py-2 border-l-4 border-amber-400 bg-amber-500/5">
+      <div className="px-3 py-2 border-l-4 border-amber-400 bg-[#FAEEDA]/40">
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-[10px] font-bold text-amber-300">推定（ルールベース）</span>
-          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/40">
+          <span className="text-[10px] font-bold text-[#854F0B]">推定（ルールベース）</span>
+          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-[#FAEEDA] text-[#854F0B] ring-1 ring-amber-300">
             推定
           </span>
         </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-300">
-          <span>需要 <b className="text-white">{fmtScore(t.inferred.demandScore)}</b></span>
-          <span>売却 <b className="text-white">{fmtScore(t.inferred.sellSignalScore)}</b></span>
-          <span>供給 <b className="text-white">{fmtScore(t.inferred.supplyEventScore)}</b></span>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
+          <span>需要 <b className="text-slate-900">{fmtScore(t.inferred.demandScore)}</b></span>
+          <span>売却 <b className="text-slate-900">{fmtScore(t.inferred.sellSignalScore)}</b></span>
+          <span>供給 <b className="text-slate-900">{fmtScore(t.inferred.supplyEventScore)}</b></span>
         </div>
         {t.inferred.reason && (
           <details className="mt-1.5">
-            <summary className="text-[10px] text-amber-300/80 cursor-pointer hover:text-amber-200 select-none">
+            <summary className="text-[10px] text-[#854F0B]/90 cursor-pointer hover:text-[#854F0B] select-none">
               計算根拠（推定）を見る
             </summary>
-            <p className="text-[10px] text-slate-400 mt-1 leading-relaxed whitespace-pre-wrap break-words">
+            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed whitespace-pre-wrap break-words">
               {t.inferred.reason}
             </p>
           </details>
@@ -237,7 +237,7 @@ function Fact({ label, value, delta }: { label: string; value: string; delta: nu
   return (
     <div className="flex items-center justify-between">
       <span className="text-slate-400">{label}</span>
-      <span className="text-white font-semibold inline-flex items-center">
+      <span className="text-slate-900 font-semibold inline-flex items-center">
         {value}
         {delta != null && (
           <span className={`ml-1 inline-flex items-center text-[10px] ${pos ? 'text-blue-400' : 'text-red-400'}`}>

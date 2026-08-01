@@ -11,7 +11,7 @@ import { FAQ } from '@/components/marketing/FAQ'
 import { ContactForm } from '@/components/marketing/ContactForm'
 import { Footer } from '@/components/marketing/Footer'
 
-const title = 'エリアスコア ｜「どのエリアで媒介を取るか」を、勘ではなく数字で決める。'
+const title = 'AreaScore ｜「どのエリアで媒介を取るか」を、勘ではなく数字で決める。'
 const description =
   '人口動態 × 駅乗降客数 × 不動産取引データをエリアスコアで可視化。営業エリアの意思決定を30分→5分に短縮する、不動産・マーケティング向け地域分析SaaS。先行申込受付中。'
 
@@ -23,9 +23,9 @@ export const metadata: Metadata = {
     description,
     type: 'website',
     locale: 'ja_JP',
-    siteName: 'エリアスコア',
-    // TODO(PO): public/lp/ogp.png（1200×630推奨）を用意して images に設定
-    // images: [{ url: '/lp/ogp.png', width: 1200, height: 630 }],
+    siteName: 'AreaScore',
+    // OG画像は src/app/opengraph-image.png（App Router のファイル規約）が自動付与するため
+    // ここでは images を手書きしない（二重指定を避ける）。
   },
   twitter: {
     card: 'summary_large_image',

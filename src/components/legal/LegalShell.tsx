@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { MapPin, ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 
 // /legal/* 共通シェル。LP のライトセクションと統一した白背景・slate 系の
 // 読みやすいレイアウト。375px でも崩れないレスポンシブ。
@@ -24,10 +25,7 @@ export function LegalShell({
       <header className="border-b border-slate-200">
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <MapPin className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-bold text-lg">エリアスコア</span>
+            <Logo size="md" />
           </Link>
           <Link
             href="/"
@@ -53,7 +51,7 @@ export function LegalShell({
           <ul className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-6">
             {LEGAL_LINKS.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className="text-sm text-slate-600 hover:text-blue-600 transition-colors">
+                <Link href={l.href} className="text-sm text-slate-600 hover:text-brand-700 transition-colors">
                   {l.label}
                 </Link>
               </li>

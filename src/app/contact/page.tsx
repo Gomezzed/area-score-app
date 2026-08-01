@@ -3,7 +3,7 @@ import { LandingHeader } from '@/components/landing/LandingHeader'
 import { ContactForm } from '@/components/marketing/ContactForm'
 import { Footer } from '@/components/marketing/Footer'
 
-const title = 'デモ・導入相談 | エリアスコア'
+const title = 'デモ・導入相談 | AreaScore'
 const description = 'Platinum プランの導入相談・デモのお申し込みはこちら。営業効率を3倍に短縮する不動産仲介向けAI分析SaaS。'
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     description,
     type: 'website',
     locale: 'ja_JP',
-    siteName: 'エリアスコア',
+    siteName: 'AreaScore',
   },
   twitter: {
     card: 'summary',
@@ -28,15 +28,15 @@ export default function ContactPage() {
     <main className="bg-white">
       <LandingHeader />
 
-      <section className="bg-gradient-to-b from-slate-900 to-slate-800 text-white py-16 sm:py-24">
+      <section className="bg-page-bg text-slate-900 py-16 sm:py-24 border-b border-slate-200">
         <div className="max-w-2xl mx-auto px-4 text-center">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
             Platinum プラン
           </h1>
-          <p className="text-xl text-slate-300 mb-2">
+          <p className="text-xl text-brand-700 mb-2">
             デモ・導入相談
           </p>
-          <p className="text-slate-400 max-w-xl mx-auto">
+          <p className="text-slate-500 max-w-xl mx-auto">
             エリア比較、商圏レポート、アラート機能を含む包括的なソリューション。
             デモや導入についてのご相談は、下記フォームからお気軽にお問い合わせください。
           </p>

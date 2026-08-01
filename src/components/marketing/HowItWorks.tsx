@@ -24,7 +24,7 @@ export function HowItWorks() {
             <div key={s.title} className="relative text-center">
               <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white border border-slate-200 mb-5">
                 <s.icon className="w-7 h-7 text-blue-600" />
-                <span className="absolute -top-2 -right-2 w-6 h-6 bg-blue-600 text-white rounded-full text-xs font-bold flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 w-6 h-6 bg-brand-700 text-white rounded-full text-xs font-bold flex items-center justify-center">
                   {i + 1}
                 </span>
               </div>

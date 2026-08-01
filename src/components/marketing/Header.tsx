@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { MapPin } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 
 // ① Header（sticky）
-//   スクロール時に bg-slate-900/80 + backdrop-blur へ切り替える。
+//   スクロール時に bg-white/85 + backdrop-blur へ切り替える。
 //   アンカー: 機能 / 料金 / FAQ / お問い合わせ
 const NAV = [
   { href: '#features', label: '機能' },
@@ -27,15 +27,12 @@ export function Header() {
   return (
     <header
       className={`sticky top-0 z-50 transition-colors duration-300 ${
-        scrolled ? 'bg-slate-900/80 backdrop-blur-md border-b border-slate-800' : 'bg-transparent'
+        scrolled ? 'bg-white/85 backdrop-blur-md border-b border-slate-200' : 'bg-transparent'
       }`}
     >
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="#top" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <MapPin className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-lg text-white">エリアスコア</span>
+          <Logo size="md" />
         </Link>
 
         <nav className="hidden md:flex items-center gap-6">
@@ -43,7 +40,7 @@ export function Header() {
             <a
               key={n.href}
               href={n.href}
-              className="text-sm text-slate-300 hover:text-white transition-colors"
+              className="text-sm text-slate-500 hover:text-slate-900 transition-colors"
             >
               {n.label}
             </a>
@@ -53,13 +50,13 @@ export function Header() {
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/login"
-            className="hidden sm:inline text-sm text-slate-300 hover:text-white transition-colors px-2 py-1"
+            className="hidden sm:inline text-sm text-slate-500 hover:text-slate-900 transition-colors px-2 py-1"
           >
             ログイン
           </Link>
           <a
             href="#contact"
-            className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg px-3 sm:px-4 py-2 transition-colors"
+            className="text-sm bg-brand-700 hover:bg-brand-500 text-white font-medium rounded-lg px-3 sm:px-4 py-2 transition-colors"
           >
             無料でデモを見る
           </a>

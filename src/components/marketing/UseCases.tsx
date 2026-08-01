@@ -35,7 +35,7 @@ export function UseCases() {
         <div className="grid gap-6 md:grid-cols-3">
           {CASES.map((c) => (
             <div key={c.persona} className="rounded-2xl border border-slate-200 bg-slate-50 p-8 flex flex-col">
-              <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mb-5">
+              <div className="w-12 h-12 rounded-xl bg-brand-700 flex items-center justify-center mb-5">
                 <c.icon className="w-6 h-6 text-white" />
               </div>
               <p className="text-blue-600 text-xs font-bold mb-2">{c.persona}</p>

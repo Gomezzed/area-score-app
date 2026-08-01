@@ -156,10 +156,10 @@ export function MarketMetricsSection({ muniCode }: { muniCode: string | null }) 
 
   if (loading || error) {
     return (
-      <div className="mt-6 border-t border-slate-700 pt-5">
+      <div className="mt-6 border-t border-slate-200 pt-5">
         {loading && <div className="text-slate-500 text-sm py-4 text-center">相場データ読み込み中…</div>}
         {!loading && error && (
-          <div className="bg-slate-700/30 rounded-lg py-4 text-center text-slate-500 text-sm">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg py-4 text-center text-slate-500 text-sm">
             相場データの読み込みに失敗しました
           </div>
         )}
@@ -197,9 +197,9 @@ function LandPriceBlock({ series }: { series: LandPoint[] }) {
   }))
 
   return (
-    <div className="mt-6 border-t border-slate-700 pt-5">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-white mb-3">
-        <Landmark className="w-4 h-4 text-blue-400" />
+    <div className="mt-6 border-t border-slate-200 pt-5">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-3">
+        <Landmark className="w-4 h-4 text-brand-700" />
         公示価格（確定・{latest.year}年）
       </h3>
 
@@ -209,7 +209,7 @@ function LandPriceBlock({ series }: { series: LandPoint[] }) {
       </div>
 
       {series.length >= 2 && (
-        <div className="bg-slate-700/30 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <ResponsiveContainer width="100%" height={130}>
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
@@ -247,9 +247,9 @@ function LandStat({ label, value, prevValue }: { label: string; value?: number; 
   const positive = (delta ?? 0) >= 0
 
   return (
-    <div className="bg-slate-700/50 rounded-lg p-3 text-center">
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
       <div className="text-[11px] text-slate-400">{label}</div>
-      <div className="text-lg font-black text-white mt-0.5">
+      <div className="text-lg font-black text-slate-900 mt-0.5">
         {has ? value.toLocaleString('ja-JP') : '—'}
         <span className="text-[10px] font-bold text-slate-400 ml-0.5">円/㎡</span>
       </div>
@@ -279,13 +279,13 @@ function TradePriceBlock({
   const asOfLatest = series[series.length - 1]
 
   return (
-    <div className="mt-6 border-t border-slate-700 pt-5">
+    <div className="mt-6 border-t border-slate-200 pt-5">
       <div className="flex flex-wrap items-center gap-2 mb-1">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-          <Coins className="w-4 h-4 text-amber-400" />
+        <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+          <Coins className="w-4 h-4 text-[#854F0B]" />
           取引価格中央値（参考・{asOfLatest.year}年Q{asOfLatest.quarter}）
         </h3>
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/40">
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FAEEDA] text-[#854F0B]">
           参考
         </span>
       </div>
@@ -300,7 +300,7 @@ function TradePriceBlock({
       </div>
 
       {series.length >= 2 && (
-        <div className="bg-slate-700/30 rounded-lg p-3">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <ResponsiveContainer width="100%" height={130}>
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
@@ -330,10 +330,10 @@ function TradePriceBlock({
 
 function TradeStatRow({ label, entry }: { label: string; entry?: TradeLatestEntry }) {
   return (
-    <div className="flex items-center justify-between bg-slate-700/30 rounded-lg px-3 py-2 border-l-4 border-amber-400/60">
-      <span className="text-xs text-slate-300">{label}</span>
+    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 border-l-4 border-amber-400">
+      <span className="text-xs text-slate-500">{label}</span>
       <div className="text-right">
-        <div className="text-sm font-bold text-white">
+        <div className="text-sm font-bold text-slate-900">
           {entry ? entry.value.toLocaleString('ja-JP') : '—'}
           <span className="text-[10px] font-bold text-slate-400 ml-0.5">円/㎡</span>
         </div>

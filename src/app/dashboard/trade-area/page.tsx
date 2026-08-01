@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { MapPin, ArrowLeft, FileText, Sparkles, Info, Lock, Loader2 } from 'lucide-react'
+import { ArrowLeft, FileText, Sparkles, Info, Lock, Loader2 } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
 import { usePrefectures, useMunicipalities } from '@/hooks/useCensus'
 import { PrefectureDropdown } from '@/components/ui/PrefectureDropdown'
@@ -38,11 +39,11 @@ interface AreaSummary {
 }
 
 const RANK_CHIP: Record<string, string> = {
-  S: 'bg-rose-500/20 text-rose-300 ring-rose-400/40',
-  A: 'bg-amber-500/20 text-amber-300 ring-amber-400/40',
-  B: 'bg-blue-500/20 text-blue-300 ring-blue-400/40',
-  C: 'bg-slate-500/20 text-slate-300 ring-slate-400/30',
-  D: 'bg-slate-600/20 text-slate-400 ring-slate-500/30',
+  S: 'bg-rose-50 text-rose-700 ring-rose-200',
+  A: 'bg-[#FAEEDA] text-[#854F0B] ring-amber-300',
+  B: 'bg-brand-100 text-brand-700 ring-brand-300',
+  C: 'bg-slate-100 text-slate-600 ring-slate-300',
+  D: 'bg-slate-100 text-slate-600 ring-slate-300',
 }
 
 export default function TradeAreaPage() {
@@ -103,24 +104,22 @@ export default function TradeAreaPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <header className="bg-slate-800 border-b border-slate-700">
+    <div className="min-h-screen bg-page-bg text-slate-900">
+      <header className="bg-white border-b border-slate-200">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <MapPin className="w-4 h-4 text-white" />
-            </div>
+            <Logo size="sm" showWordmark={false} />
             <h1 className="flex items-center gap-2 font-bold text-base truncate">
-              <FileText className="w-4 h-4 text-amber-400" />
+              <FileText className="w-4 h-4 text-brand-700" />
               商圏レポート
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-900">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#FAEEDA] text-[#854F0B]">
                 <Sparkles className="w-3 h-3" /> Platinum
               </span>
             </h1>
           </div>
           <Link
             href="/dashboard"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-slate-500 hover:text-brand-700 hover:bg-slate-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">ダッシュボードへ戻る</span>
@@ -134,8 +133,8 @@ export default function TradeAreaPage() {
         ) : (
           <>
             {/* 市区町村選択 */}
-            <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 mb-6">
-              <div className="text-xs font-bold text-slate-300 mb-2">対象の市区町村を選択</div>
+            <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
+              <div className="text-xs font-bold text-slate-500 mb-2">対象の市区町村を選択</div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <PrefectureDropdown
                   prefectures={prefectures as never}
@@ -153,11 +152,11 @@ export default function TradeAreaPage() {
                     setSummary(null)
                   }}
                   disabled={!prefCode || municipalities.length === 0}
-                  className="flex-1 rounded-lg bg-slate-700 border border-slate-600 text-white text-sm px-3 py-2 disabled:opacity-50 focus:outline-none focus:border-blue-500"
+                  className="flex-1 rounded-lg bg-white border border-slate-300 text-slate-900 text-sm px-3 py-2 disabled:opacity-50 focus:outline-none focus:border-brand-700"
                 >
                   <option value="">{prefCode ? '市区町村を選択' : '都道府県を先に選択'}</option>
                   {municipalities.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-slate-800">
+                    <option key={m.id} value={m.id} className="bg-white">
                       {m.name}
                     </option>
                   ))}
@@ -166,12 +165,12 @@ export default function TradeAreaPage() {
             </div>
 
             {!muniId && (
-              <div className="bg-slate-800/60 border border-slate-700 rounded-xl py-12 text-center text-slate-400 text-sm">
+              <div className="bg-white border border-slate-200 rounded-xl py-12 text-center text-slate-500 text-sm">
                 商圏レポートを作成する市区町村を選択してください。
               </div>
             )}
             {muniId && error && (
-              <div className="bg-slate-800/60 border border-slate-700 rounded-xl py-12 text-center text-slate-400 text-sm">
+              <div className="bg-white border border-slate-200 rounded-xl py-12 text-center text-slate-500 text-sm">
                 {error}
               </div>
             )}
@@ -185,7 +184,7 @@ export default function TradeAreaPage() {
                   <button
                     onClick={handleDownloadPDF}
                     disabled={pdfLoading}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 disabled:opacity-60 text-slate-900 text-sm font-bold transition-colors"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand-700 hover:bg-brand-500 disabled:opacity-60 text-white text-sm font-bold transition-colors"
                   >
                     {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                     PDFをダウンロード
@@ -205,16 +204,16 @@ function Preview({ summary, prefName }: { summary: AreaSummary; prefName: string
   const inf = summary.inferred
   return (
     <div className="space-y-5">
-      <div className="text-lg font-bold text-white">
+      <div className="text-lg font-bold text-slate-900">
         {[prefName, summary.name].filter(Boolean).join(' ')}
       </div>
 
       {/* 確定セクション（青） */}
       <section className="rounded-xl overflow-hidden border border-blue-500/30">
-        <div className="bg-blue-500/10 border-l-4 border-blue-400 px-4 py-2">
-          <h2 className="text-sm font-bold text-blue-200">確定（公表値・事実）</h2>
+        <div className="bg-brand-100 border-l-4 border-brand-700 px-4 py-2">
+          <h2 className="text-sm font-bold text-brand-700">確定（公表値・事実）</h2>
         </div>
-        <div className="divide-y divide-slate-700/60">
+        <div className="divide-y divide-slate-100">
           <Row label={`人口（${CENSUS.latestLabel}）`} value={formatPopulation(c.popLatest)} />
           <Row label={`人口（${CENSUS.prevLabel}）`} value={formatPopulation(c.popPrev)} />
           <Row label={`人口（${CENSUS.prev2Label}）`} value={formatPopulation(c.popPrev2)} />
@@ -226,10 +225,10 @@ function Preview({ summary, prefName }: { summary: AreaSummary; prefName: string
       </section>
 
       {/* 推定セクション（橙＋推定バッジ） */}
-      <section className="rounded-xl overflow-hidden border border-amber-500/30">
-        <div className="bg-amber-500/10 border-l-4 border-amber-400 px-4 py-2 flex items-center gap-2">
-          <h2 className="text-sm font-bold text-amber-200">推定（ルールベース・参考値）</h2>
-          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/40">
+      <section className="rounded-xl overflow-hidden border border-amber-300">
+        <div className="bg-[#FAEEDA]/50 border-l-4 border-amber-400 px-4 py-2 flex items-center gap-2">
+          <h2 className="text-sm font-bold text-[#854F0B]">推定（ルールベース・参考値）</h2>
+          <span className="px-1 py-0.5 rounded text-[9px] font-bold bg-[#FAEEDA] text-[#854F0B] ring-1 ring-amber-300">
             推定
           </span>
         </div>
@@ -241,8 +240,8 @@ function Preview({ summary, prefName }: { summary: AreaSummary; prefName: string
           ) : (
             <div className="space-y-2">
               <div className="flex items-baseline justify-between">
-                <span className="text-[11px] text-amber-300/80">最高 取得スコア（推定）</span>
-                <span className="text-xl font-black text-amber-300">
+                <span className="text-[11px] text-[#854F0B]/80">最高 取得スコア（推定）</span>
+                <span className="text-xl font-black text-[#854F0B]">
                   {inf.topAcquisitionScore == null ? '—' : inf.topAcquisitionScore.toFixed(1)}
                 </span>
               </div>
@@ -259,7 +258,7 @@ function Preview({ summary, prefName }: { summary: AreaSummary; prefName: string
               </div>
               {inf.topReason && (
                 <details>
-                  <summary className="text-[10px] text-amber-300/80 cursor-pointer hover:text-amber-200 select-none">
+                  <summary className="text-[10px] text-[#854F0B]/90 cursor-pointer hover:text-[#854F0B] select-none">
                     最高スコア町域の計算根拠（推定）を見る
                   </summary>
                   <p className="text-[10px] text-slate-400 mt-1 leading-relaxed whitespace-pre-wrap break-words">
@@ -290,17 +289,17 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function GatedFallback() {
   return (
-    <div className="bg-slate-800/60 border border-slate-700 rounded-xl py-16 px-6 text-center max-w-md mx-auto">
-      <Lock className="w-10 h-10 text-amber-400 mx-auto mb-4" />
+    <div className="bg-white border border-slate-200 rounded-xl py-16 px-6 text-center max-w-md mx-auto">
+      <Lock className="w-10 h-10 text-brand-700 mx-auto mb-4" />
       <h2 className="text-lg font-bold mb-2">商圏レポートは Platinum 限定です</h2>
       <p className="text-slate-400 text-sm mb-6 leading-relaxed">
         選択した市区町村の商圏サマリを PDF 出力できる機能です。Platinum プランでご利用いただけます。
       </p>
       <div className="flex items-center justify-center gap-3">
-        <Link href="/pricing" className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors">
+        <Link href="/pricing" className="px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors">
           プランを見る
         </Link>
-        <Link href="/dashboard" className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm transition-colors">
+        <Link href="/dashboard" className="px-4 py-2 rounded-lg bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 text-sm transition-colors">
           ダッシュボードへ戻る
         </Link>
       </div>
