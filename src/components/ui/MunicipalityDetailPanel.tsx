@@ -73,7 +73,7 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
             </span>
           </div>
           <div className="flex items-center justify-between mt-2 text-sm">
-            <span className="text-slate-400">人口増減数</span>
+            <span className="text-slate-500">人口増減数</span>
             <span className={m.delta == null ? 'text-slate-500' : positive ? 'text-blue-400' : 'text-red-400'}>
               {formatDelta(m.delta)}
             </span>
@@ -116,10 +116,13 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
 }
 
 // 人口推移（2015〜2025）折れ線グラフ
+// グラフのツールチップ（クローム）。系列色はデータ色のため別途据え置く。
 const TOOLTIP_STYLE = {
-  backgroundColor: '#1e293b',
-  border: '1px solid #475569',
+  backgroundColor: '#ffffff',
+  border: '1px solid #e2e8f0',
   borderRadius: '0.5rem',
+  boxShadow: '0 2px 8px rgb(15 23 42 / 0.12)',
+  color: '#0f172a',
   fontSize: '12px',
 }
 
@@ -155,10 +158,10 @@ function PopulationSection({ municipalityId }: { municipalityId: string }) {
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <ResponsiveContainer width="100%" height={150}>
             <LineChart data={data} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-              <XAxis dataKey="year" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#475569' }} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="year" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
               <YAxis
-                tick={{ fill: '#94a3b8', fontSize: 11 }}
+                tick={{ fill: '#64748b', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 width={48}
@@ -167,7 +170,7 @@ function PopulationSection({ municipalityId }: { municipalityId: string }) {
               />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
-                labelStyle={{ color: '#e2e8f0' }}
+                labelStyle={{ color: '#64748b' }}
                 formatter={(v) => [`${Number(v).toLocaleString('ja-JP')}人`, '人口']}
                 labelFormatter={(l) => `${l}年`}
               />

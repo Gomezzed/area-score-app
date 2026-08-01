@@ -152,7 +152,7 @@ export function TownHighlightsPanel({
         {notReady && (
           <div className="bg-slate-50 border border-slate-200 rounded-lg py-8 px-4 text-center">
             <Clock className="w-7 h-7 text-slate-400 mx-auto mb-2" />
-            <p className="text-slate-400 text-sm font-medium">
+            <p className="text-slate-500 text-sm font-medium">
               {muniName ? `${muniName} の町域別データは現在準備中です` : '町域別データは現在準備中です'}
             </p>
             <p className="text-slate-500 text-[11px] mt-1">対応自治体から順次拡大しています。</p>
@@ -211,7 +211,7 @@ function HighlightRow({ t, hasPrev }: { t: HighlightItem; hasPrev: boolean }) {
       </div>
 
       {/* 確定（事実）— 青帯。前年比のみ */}
-      <div className="px-3 py-1.5 border-l-4 border-blue-400">
+      <div className="px-3 py-1.5 border-l-4 border-brand-700 bg-white">
         <div className="flex items-center gap-3 text-[11px]">
           <span className="text-[10px] font-bold text-brand-700">確定（前年比）</span>
           <Yoy label="世帯" delta={t.confirmed.householdsYoyDelta} />
@@ -234,7 +234,7 @@ function HighlightRow({ t, hasPrev }: { t: HighlightItem; hasPrev: boolean }) {
             <summary className="text-[10px] text-[#854F0B]/90 cursor-pointer hover:text-[#854F0B] select-none">
               計算根拠（推定）を見る
             </summary>
-            <p className="text-[10px] text-slate-400 mt-1 leading-relaxed whitespace-pre-wrap break-words">
+            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed whitespace-pre-wrap break-words">
               {t.inferred.reason}
             </p>
           </details>
@@ -249,7 +249,7 @@ function Yoy({ label, delta }: { label: string; delta: number | null }) {
   const pos = (delta ?? 0) >= 0
   return (
     <span className="inline-flex items-center gap-0.5 text-slate-500">
-      <span className="text-slate-400">{label}</span>
+      <span className="text-slate-500">{label}</span>
       {delta == null ? (
         <span className="text-slate-500">—</span>
       ) : (

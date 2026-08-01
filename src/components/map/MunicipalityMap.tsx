@@ -125,10 +125,12 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
           ? 'データなし'
           : `${m.deltaRate > 0 ? '+' : ''}${m.deltaRate.toFixed(2)}%`
         circle.bindPopup(
+          // ラベル文言は #64748b、本文（市区町村名・人口）は #0f172a。
+          // 増減率の「数値」だけは heatColor（データ色）のまま据え置く。
           `<div style="font-family:sans-serif;min-width:150px">
-            <div style="font-weight:bold;font-size:14px;margin-bottom:4px">${m.name}</div>
-            <div style="font-size:13px">人口(${CENSUS.latestShort}): <b>${formatPopulation(m.popLatest)}</b></div>
-            <div style="font-size:12px;color:${heatColor}">増減率: <b>${rateStr}</b></div>
+            <div style="font-weight:bold;font-size:14px;margin-bottom:4px;color:#0f172a">${m.name}</div>
+            <div style="font-size:13px;color:#64748b">人口(${CENSUS.latestShort}): <b style="color:#0f172a">${formatPopulation(m.popLatest)}</b></div>
+            <div style="font-size:12px;color:#64748b">増減率: <b style="color:${heatColor}">${rateStr}</b></div>
           </div>`,
           { className: 'muni-popup' },
         )

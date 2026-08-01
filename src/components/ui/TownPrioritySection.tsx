@@ -236,7 +236,7 @@ function Fact({ label, value, delta }: { label: string; value: string; delta: nu
   const pos = (delta ?? 0) >= 0
   return (
     <div className="flex items-center justify-between">
-      <span className="text-slate-400">{label}</span>
+      <span className="text-slate-500">{label}</span>
       <span className="text-slate-900 font-semibold inline-flex items-center">
         {value}
         {delta != null && (

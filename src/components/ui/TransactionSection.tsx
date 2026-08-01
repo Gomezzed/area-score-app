@@ -36,7 +36,7 @@ export function TransactionSection({ municipalityId }: Props) {
         <div className="bg-slate-50 border border-slate-200 rounded-lg py-8 text-center">
           <Building2 className="w-7 h-7 text-slate-400 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">データなし</p>
-          <p className="text-slate-400 text-xs mt-1">
+          <p className="text-slate-500 text-xs mt-1">
             この市区町村の中古マンション取引データはありません
           </p>
         </div>
@@ -65,7 +65,7 @@ export function TransactionSection({ municipalityId }: Props) {
                   value={`${fmt(latest.avgPricePerSqm, 1)}万円/㎡`}
                 />
                 <SummaryCard
-                  icon={<Square className="w-3.5 h-3.5 text-purple-400" />}
+                  icon={<Square className="w-3.5 h-3.5 text-purple-600" />}
                   label="平均面積"
                   value={`${fmt(latest.avgAreaSqm, 1)}㎡`}
                 />
@@ -77,13 +77,13 @@ export function TransactionSection({ municipalityId }: Props) {
           <ChartBlock title="年別取引件数">
             <ResponsiveContainer width="100%" height={150}>
               <BarChart data={yearly} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="year" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#475569' }} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis dataKey="year" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
                 <Tooltip
                   cursor={{ fill: 'rgba(148,163,184,0.1)' }}
                   contentStyle={TOOLTIP_STYLE}
-                  labelStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#64748b' }}
                   formatter={(v) => [`${fmt(Number(v), 0)}件`, '取引件数']}
                   labelFormatter={(l) => `${l}年`}
                 />
@@ -96,12 +96,12 @@ export function TransactionSection({ municipalityId }: Props) {
           <ChartBlock title="年別平均㎡単価推移（万円/㎡）">
             <ResponsiveContainer width="100%" height={150}>
               <LineChart data={yearly} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="year" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#475569' }} tickLine={false} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={40} domain={['auto', 'auto']} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis dataKey="year" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={40} domain={['auto', 'auto']} />
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE}
-                  labelStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#64748b' }}
                   formatter={(v) => [`${fmt(Number(v), 1)}万円/㎡`, '平均㎡単価']}
                   labelFormatter={(l) => `${l}年`}
                 />
@@ -123,10 +123,13 @@ export function TransactionSection({ municipalityId }: Props) {
   )
 }
 
+// グラフのツールチップ（クローム）。系列色はデータ色のため別途据え置く。
 const TOOLTIP_STYLE = {
-  backgroundColor: '#1e293b',
-  border: '1px solid #475569',
+  backgroundColor: '#ffffff',
+  border: '1px solid #e2e8f0',
   borderRadius: '0.5rem',
+  boxShadow: '0 2px 8px rgb(15 23 42 / 0.12)',
+  color: '#0f172a',
   fontSize: '12px',
 }
 

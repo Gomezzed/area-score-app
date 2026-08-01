@@ -35,7 +35,7 @@ export default function PricingPage() {
             先行申込受付中（2026年8月31日まで）
           </span>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">料金プラン</h1>
-          <p className="text-slate-400 mt-3">
+          <p className="text-slate-500 mt-3">
             不動産仲介の意思決定に必要なデータを、最適なプランで。
           </p>
         </div>
@@ -53,10 +53,10 @@ export default function PricingPage() {
             return (
               <div
                 key={plan.id}
-                className={`relative rounded-2xl border p-6 sm:p-8 flex flex-col h-full ${
-                  highlight
-                    ? 'border-brand-700 bg-white shadow-lg md:scale-105'
-                    : 'border-slate-200 bg-white'
+                // おすすめ枠は border 2px #1E3F66 のみで表現する（影・拡大・背景の色付けはしない）。
+                // 背景は他プランと同じ白。
+                className={`relative rounded-2xl p-6 sm:p-8 flex flex-col h-full bg-white ${
+                  highlight ? 'border-2 border-brand-700' : 'border border-slate-200'
                 }`}
               >
                 {highlight && (
@@ -82,7 +82,7 @@ export default function PricingPage() {
                 </div>
                 {plan.regularPriceLabel && (
                   <p className="text-slate-500 text-sm mb-6">
-                    通常 <span className="line-through">{plan.regularPriceLabel}</span> / 月（税抜）
+                    通常 <span className="line-through text-slate-400">{plan.regularPriceLabel}</span> / 月（税抜）
                   </p>
                 )}
 

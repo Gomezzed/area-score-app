@@ -64,7 +64,7 @@ export default function RegisterPage() {
               <Logo size="lg" />
             </Link>
           </h1>
-          <p className="text-slate-400 mt-2">アカウント作成</p>
+          <p className="text-slate-500 mt-2">アカウント作成</p>
         </div>
 
         {done ? (
@@ -72,7 +72,7 @@ export default function RegisterPage() {
             <div className="text-emerald-600 text-lg font-semibold mb-2">
               確認メールを送信しました
             </div>
-            <p className="text-slate-400 text-sm mb-6">
+            <p className="text-slate-500 text-sm mb-6">
               メール内のリンクをクリックして登録を完了してください。
             </p>
             <Link
@@ -88,7 +88,7 @@ export default function RegisterPage() {
             className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200"
           >
             {error && (
-              <div className="bg-red-900/50 border border-red-700 text-red-300 rounded-lg p-3 mb-6 text-sm whitespace-pre-wrap break-all">
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-3 mb-6 text-sm whitespace-pre-wrap break-all">
                 {error}
               </div>
             )}

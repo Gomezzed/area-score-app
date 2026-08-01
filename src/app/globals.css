@@ -20,14 +20,32 @@ html, body {
   height: 100%;
 }
 
-/* Leaflet popup custom style */
-.area-popup .leaflet-popup-content-wrapper {
+/* Leaflet popup のクローム（吹き出しの器）のみライト化。
+   セレクタは MunicipalityMap の bindPopup({ className: 'muni-popup' }) に対応。
+   ※ 中身の増減率の数値はデータ色（deltaColor）なので CSS では色指定しない。 */
+.muni-popup .leaflet-popup-content-wrapper {
   background: #ffffff;
   color: #0f172a;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.12);
 }
 
-.area-popup .leaflet-popup-tip {
+/* tip（三角）は背景と同色。Leaflet 既定の濃い影を打ち消す。 */
+.muni-popup .leaflet-popup-tip {
   background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+}
+
+/* Leaflet CDN 側は `.leaflet-container a.leaflet-popup-close-button`(0,2,1) で
+   閉じるボタンを着色している。こちらを (0,3,1) にして確実に上書きする
+   （<link> に precedence が無く読み込み順に頼れないため、特異度で勝たせる）。 */
+.leaflet-container .muni-popup a.leaflet-popup-close-button {
+  color: #94a3b8;
+}
+
+.leaflet-container .muni-popup a.leaflet-popup-close-button:hover,
+.leaflet-container .muni-popup a.leaflet-popup-close-button:focus {
+  color: #0f172a;
 }

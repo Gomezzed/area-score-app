@@ -14,7 +14,7 @@ export function HowItWorks() {
     <section className="bg-slate-50 text-slate-900">
       <div className="max-w-6xl mx-auto px-4 py-20 sm:py-24">
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <p className="text-blue-600 font-semibold text-sm mb-3">使い方</p>
+          <p className="text-brand-700 font-semibold text-sm mb-3">使い方</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             登録から出力まで、4ステップ。
           </h2>
@@ -23,7 +23,7 @@ export function HowItWorks() {
           {STEPS.map((s, i) => (
             <div key={s.title} className="relative text-center">
               <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white border border-slate-200 mb-5">
-                <s.icon className="w-7 h-7 text-blue-600" />
+                <s.icon className="w-7 h-7 text-brand-700" />
                 <span className="absolute -top-2 -right-2 w-6 h-6 bg-brand-700 text-white rounded-full text-xs font-bold flex items-center justify-center">
                   {i + 1}
                 </span>

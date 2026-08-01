@@ -26,10 +26,13 @@ interface MarketMetricsResponse {
 
 const MUNI_CODE_RE = /^[0-9]{5}$/
 
+// グラフのツールチップ（クローム）。系列色はデータ色のため別途据え置く。
 const TOOLTIP_STYLE = {
-  backgroundColor: '#1e293b',
-  border: '1px solid #475569',
+  backgroundColor: '#ffffff',
+  border: '1px solid #e2e8f0',
   borderRadius: '0.5rem',
+  boxShadow: '0 2px 8px rgb(15 23 42 / 0.12)',
+  color: '#0f172a',
   fontSize: '12px',
 }
 
@@ -212,10 +215,10 @@ function LandPriceBlock({ series }: { series: LandPoint[] }) {
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <ResponsiveContainer width="100%" height={130}>
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-              <XAxis dataKey="year" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={{ stroke: '#475569' }} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="year" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
               <YAxis
-                tick={{ fill: '#94a3b8', fontSize: 11 }}
+                tick={{ fill: '#64748b', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 width={44}
@@ -223,7 +226,7 @@ function LandPriceBlock({ series }: { series: LandPoint[] }) {
               />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
-                labelStyle={{ color: '#e2e8f0' }}
+                labelStyle={{ color: '#64748b' }}
                 formatter={(v, name) => [`${Number(v).toLocaleString('ja-JP')}円/㎡`, name]}
                 labelFormatter={(l) => `${l}年`}
               />
@@ -303,10 +306,10 @@ function TradePriceBlock({
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <ResponsiveContainer width="100%" height={130}>
             <LineChart data={chartData} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-              <XAxis dataKey="key" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={{ stroke: '#475569' }} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="key" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
               <YAxis
-                tick={{ fill: '#94a3b8', fontSize: 11 }}
+                tick={{ fill: '#64748b', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 width={44}
@@ -314,7 +317,7 @@ function TradePriceBlock({
               />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
-                labelStyle={{ color: '#e2e8f0' }}
+                labelStyle={{ color: '#64748b' }}
                 formatter={(v, name) => [`${Number(v).toLocaleString('ja-JP')}円/㎡`, name]}
               />
               <Line type="monotone" dataKey="中古マンション等" stroke="#fbbf24" strokeWidth={2} dot={{ r: 2 }} connectNulls />
@@ -330,7 +333,7 @@ function TradePriceBlock({
 
 function TradeStatRow({ label, entry }: { label: string; entry?: TradeLatestEntry }) {
   return (
-    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 border-l-4 border-amber-400">
+    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-400">
       <span className="text-xs text-slate-500">{label}</span>
       <div className="text-right">
         <div className="text-sm font-bold text-slate-900">

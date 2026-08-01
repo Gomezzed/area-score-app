@@ -120,7 +120,7 @@ export default function HelpPage() {
             <BookOpen className="w-6 h-6 text-brand-700" />
             使い方ガイド
           </h2>
-          <p className="text-slate-400 mt-1 text-sm">
+          <p className="text-slate-500 mt-1 text-sm">
             エリアスコア分析ダッシュボードの機能・用語・操作方法を説明します。
           </p>
         </div>
@@ -228,7 +228,7 @@ export default function HelpPage() {
             {FAQS.map(({ q, a }) => (
               <div key={q} className="border-b border-slate-100 last:border-0 pb-5 last:pb-0">
                 <p className="text-slate-900 text-sm font-medium mb-2">Q. {q}</p>
-                <p className="text-slate-400 text-sm leading-relaxed">A. {a}</p>
+                <p className="text-slate-500 text-sm leading-relaxed">A. {a}</p>
               </div>
             ))}
           </div>

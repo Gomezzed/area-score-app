@@ -27,7 +27,7 @@ export function Solution() {
     <section className="bg-slate-50 text-slate-900">
       <div className="max-w-6xl mx-auto px-4 py-20 sm:py-24">
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <p className="text-blue-600 font-semibold text-sm mb-3">エリアスコアの仕組み</p>
+          <p className="text-brand-700 font-semibold text-sm mb-3">エリアスコアの仕組み</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             3つの公的データを、1つの「エリアスコア」に。
           </h2>

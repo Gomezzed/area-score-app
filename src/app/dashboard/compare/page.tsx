@@ -225,7 +225,7 @@ function Comparison({ a, b }: { a: AreaResult | null; b: AreaResult | null }) {
   return (
     <div className="space-y-6">
       {/* 確定セクション（青・両エリア対等） */}
-      <section className="rounded-xl overflow-hidden border border-blue-500/30">
+      <section className="rounded-xl overflow-hidden border border-brand-300">
         <div className="bg-brand-100 border-l-4 border-brand-700 px-4 py-2">
           <h2 className="text-sm font-bold text-brand-700">確定（公表値・国勢調査）</h2>
           <p className="text-[11px] text-slate-500 mt-0.5">事実データ。両エリアを対等に比較します。</p>
@@ -307,7 +307,7 @@ function InferredCard({ area }: { area: AreaResult | null }) {
       {!inf || !inf.hasData ? (
         // 「データなし」をエラーにせず、前向き・中立な文言で（他社デモで製品が壊れて見えないように）。
         <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-4 text-center">
-          <p className="text-slate-400 text-xs leading-relaxed">
+          <p className="text-slate-500 text-xs leading-relaxed">
             このエリアの詳細スコア（町域別）は順次対応予定です。
           </p>
         </div>
@@ -338,7 +338,7 @@ function InferredCard({ area }: { area: AreaResult | null }) {
               <summary className="text-[10px] text-[#854F0B]/90 cursor-pointer hover:text-[#854F0B] select-none">
                 最高スコア町域の計算根拠（推定）を見る
               </summary>
-              <p className="text-[10px] text-slate-400 mt-1 leading-relaxed whitespace-pre-wrap break-words">
+              <p className="text-[10px] text-slate-500 mt-1 leading-relaxed whitespace-pre-wrap break-words">
                 {inf.topReason}
               </p>
             </details>
@@ -354,7 +354,7 @@ function GatedFallback() {
     <div className="bg-white border border-slate-200 rounded-xl py-16 px-6 text-center max-w-md mx-auto">
       <Lock className="w-10 h-10 text-brand-700 mx-auto mb-4" />
       <h2 className="text-lg font-bold mb-2">エリア比較は Platinum 限定です</h2>
-      <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+      <p className="text-slate-500 text-sm mb-6 leading-relaxed">
         2つの市区町村を並べて比較できる機能です。Platinum プランでご利用いただけます。
       </p>
       <div className="flex items-center justify-center gap-3">

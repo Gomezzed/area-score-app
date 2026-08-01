@@ -95,10 +95,8 @@ export function Pricing() {
           {PLANS.map((plan) => (
             <div
               key={plan.id}
-              className={`relative rounded-2xl border p-6 flex flex-col h-full transition-all ${
-                plan.recommended
-                  ? 'border-brand-700 bg-white ring-1 ring-brand-300'
-                  : 'border-slate-200 bg-white'
+              className={`relative rounded-2xl p-6 flex flex-col h-full transition-all bg-white ${
+                plan.recommended ? 'border-2 border-brand-700' : 'border border-slate-200'
               }`}
             >
               {plan.recommended && (
@@ -112,10 +110,10 @@ export function Pricing() {
               <div className="mt-4 mb-1">
                 <span className="text-2xl font-bold">{plan.monthly}</span>
               </div>
-              <p className="text-slate-400 text-xs mb-5 min-h-4">
+              <p className="text-slate-500 text-xs mb-5 min-h-4">
                 {plan.regular ? (
                   <>
-                    通常 <span className="line-through">{plan.regular}</span> / 月（税抜）
+                    通常 <span className="line-through text-slate-400">{plan.regular}</span> / 月（税抜）
                   </>
                 ) : null}
               </p>
