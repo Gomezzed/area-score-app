@@ -257,7 +257,7 @@ function LandStat({ label, value, prevValue }: { label: string; value?: number; 
         <span className="text-[10px] font-bold text-slate-400 ml-0.5">円/㎡</span>
       </div>
       {delta != null && (
-        <div className={`text-[11px] font-bold mt-0.5 ${positive ? 'text-blue-400' : 'text-red-400'}`}>
+        <div className={`text-[11px] font-bold mt-0.5 ${positive ? 'text-delta-up' : 'text-delta-down'}`}>
           {positive ? '+' : ''}
           {delta.toFixed(1)}%（前年比）
         </div>

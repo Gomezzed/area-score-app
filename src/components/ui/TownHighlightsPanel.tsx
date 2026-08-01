@@ -253,7 +253,7 @@ function Yoy({ label, delta }: { label: string; delta: number | null }) {
       {delta == null ? (
         <span className="text-slate-500">—</span>
       ) : (
-        <span className={`inline-flex items-center ${pos ? 'text-blue-400' : 'text-red-400'}`}>
+        <span className={`inline-flex items-center ${pos ? 'text-delta-up' : 'text-delta-down'}`}>
           {pos ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
           {pos ? '+' : ''}
           {delta.toLocaleString('ja-JP')}

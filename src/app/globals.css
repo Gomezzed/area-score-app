@@ -10,6 +10,12 @@
 
   /* ページ背景（サーフェスは白、それ以外のUIは Tailwind 標準の slate で足りる） */
   --color-page-bg: #f6f8fa;
+
+  /* 増減の「テキスト専用」データ色。文字として読む箇所のみに使う。
+     塗り（地図ピン・凡例ドット＝DELTA_BUCKETS / deltaColor）とは別管理で、
+     塗り側の値は絶対に変更しない。背景色として使わないこと。 */
+  --color-delta-up: #185fa5;
+  --color-delta-down: #a32d2d;
 }
 
 * {
@@ -48,4 +54,45 @@ html, body {
 .leaflet-container .muni-popup a.leaflet-popup-close-button:hover,
 .leaflet-container .muni-popup a.leaflet-popup-close-button:focus {
   color: #0f172a;
+}
+
+/* ── Leaflet コントロール類のライト化 ──
+   値は指定どおり。ただし素直に書くと CDN 既定と特異度が同じ(0,1,0)/(0,1,1)になり、
+   <link> に precedence が無いため読み込み順次第で負ける（実測で6項目が負けていた）。
+   そこで .leaflet-container / html を1段かぶせて特異度で確実に勝たせている。 */
+html .leaflet-container {
+  background: #f6f8fa; /* CDN: .leaflet-container{background:#ddd} (0,1,0) に勝つ */
+}
+
+.leaflet-container .leaflet-control-zoom a {
+  background: #ffffff;
+  color: #334155;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.10);
+}
+
+.leaflet-container .leaflet-control-zoom a:hover {
+  background: #f1f5f9;
+}
+
+/* CDN は非タッチ時 .leaflet-bar に 0 1px 5px rgba(0,0,0,.65)、
+   タッチ時は .leaflet-touch .leaflet-bar に 2px solid rgba(0,0,0,.2) を当てる。
+   どちらも濃色なのでライト側の値に合わせる。 */
+.leaflet-container .leaflet-bar {
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.10);
+}
+
+.leaflet-container.leaflet-touch .leaflet-bar {
+  border: 2px solid #e2e8f0;
+}
+
+/* CDN 側の背景指定も `.leaflet-container .leaflet-control-attribution`(0,2,0) と
+   同特異度なので、html を足して (0,2,1) にしないと引き分け＝順序負けする。 */
+html .leaflet-container .leaflet-control-attribution {
+  background: rgb(255 255 255 / 0.85);
+  color: #64748b;
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: #1e3f66; /* CDN: .leaflet-container a{color:#0078A8} (0,1,1) に勝つ */
 }

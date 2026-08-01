@@ -62,19 +62,19 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {positive ? (
-                <TrendingUp className="w-5 h-5 text-brand-700" />
+                <TrendingUp className="w-5 h-5 text-delta-up" />
               ) : (
-                <TrendingDown className="w-5 h-5 text-red-400" />
+                <TrendingDown className="w-5 h-5 text-delta-down" />
               )}
               <span className="text-sm text-slate-500">人口増減率（{CENSUS.deltaRangeLabel}）</span>
             </div>
-            <span className={`text-xl font-bold ${m.deltaRate == null ? 'text-slate-500' : positive ? 'text-blue-400' : 'text-red-400'}`}>
+            <span className={`text-xl font-bold ${m.deltaRate == null ? 'text-slate-500' : positive ? 'text-delta-up' : 'text-delta-down'}`}>
               {m.deltaRate == null ? '—' : `${positive ? '+' : ''}${m.deltaRate.toFixed(2)}%`}
             </span>
           </div>
           <div className="flex items-center justify-between mt-2 text-sm">
             <span className="text-slate-500">人口増減数</span>
-            <span className={m.delta == null ? 'text-slate-500' : positive ? 'text-blue-400' : 'text-red-400'}>
+            <span className={m.delta == null ? 'text-slate-500' : positive ? 'text-delta-up' : 'text-delta-down'}>
               {formatDelta(m.delta)}
             </span>
           </div>

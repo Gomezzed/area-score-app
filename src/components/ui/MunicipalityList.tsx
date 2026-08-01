@@ -78,7 +78,7 @@ export function MunicipalityList({
       <div className="flex-1 overflow-y-auto">
         {filtered.map((m) => {
           const positive = (m.deltaRate ?? 0) >= 0
-          const rateColor = m.deltaRate == null ? 'text-slate-500' : positive ? 'text-blue-400' : 'text-red-400'
+          const rateColor = m.deltaRate == null ? 'text-slate-500' : positive ? 'text-delta-up' : 'text-delta-down'
           const expandable = !drilldownCity && expandableNames?.has(m.name)
           const ward = drilldownCity ? parseWard(m.name) : null
           const displayName = ward ? ward.ward : m.name

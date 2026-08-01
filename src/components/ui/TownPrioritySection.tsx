@@ -240,7 +240,7 @@ function Fact({ label, value, delta }: { label: string; value: string; delta: nu
       <span className="text-slate-900 font-semibold inline-flex items-center">
         {value}
         {delta != null && (
-          <span className={`ml-1 inline-flex items-center text-[10px] ${pos ? 'text-blue-400' : 'text-red-400'}`}>
+          <span className={`ml-1 inline-flex items-center text-[10px] ${pos ? 'text-delta-up' : 'text-delta-down'}`}>
             {pos ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             {pos ? '+' : ''}
             {delta.toLocaleString('ja-JP')}

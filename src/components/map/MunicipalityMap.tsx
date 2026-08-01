@@ -124,13 +124,20 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
         const rateStr = m.deltaRate == null
           ? 'データなし'
           : `${m.deltaRate > 0 ? '+' : ''}${m.deltaRate.toFixed(2)}%`
+        // 文字として読む増減率は「テキスト専用」のデータ色を使う（塗り=deltaColor とは別管理）。
+        // globals.css の @theme が :root に出す変数を参照し、値の二重管理を避ける。
+        const rateTextColor = m.deltaRate == null
+          ? '#64748b'
+          : m.deltaRate >= 0
+            ? 'var(--color-delta-up)'
+            : 'var(--color-delta-down)'
         circle.bindPopup(
           // ラベル文言は #64748b、本文（市区町村名・人口）は #0f172a。
-          // 増減率の「数値」だけは heatColor（データ色）のまま据え置く。
+          // 増減率の「数値」はテキスト専用データ色（rateTextColor）。ピンの塗りは heatColor のまま。
           `<div style="font-family:sans-serif;min-width:150px">
             <div style="font-weight:bold;font-size:14px;margin-bottom:4px;color:#0f172a">${m.name}</div>
             <div style="font-size:13px;color:#64748b">人口(${CENSUS.latestShort}): <b style="color:#0f172a">${formatPopulation(m.popLatest)}</b></div>
-            <div style="font-size:12px;color:#64748b">増減率: <b style="color:${heatColor}">${rateStr}</b></div>
+            <div style="font-size:12px;color:#64748b">増減率: <b style="color:${rateTextColor}">${rateStr}</b></div>
           </div>`,
           { className: 'muni-popup' },
         )
