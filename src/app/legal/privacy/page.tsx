@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { LegalShell, LegalHeading, LegalParagraph } from '@/components/legal/LegalShell'
 
 export const metadata: Metadata = {
-  title: 'プライバシーポリシー ｜ エリアスコア',
+  title: 'プライバシーポリシー ｜ AreaScore',
   description: 'エリアスコアのプライバシーポリシー',
 }
 

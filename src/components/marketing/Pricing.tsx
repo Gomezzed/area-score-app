@@ -3,7 +3,7 @@ import { Check } from 'lucide-react'
 import { CheckoutButton } from '@/components/ui/CheckoutButton'
 import type { PaidPlanId } from '@/lib/plans'
 
-// ⑧ Pricing（ダーク）— 正式リリース向け 4プラン構成
+// ⑧ Pricing（ライト）— 正式リリース向け 4プラン構成
 //   Free / Starter / Standard / Platinum。Standard を「おすすめ」バッジ＋ボーダーで強調。
 //   有料プランは先行申込価格（2026/8/31 までのご契約に適用・契約継続中据え置き）を
 //   主表示し、通常価格を打ち消し線で併記する。
@@ -79,14 +79,14 @@ const PLANS: PricingPlan[] = [
 
 export function Pricing() {
   return (
-    <section id="pricing" className="bg-slate-900 text-white scroll-mt-16">
+    <section id="pricing" className="bg-page-bg text-slate-900 scroll-mt-16">
       <div className="max-w-6xl mx-auto px-4 py-20 sm:py-24">
         <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-blue-400 font-semibold text-sm mb-3">料金プラン</p>
+          <p className="text-brand-700 font-semibold text-sm mb-3">料金プラン</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             事業規模に合わせて選べる4プラン。
           </h2>
-          <p className="text-blue-300 text-sm mt-4">
+          <p className="text-brand-700 text-sm mt-4">
             2026年8月31日までにご契約いただいた価格は、契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
           </p>
         </div>
@@ -95,14 +95,12 @@ export function Pricing() {
           {PLANS.map((plan) => (
             <div
               key={plan.id}
-              className={`relative rounded-2xl border p-6 flex flex-col h-full transition-all ${
-                plan.recommended
-                  ? 'border-blue-500 bg-slate-800 ring-1 ring-blue-500/40'
-                  : 'border-slate-700 bg-slate-800/60'
+              className={`relative rounded-2xl p-6 flex flex-col h-full transition-all bg-white ${
+                plan.recommended ? 'border-2 border-brand-700' : 'border border-slate-200'
               }`}
             >
               {plan.recommended && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-700 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
                   おすすめ
                 </span>
               )}
@@ -115,15 +113,15 @@ export function Pricing() {
               <p className="text-slate-500 text-xs mb-5 min-h-4">
                 {plan.regular ? (
                   <>
-                    通常 <span className="line-through">{plan.regular}</span> / 月（税抜）
+                    通常 <span className="line-through text-slate-400">{plan.regular}</span> / 月（税抜）
                   </>
                 ) : null}
               </p>
 
               <ul className="space-y-2.5 mb-6 flex-1">
                 {plan.features.map((feat) => (
-                  <li key={feat.label} className="flex items-start gap-2 text-sm text-slate-200">
-                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <li key={feat.label} className="flex items-start gap-2 text-sm text-slate-700">
+                    <Check className="w-4 h-4 text-brand-700 flex-shrink-0 mt-0.5" />
                     <span>{feat.label}</span>
                   </li>
                 ))}
@@ -132,7 +130,7 @@ export function Pricing() {
               {plan.cta.checkoutPlan ? (
                 <CheckoutButton
                   plan={plan.cta.checkoutPlan}
-                  className="w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors bg-slate-700 hover:bg-slate-600 text-white mt-auto"
+                  className="w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 mt-auto"
                 >
                   {plan.cta.label}
                 </CheckoutButton>
@@ -141,8 +139,8 @@ export function Pricing() {
                   href={plan.cta.href ?? '/register'}
                   className={`w-full text-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors mt-auto ${
                     plan.recommended
-                      ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                      : 'bg-slate-700 hover:bg-slate-600 text-white'
+                      ? 'bg-brand-700 hover:bg-brand-500 text-white'
+                      : 'bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700'
                   }`}
                 >
                   {plan.cta.label}
@@ -152,7 +150,7 @@ export function Pricing() {
           ))}
         </div>
 
-        <p className="text-center text-xs text-slate-500 mt-8">
+        <p className="text-center text-xs text-slate-400 mt-8">
           ※表示価格はすべて税抜です。別途消費税がかかります。プランの変更・解約はダッシュボードからいつでも可能です。
         </p>
       </div>

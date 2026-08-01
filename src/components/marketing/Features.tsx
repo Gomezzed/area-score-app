@@ -30,7 +30,7 @@ export function Features() {
     <section id="features" className="bg-white text-slate-900 scroll-mt-16">
       <div className="max-w-6xl mx-auto px-4 py-20 sm:py-24">
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <p className="text-blue-600 font-semibold text-sm mb-3">主な機能</p>
+          <p className="text-brand-700 font-semibold text-sm mb-3">主な機能</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             意思決定に必要な情報を、ひとつの画面に。
           </h2>
@@ -39,10 +39,10 @@ export function Features() {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="rounded-2xl border border-slate-200 bg-white p-7 hover:border-blue-300 hover:shadow-lg transition-all"
+              className="rounded-2xl border border-slate-200 bg-white p-7 hover:border-brand-300 hover:shadow-lg transition-all"
             >
-              <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mb-5">
-                <f.icon className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 rounded-xl bg-brand-100 flex items-center justify-center mb-5">
+                <f.icon className="w-6 h-6 text-brand-700" />
               </div>
               <h3 className="text-base font-bold mb-2">{f.title}</h3>
               <p className="text-slate-600 text-sm leading-relaxed">{f.body}</p>

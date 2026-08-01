@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'エリアスコア分析ダッシュボード',
+  title: 'AreaScore 分析ダッシュボード',
   description: '都市エリアのスコアリング・分析ツール',
 }
 

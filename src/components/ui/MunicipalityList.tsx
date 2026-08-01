@@ -43,34 +43,34 @@ export function MunicipalityList({
     lockedFromIndex != null && (rankById.get(m.id) ?? 0) >= lockedFromIndex
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white">
       {/* ドリルダウン中: 戻るヘッダー */}
       {drilldownCity && (
         <button
           onClick={onBack}
-          className="flex items-center gap-2 w-full px-3 min-h-[44px] py-2 bg-slate-700/60 hover:bg-slate-700 border-b border-slate-700 text-left transition-colors"
+          className="flex items-center gap-2 w-full px-3 min-h-[44px] py-2 bg-slate-50 hover:bg-slate-100 border-b border-slate-100 text-left transition-colors"
         >
-          <ArrowLeft className="w-4 h-4 text-blue-400 flex-shrink-0" />
-          <span className="text-sm font-medium text-white truncate">{drilldownCity}</span>
+          <ArrowLeft className="w-4 h-4 text-brand-700 flex-shrink-0" />
+          <span className="text-sm font-medium text-slate-900 truncate">{drilldownCity}</span>
           <span className="text-xs text-slate-400 ml-auto flex-shrink-0">区一覧</span>
         </button>
       )}
 
       {/* 検索 */}
-      <div className="p-3 border-b border-slate-700">
+      <div className="p-3 border-b border-slate-100">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={drilldownCity ? '区名で検索…' : '市区町村名で検索…'}
-            className="w-full pl-8 pr-3 min-h-[44px] sm:min-h-0 py-2 sm:py-1.5 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            className="w-full pl-8 pr-3 min-h-[44px] sm:min-h-0 py-2 sm:py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-brand-700"
           />
         </div>
       </div>
 
-      <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-700">
+      <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-100">
         {filtered.length} {drilldownCity ? '区' : '市区町村'}
       </div>
 
@@ -78,7 +78,7 @@ export function MunicipalityList({
       <div className="flex-1 overflow-y-auto">
         {filtered.map((m) => {
           const positive = (m.deltaRate ?? 0) >= 0
-          const rateColor = m.deltaRate == null ? 'text-slate-500' : positive ? 'text-blue-400' : 'text-red-400'
+          const rateColor = m.deltaRate == null ? 'text-slate-500' : positive ? 'text-delta-up' : 'text-delta-down'
           const expandable = !drilldownCity && expandableNames?.has(m.name)
           const ward = drilldownCity ? parseWard(m.name) : null
           const displayName = ward ? ward.ward : m.name
@@ -90,7 +90,7 @@ export function MunicipalityList({
               <button
                 key={m.id}
                 onClick={() => onLockedClick?.()}
-                className="w-full text-left px-3 min-h-[44px] py-2.5 border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors relative group"
+                className="w-full text-left px-3 min-h-[44px] py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors relative group"
                 title="アップグレードして全データを表示"
               >
                 <div className="select-none blur-[3px] opacity-60 pointer-events-none">
@@ -100,9 +100,9 @@ export function MunicipalityList({
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                         style={{ backgroundColor: deltaColor(m.deltaRate) }}
                       />
-                      <span className="text-sm font-medium text-white truncate">{displayName}</span>
+                      <span className="text-sm font-medium text-slate-900 truncate">{displayName}</span>
                     </div>
-                    <span className="text-sm font-bold text-white whitespace-nowrap ml-2">
+                    <span className="text-sm font-bold text-slate-900 whitespace-nowrap ml-2">
                       {formatPopulation(m.popLatest)}
                     </span>
                   </div>
@@ -110,8 +110,8 @@ export function MunicipalityList({
                     <span className={`text-xs font-semibold ${rateColor}`}>▲ —%</span>
                   </div>
                 </div>
-                <span className="absolute inset-0 flex items-center justify-center gap-1.5 text-xs font-medium text-slate-300">
-                  <Lock className="w-3.5 h-3.5 text-blue-400" />
+                <span className="absolute inset-0 flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500">
+                  <Lock className="w-3.5 h-3.5 text-brand-700" />
                   アップグレードで表示
                 </span>
               </button>
@@ -122,8 +122,8 @@ export function MunicipalityList({
             <button
               key={m.id}
               onClick={() => onSelect(m)}
-              className={`w-full text-left px-3 min-h-[44px] py-2.5 border-b border-slate-700/50 hover:bg-slate-700/50 transition-colors ${
-                selectedId === m.id ? 'bg-slate-700' : ''
+              className={`w-full text-left px-3 min-h-[44px] py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors ${
+                selectedId === m.id ? 'bg-slate-100' : ''
               }`}
             >
               <div className="flex items-center justify-between mb-0.5">
@@ -132,18 +132,18 @@ export function MunicipalityList({
                     className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{ backgroundColor: deltaColor(m.deltaRate) }}
                   />
-                  <span className="text-sm font-medium text-white truncate">{displayName}</span>
+                  <span className="text-sm font-medium text-slate-900 truncate">{displayName}</span>
                   {expandable && (
-                    <span className="text-[10px] text-slate-400 bg-slate-700 rounded px-1 py-px flex-shrink-0">
+                    <span className="text-[10px] text-slate-500 bg-slate-100 rounded px-1 py-px flex-shrink-0">
                       政令市
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                  <span className="text-sm font-bold text-white whitespace-nowrap">
+                  <span className="text-sm font-bold text-slate-900 whitespace-nowrap">
                     {formatPopulation(m.popLatest)}
                   </span>
-                  {expandable && <ChevronRight className="w-4 h-4 text-slate-500" />}
+                  {expandable && <ChevronRight className="w-4 h-4 text-slate-400" />}
                 </div>
               </div>
               <div className="flex items-center justify-between pl-[1.125rem]">

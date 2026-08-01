@@ -24,7 +24,7 @@ export function Problem() {
     <section className="bg-white text-slate-900">
       <div className="max-w-6xl mx-auto px-4 py-20 sm:py-24">
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <p className="text-blue-600 font-semibold text-sm mb-3">よくある課題</p>
+          <p className="text-brand-700 font-semibold text-sm mb-3">よくある課題</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             エリアの意思決定、まだ「勘」で進めていませんか？
           </h2>

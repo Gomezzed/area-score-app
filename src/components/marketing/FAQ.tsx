@@ -38,7 +38,7 @@ export function FAQ() {
     <section id="faq" className="bg-slate-50 text-slate-900 scroll-mt-16">
       <div className="max-w-3xl mx-auto px-4 py-20 sm:py-24">
         <div className="text-center mb-12">
-          <p className="text-blue-600 font-semibold text-sm mb-3">よくあるご質問</p>
+          <p className="text-brand-700 font-semibold text-sm mb-3">よくあるご質問</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">FAQ</h2>
         </div>
         <div className="space-y-3">

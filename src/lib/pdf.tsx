@@ -20,6 +20,7 @@ import {
   Text,
   Font,
   StyleSheet,
+  Image as PdfImage,
   pdf,
 } from '@react-pdf/renderer'
 import type { MunicipalityWithStats, Prefecture } from '@/types'
@@ -47,10 +48,10 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 12,
     borderBottomWidth: 1.5,
-    borderBottomColor: '#1e3a8a',
+    borderBottomColor: '#1e3f66',
     paddingBottom: 6,
   },
-  title: { fontFamily: 'NotoSansJP', fontSize: 15, color: '#1e3a8a' },
+  title: { fontFamily: 'NotoSansJP', fontSize: 15, color: '#1e3f66' },
   subtitle: { fontFamily: 'NotoSansJP', fontSize: 9, color: '#334155', marginTop: 3 },
   meta: { fontFamily: 'NotoSansJP', fontSize: 7.5, color: '#64748b', marginTop: 2 },
   // ── テーブル ──
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
   },
   headRow: {
     flexDirection: 'row',
-    backgroundColor: '#1e3a8a',
+    backgroundColor: '#1e3f66',
     minHeight: 18,
     alignItems: 'center',
   },
@@ -230,8 +231,7 @@ export async function downloadAreaScorePDF(
 //   - 既存 Font.register('NotoSansJP') と pdf().toBlob() 作法を踏襲（同モジュールで再利用）。
 //   - 原則1: 確定（公表値・事実）と推定（ルールベース参考値）を PDF 内でも明確に分離。
 //     推定セクションには「推定」表記＋根拠(reason)＋免責を付け、確定と混ぜない。
-//   - pdfLogo エンタイトルメント時はブランド文字ヘッダを差し込む（画像ロゴ資産が未用意のため
-//     現状はテキストのブランドマーク。資産が来たら <Image> に差し替え可）。
+//   - pdfLogo エンタイトルメント時はブランドマーク画像を差し込む（public/brand/areascore-mark.png）。
 // ============================================================
 
 export interface TradeAreaConfirmed {
@@ -263,7 +263,7 @@ export interface TradeAreaSummary {
 }
 
 const taStyles = StyleSheet.create({
-  brand: { fontFamily: 'NotoSansJP', fontSize: 10, color: '#1e3a8a', marginBottom: 2 },
+  brandMark: { width: 18, height: 18, marginBottom: 3 },
   sectionHead: {
     fontFamily: 'NotoSansJP',
     fontSize: 11,
@@ -272,7 +272,7 @@ const taStyles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 4,
   },
-  confirmedHead: { backgroundColor: '#eff6ff', borderLeftWidth: 3, borderLeftColor: '#3b82f6', color: '#1e3a8a' },
+  confirmedHead: { backgroundColor: '#e8eff6', borderLeftWidth: 3, borderLeftColor: '#1e3f66', color: '#1e3f66' },
   inferredHead: { backgroundColor: '#fff7ed', borderLeftWidth: 3, borderLeftColor: '#f59e0b', color: '#9a3412' },
   metricRow: {
     flexDirection: 'row',
@@ -307,7 +307,7 @@ function TradeAreaReport({ summary }: { summary: TradeAreaSummary }) {
       <Page size="A4" style={styles.page}>
         {/* ヘッダー（pdfLogo 時はブランド文字ヘッダ） */}
         <View style={styles.header} fixed>
-          {summary.withLogo && <Text style={taStyles.brand}>エリアスコア</Text>}
+          {summary.withLogo && <PdfImage src="/brand/areascore-mark.png" style={taStyles.brandMark} />}
           <Text style={styles.title}>商圏レポート</Text>
           <Text style={styles.subtitle}>対象エリア: {areaTitle || '—'}</Text>
           <Text style={styles.meta}>生成日: {generated}</Text>
