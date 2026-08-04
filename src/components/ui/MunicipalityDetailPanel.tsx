@@ -5,7 +5,6 @@ import {
 } from 'recharts'
 import { MunicipalityWithStats } from '@/types'
 import { formatPopulation, formatDelta, deltaColor, CENSUS } from '@/lib/census'
-import { usePopulationHistory } from '@/hooks/usePopulationHistory'
 import { TransactionSection } from './TransactionSection'
 import { TownPrioritySection } from './TownPrioritySection'
 import { StationDrilldownSection } from './StationDrilldownSection'
@@ -87,8 +86,8 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
           <Row icon={<Home className="w-4 h-4 text-brand-700" />} label={`世帯数（${CENSUS.latestLabel}）`} value={m.householdsLatest == null ? '—' : `${m.householdsLatest.toLocaleString('ja-JP')}世帯`} />
         </div>
 
-        {/* 人口推移（2015〜2025） — 不動産取引セクションの上に配置 */}
-        <PopulationSection municipalityId={m.id} />
+        {/* 人口推移（国勢調査 実測3時点） — 不動産取引セクションの上に配置 */}
+        <PopulationSection m={m} />
 
         {/* マンション取引履歴 */}
         <TransactionSection municipalityId={m.id} />
@@ -115,7 +114,7 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
   )
 }
 
-// 人口推移（2015〜2025）折れ線グラフ
+// 人口推移 折れ線グラフ（国勢調査 2015 / 2020 / 2025 の実測3時点）
 // グラフのツールチップ（クローム）。系列色はデータ色のため別途据え置く。
 const TOOLTIP_STYLE = {
   backgroundColor: '#ffffff',
@@ -132,29 +131,35 @@ const formatMan = (v: number): string =>
     ? `${(v / 10000).toLocaleString('ja-JP', { maximumFractionDigits: 1 })}万`
     : v.toLocaleString('ja-JP')
 
-function PopulationSection({ municipalityId }: { municipalityId: string }) {
-  const { data, loading } = usePopulationHistory(municipalityId)
+// 原則1: 確定(国勢調査の実測値)のみを描画する。年次の補間・外挿は行わない。
+// 実測が欠ける年（福島の避難指示区域＝2015欠 / 旧浜松市の行政区＝2025欠 等）は
+// 点を落とし、3点とも欠ける場合のみフォールバック表示に落ちる。
+function PopulationSection({ m }: { m: MunicipalityWithStats }) {
+  const points: { year: number; population: number | null }[] = [
+    { year: CENSUS.prev2, population: m.popPrev2 },
+    { year: CENSUS.prev, population: m.popPrev },
+    { year: CENSUS.latest, population: m.popLatest },
+  ]
+  const data = points.filter(
+    (p): p is { year: number; population: number } => p.population != null,
+  )
   const hasData = data.length > 0
 
   return (
     <div className="mt-5">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 mb-3">
         <Users className="w-4 h-4 text-brand-700" />
-        人口推移（2015〜2025）
+        人口推移（{CENSUS.prev2} / {CENSUS.prev} / {CENSUS.latest}）
       </h3>
 
-      {loading && (
-        <div className="text-slate-500 text-sm py-8 text-center">読み込み中…</div>
-      )}
-
-      {!loading && !hasData && (
+      {!hasData && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg py-8 text-center">
           <Users className="w-7 h-7 text-slate-300 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">データ準備中（順次公開）</p>
         </div>
       )}
 
-      {!loading && hasData && (
+      {hasData && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <ResponsiveContainer width="100%" height={150}>
             <LineChart data={data} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
@@ -181,10 +186,13 @@ function PopulationSection({ municipalityId }: { municipalityId: string }) {
                 strokeWidth={2}
                 dot={{ r: 3, fill: '#60a5fa' }}
                 activeDot={{ r: 5 }}
-                connectNulls
               />
             </LineChart>
           </ResponsiveContainer>
+          <p className="text-slate-500 text-[11px] mt-2 leading-relaxed">
+            出典: 総務省統計局 国勢調査{CENSUS.isPreliminary && `（${CENSUS.latest}年は速報値）`}。
+            調査年の実測値のみを表示しています（年次の補間・推定は行っていません）。
+          </p>
         </div>
       )}
     </div>
