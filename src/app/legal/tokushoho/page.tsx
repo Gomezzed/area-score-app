@@ -7,8 +7,12 @@ export const metadata: Metadata = {
 }
 
 const ROWS: { label: string; value: string }[] = [
-  { label: '販売事業者', value: 'Crouch Boost（クラウチブースト）' },
-  { label: '運営責任者', value: '村上 里輝' },
+  { label: '販売事業者', value: 'Crouching Style' },
+  {
+    label: '運営責任者',
+    value:
+      '請求があった場合、遅滞なく開示いたします。開示をご希望の方は下記メールアドレスまでご連絡ください。',
+  },
   {
     label: '所在地',
     value:
@@ -20,6 +24,7 @@ const ROWS: { label: string; value: string }[] = [
       '請求があった場合、遅滞なく開示いたします。開示をご希望の方は下記メールアドレスまでご連絡ください。',
   },
   { label: 'メールアドレス', value: 'info@crouchingstyle.com' },
+  // TODO(2026-08-31): 先行申込価格の期限到来時、販売価格を通常価格（税抜 50,000 / 100,000 / 300,000）へ更新する
   {
     label: '販売価格',
     value:
@@ -50,7 +55,7 @@ const ROWS: { label: string; value: string }[] = [
 
 export default function TokushohoPage() {
   return (
-    <LegalShell title="特定商取引法に基づく表記">
+    <LegalShell title="特定商取引法に基づく表記" established="2026年6月11日 制定／2026年8月5日 改定">
       <div className="overflow-hidden rounded-xl border border-slate-200">
         <table className="w-full table-fixed border-collapse text-[15px]">
           <tbody>
