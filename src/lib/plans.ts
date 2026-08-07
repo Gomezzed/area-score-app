@@ -99,6 +99,8 @@ export interface PlanEntitlements {
   visibleAreaLimit: number | null
   canExportPdf: boolean
   canExportCsv: boolean
+  // Google Sheets へのワンクリック出力。CSV と同格（Standard 以上）。
+  canExportSheets: boolean
   canUseHeatmap: boolean
   // 契約に含まれる利用ID（席）数
   seatLimit: number
@@ -119,6 +121,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     visibleAreaLimit: FREE_VISIBLE_AREA_LIMIT,
     canExportPdf: false,
     canExportCsv: false,
+    canExportSheets: false,
     canUseHeatmap: false,
     seatLimit: 1,
     stationLevelEntitled: false,
@@ -133,6 +136,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     visibleAreaLimit: null,
     canExportPdf: true,
     canExportCsv: false,
+    canExportSheets: false,
     canUseHeatmap: false,
     seatLimit: 1,
     stationLevelEntitled: false,
@@ -147,6 +151,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     visibleAreaLimit: null,
     canExportPdf: true,
     canExportCsv: true,
+    canExportSheets: true,
     canUseHeatmap: true,
     seatLimit: 5,
     stationLevelEntitled: true,
@@ -162,6 +167,7 @@ export const PLAN_ENTITLEMENTS: Record<PlanId, PlanEntitlements> = {
     visibleAreaLimit: null, // 無制限（starter/standard と同じ null 表現を踏襲）
     canExportPdf: true,
     canExportCsv: true,
+    canExportSheets: true,
     canUseHeatmap: true,
     seatLimit: 20,
     stationLevelEntitled: true,
