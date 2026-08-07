@@ -72,10 +72,19 @@ export async function GET(
   const rowList = rows ?? []
 
   // confirmed 行の自治体について「自治体ごとの最新 as_of」のランク表と突合基準月を引く。
+  //   loadRankData は DB エラーを throw する（握りつぶし禁止・import と同一方針）。
   const muniIds = rowList
     .filter((r) => r.match_status === 'confirmed' && r.municipality_id)
     .map((r) => r.municipality_id as string)
-  const { rankMap, muniAsOf } = await loadRankData(supabase, muniIds)
+  let rankMap: Awaited<ReturnType<typeof loadRankData>>['rankMap']
+  let muniAsOf: Awaited<ReturnType<typeof loadRankData>>['muniAsOf']
+  try {
+    const rankData = await loadRankData(supabase, muniIds)
+    rankMap = rankData.rankMap
+    muniAsOf = rankData.muniAsOf
+  } catch {
+    return NextResponse.json({ error: 'rank_data_unavailable' }, { status: 500 })
+  }
 
   const attack: AttackRow[] = rowList.map((r) => {
     let rank: string | null = null

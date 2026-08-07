@@ -7,8 +7,18 @@ import {
   cellOf,
   parseDateLoose,
 } from '@/lib/customer-list/csv-import'
-import { matchAddress } from '@/lib/customer-list/match'
-import { isCustomerListEnabled, loadTownIndex } from '@/lib/customer-list/server'
+import {
+  matchAddress,
+  buildTownIndex,
+  resolveMunicipalityId,
+} from '@/lib/customer-list/match'
+import {
+  isCustomerListEnabled,
+  loadMunicipalities,
+  loadTownData,
+  type MuniAsOf,
+} from '@/lib/customer-list/server'
+import type { TownIndex } from '@/lib/customer-list/match'
 import type { CustomerColumnKey } from '@/lib/customer-list/types'
 
 export const runtime = 'nodejs'
@@ -81,9 +91,36 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ④ 突合インデックス構築（自治体ごとの最新 as_of・platinum のみ SELECT 可）。
-  //    0件なら全 out_of_scope。muniAsOf は突合基準月（レスポンスに含める）。
-  const { index, muniAsOf } = await loadTownIndex(supabase)
+  // ④ 突合インデックス構築（全取得の廃止・statement timeout 対策）:
+  //    1) municipalities（約1,916件）から住所の市区町村を解決 → matchedIds
+  //       （対象外の市も id を保持できる）。
+  //    2) 解決済み id のみビューを .in() で絞って町域データ取得（無条件全取得しない）。
+  //    構築失敗（DB エラー = throw）は 500 town_index_unavailable を返し、
+  //    customer_lists / rows への書き込みを一切行わない（ゴミデータ禁止・fail closed）。
+  const addresses = dataRows.map((row) => cellOf(row, mapping, 'address'))
+  let index: TownIndex
+  let muniAsOf: MuniAsOf[]
+  try {
+    const municipalities = await loadMunicipalities(supabase)
+    const muniIndex = buildTownIndex([], municipalities)
+    const matchedIds = new Set<string>()
+    for (const a of addresses) {
+      const id = resolveMunicipalityId(a, muniIndex)
+      if (id) matchedIds.add(id)
+    }
+    const { records, muniAsOf: asOf } = await loadTownData(
+      supabase,
+      Array.from(matchedIds),
+    )
+    index = buildTownIndex(records, municipalities)
+    muniAsOf = asOf
+  } catch {
+    // 握りつぶさない: 空インデックスで続行して全 out_of_scope 保存する旧バグの再発防止。
+    return NextResponse.json(
+      { error: 'town_index_unavailable' },
+      { status: 500 },
+    )
+  }
 
   // 各行を突合。電話番号は取り込むが保存しない（列に含めない・個人情報最小化）。
   let confirmed = 0
@@ -91,7 +128,7 @@ export async function POST(request: NextRequest) {
   let outOfScope = 0
 
   const rowInserts = dataRows.map((row, i) => {
-    const addressRaw = cellOf(row, mapping, 'address')
+    const addressRaw = addresses[i]
     const m = matchAddress(addressRaw, index)
     if (m.status === 'confirmed') confirmed++
     else if (m.status === 'ambiguous') ambiguous++
