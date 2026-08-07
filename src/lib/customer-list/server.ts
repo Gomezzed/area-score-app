@@ -9,10 +9,8 @@
 // ============================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildTownIndex } from './match.ts'
 import { normalizeTownName } from './normalize.ts'
 import { latestPerMunicipality } from './latest.ts'
-import type { TownIndex } from './match.ts'
 import type { TownRecord } from './types.ts'
 
 // サーバー側フィーチャーフラグ（H9 の教訓: UI と二層で封鎖する）。
@@ -33,7 +31,7 @@ export interface MuniAsOf {
 }
 
 // ビュー1行（customer_list_town_latest と対応）。
-interface LatestRow {
+export interface LatestRow {
   municipality_id: string
   municipality_name: string
   town_id: number
@@ -48,28 +46,54 @@ interface LatestRow {
 const SELECT_COLS =
   'municipality_id, municipality_name, town_id, town_name, town_name_raw, office_name, as_of, inferred_priority_rank, inferred_reason'
 
-// customer_list_town_latest から行を取得（任意で municipality_id で絞り込み）。
-//   ビューが既に自治体別最新月に絞っているが、アプリ層でも latestPerMunicipality を
-//   通して「最新月選定」を DB 非依存に保証する（グローバル最大月方式への退行検知）。
-async function fetchLatestRows(
+// 全市区町村（id, name）を取得する。住所→自治体の解決母集合（約1,916件）。
+//   ⚠ DB エラーは握りつぶさず throw する（呼び出し側で 500・書き込み中止）。
+export async function loadMunicipalities(
   supabase: SupabaseClient,
-  municipalityIds?: string[],
+): Promise<Array<{ id: string; name: string }>> {
+  const out: Array<{ id: string; name: string }> = []
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE
+    const { data, error } = await supabase
+      .from('municipalities')
+      .select('id, name')
+      .range(from, from + PAGE - 1)
+    if (error) {
+      throw new Error(`municipalities fetch failed: ${error.message}`)
+    }
+    if (!data || data.length === 0) break
+    out.push(...(data as Array<{ id: string; name: string }>))
+    if (data.length < PAGE) break
+  }
+  return out
+}
+
+// customer_list_town_latest から「解決済み municipality_id のみ」を .in() で絞って取得する。
+//   ⚠ タイムアウト対策の要（旧実装の無条件全取得を廃止）: 必ず id で絞る。
+//   ⚠ エラーは握りつぶさず throw（旧 `if (error) break` は空インデックスで続行し
+//      全行 out_of_scope・municipality_id=NULL のゴミデータを生んだ・実測済み）。
+//   ビューが既に自治体別最新月に絞っているが、latestPerMunicipality でも保証（冪等）。
+export async function fetchLatestRows(
+  supabase: SupabaseClient,
+  municipalityIds: string[],
 ): Promise<LatestRow[]> {
-  const ids = municipalityIds
-    ? Array.from(new Set(municipalityIds)).filter(Boolean)
-    : undefined
-  if (ids && ids.length === 0) return []
+  const ids = Array.from(new Set(municipalityIds)).filter(Boolean)
+  if (ids.length === 0) return [] // 対象自治体なし＝DB アクセス不要
 
   const rows: LatestRow[] = []
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE
-    let q = supabase
+    const { data, error } = await supabase
       .from('customer_list_town_latest')
       .select(SELECT_COLS)
+      .in('municipality_id', ids)
       .range(from, from + PAGE - 1)
-    if (ids) q = q.in('municipality_id', ids)
-    const { data, error } = await q
-    if (error || !data || data.length === 0) break
+    if (error) {
+      throw new Error(
+        `town latest fetch failed (${error.code ?? ''}): ${error.message}`,
+      )
+    }
+    if (!data || data.length === 0) break
     rows.push(...(data as unknown as LatestRow[]))
     if (data.length < PAGE) break
   }
@@ -80,11 +104,13 @@ async function fetchLatestRows(
   )
 }
 
-// 突合インデックス＋突合基準 as_of（全スコープ自治体）を構築する。
-export async function loadTownIndex(
+// 指定 municipality_id 群の町域レコード（TownRecord）＋突合基準 as_of を取得する。
+//   import が buildTownIndex(records, municipalities) に渡す前段。エラーは throw。
+export async function loadTownData(
   supabase: SupabaseClient,
-): Promise<{ index: TownIndex; muniAsOf: MuniAsOf[] }> {
-  const rows = await fetchLatestRows(supabase)
+  municipalityIds: string[],
+): Promise<{ records: TownRecord[]; muniAsOf: MuniAsOf[] }> {
+  const rows = await fetchLatestRows(supabase, municipalityIds)
   const records: TownRecord[] = rows.map((r) => ({
     municipality_id: r.municipality_id,
     municipality_name: r.municipality_name,
@@ -93,7 +119,7 @@ export async function loadTownIndex(
     town_name_raw: r.town_name_raw,
     office_name: r.office_name,
   }))
-  return { index: buildTownIndex(records), muniAsOf: collectMuniAsOf(rows) }
+  return { records, muniAsOf: collectMuniAsOf(rows) }
 }
 
 export interface RankInfo {

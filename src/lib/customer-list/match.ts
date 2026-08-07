@@ -26,14 +26,20 @@ export interface TownIndex {
 }
 
 // TownRecord[] から TownIndex を構築する。
-export function buildTownIndex(records: TownRecord[]): TownIndex {
+//   allMunicipalities（省略可）: 自治体解決に使う「全市区町村」の一覧（id, name）。
+//     指定時はこちらを municipality 解決の母集合とする（例: municipalities テーブル
+//     約1,916件）。これにより町域データを持たない市（豊田市・名古屋市など）でも
+//     住所から municipality_id を確定でき、out_of_scope でも id を保持できる。
+//     省略時は records 由来の自治体名から解決（＝町域データを持つ自治体のみ・既存挙動）。
+//   ※ 町域照合(townsByMuni)は常に records から作る（データのある自治体のみ）。
+export function buildTownIndex(
+  records: TownRecord[],
+  allMunicipalities?: Array<{ id: string; name: string }>,
+): TownIndex {
   const muniMap = new Map<string, string>() // id → normName
   const townsByMuni = new Map<string, Array<{ normName: string; rec: TownRecord }>>()
 
   for (const rec of records) {
-    if (!muniMap.has(rec.municipality_id)) {
-      muniMap.set(rec.municipality_id, normalizeTownName(rec.municipality_name))
-    }
     const normName = normalizeTownName(rec.town_name)
     if (!normName) continue
     const list = townsByMuni.get(rec.municipality_id) ?? []
@@ -41,10 +47,22 @@ export function buildTownIndex(records: TownRecord[]): TownIndex {
     townsByMuni.set(rec.municipality_id, list)
   }
 
-  const municipalities = Array.from(muniMap.entries()).map(([id, normName]) => ({
-    id,
-    normName,
-  }))
+  // 自治体解決の母集合: 明示指定があればそれ、無ければ records 由来（既存挙動）。
+  if (allMunicipalities && allMunicipalities.length > 0) {
+    for (const m of allMunicipalities) {
+      if (!muniMap.has(m.id)) muniMap.set(m.id, normalizeTownName(m.name))
+    }
+  } else {
+    for (const rec of records) {
+      if (!muniMap.has(rec.municipality_id)) {
+        muniMap.set(rec.municipality_id, normalizeTownName(rec.municipality_name))
+      }
+    }
+  }
+
+  const municipalities = Array.from(muniMap.entries())
+    .map(([id, normName]) => ({ id, normName }))
+    .filter((m) => m.normName) // 空名は解決対象から除外
   // 最長一致を優先するため、名の長い順に並べておく（'尾張旭市' が '旭市' より先）。
   municipalities.sort((a, b) => b.normName.length - a.normName.length)
 
@@ -66,6 +84,20 @@ function identifyMunicipality(
     }
   }
   return null
+}
+
+// 住所文字列から市区町村だけを解決して municipality_id を返す（純関数）。
+//   町域データの有無に依らず、TownIndex.municipalities（＝解決母集合）から最長一致で確定。
+//   import の「解決済み id のみビューを .in() で絞る」前段に使う（全取得の廃止）。
+//   解決できなければ null。
+export function resolveMunicipalityId(
+  addressRaw: string | null | undefined,
+  index: TownIndex,
+): string | null {
+  const normAddr = normalizeAddress(addressRaw)
+  if (!normAddr) return null
+  const muni = identifyMunicipality(normAddr, index)
+  return muni ? muni.id : null
 }
 
 // 残余文字列に対して prefix 一致する町域を探す。
@@ -106,13 +138,13 @@ export function matchAddress(
 
   if (!normAddr) return base
 
-  // 1. 市区町村の特定（スコープ22自治体のいずれか）。特定不可 → out_of_scope。
+  // 1. 市区町村の特定（解決母集合＝index.municipalities の最長一致）。特定不可 → out_of_scope。
   const muni = identifyMunicipality(normAddr, index)
   if (!muni) return base
 
   base.municipality_id = muni.id
 
-  // 2. 町域の照合。マスタ未整備 or prefix 不一致 → out_of_scope（muni は保持）。
+  // 2. 町域の照合。町域データ未整備（対象外の市）or prefix 不一致 → out_of_scope（muni は保持）。
   const towns = index.townsByMuni.get(muni.id) ?? []
   const matched = matchTowns(muni.remainder, towns)
   if (matched.length === 0) {
