@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { guardFeature } from '@/lib/subscription'
 import {
   isCustomerListEnabled,
-  loadRankMap,
+  loadRankData,
   rankKey,
   rankOrder,
 } from '@/lib/customer-list/server'
@@ -71,11 +71,11 @@ export async function GET(
   }
   const rowList = rows ?? []
 
-  // confirmed 行の自治体について最新 as_of のランク表を引く。
+  // confirmed 行の自治体について「自治体ごとの最新 as_of」のランク表と突合基準月を引く。
   const muniIds = rowList
     .filter((r) => r.match_status === 'confirmed' && r.municipality_id)
     .map((r) => r.municipality_id as string)
-  const rankMap = await loadRankMap(supabase, muniIds)
+  const { rankMap, muniAsOf } = await loadRankData(supabase, muniIds)
 
   const attack: AttackRow[] = rowList.map((r) => {
     let rank: string | null = null
@@ -120,6 +120,8 @@ export async function GET(
     name: list.name,
     row_count: list.row_count,
     summary: summarize(attack),
+    // 突合基準の as_of（自治体別）。confirmed 行が属する自治体の最新月。
+    as_of_by_municipality: muniAsOf,
     rows: attack,
   })
 }

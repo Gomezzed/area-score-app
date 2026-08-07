@@ -81,8 +81,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ④ 突合インデックス構築（platinum のみ SELECT 可。0件なら全 out_of_scope）
-  const index = await loadTownIndex(supabase)
+  // ④ 突合インデックス構築（自治体ごとの最新 as_of・platinum のみ SELECT 可）。
+  //    0件なら全 out_of_scope。muniAsOf は突合基準月（レスポンスに含める）。
+  const { index, muniAsOf } = await loadTownIndex(supabase)
 
   // 各行を突合。電話番号は取り込むが保存しない（列に含めない・個人情報最小化）。
   let confirmed = 0
@@ -148,12 +149,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ⑥ サマリを返す
+  // ⑥ サマリを返す（突合基準の as_of を自治体別に含める）。
   return NextResponse.json({
     id: listId,
     name: listName,
     row_count: dataRows.length,
     summary: { confirmed, ambiguous, out_of_scope: outOfScope },
+    as_of_by_municipality: muniAsOf,
   })
 }
 

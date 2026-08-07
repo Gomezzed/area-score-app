@@ -129,6 +129,41 @@ REVOKE ALL ON public.customer_list_rows FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.customer_lists     TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.customer_list_rows TO authenticated;
 
+-- ── 突合 / ランク join 用ビュー（自治体ごとの最新 as_of のみ）──────────────
+-- ⚠ 自治体ごとに最新 as_of はバラバラ（実測: 刈谷/安城/知立=2026-07 / 岡崎/岩国=2026-06 /
+--   神戸9区=2026-05 / 西宮/一宮=2026-04 / 姫路/鹿児島=2026-03 …）。
+--   グローバル最大月で絞ると、遅れている自治体（岡崎など）の町域が0件になり主用途が全滅する。
+--   → (municipality_id, max(as_of)) の組で「各自治体の最新月」のみを抽出する。
+-- security_invoker=on: 呼び出し元（platinum authenticated）の RLS を継承する。
+--   非platinum は基表 town_monthly_metrics の RLS により 0 行（アプリ側 guard と二層防御）。
+CREATE OR REPLACE VIEW public.customer_list_town_latest
+  WITH (security_invoker = on) AS
+  SELECT t.municipality_id,
+         m.name AS municipality_name,
+         t.town_id,
+         t.town_name,
+         t.town_name_raw,
+         t.office_name,
+         t.as_of,
+         t.inferred_priority_rank,
+         t.inferred_reason
+  FROM public.town_monthly_metrics t
+  JOIN public.municipalities m ON m.id = t.municipality_id
+  JOIN (
+    SELECT municipality_id, max(as_of) AS as_of
+    FROM public.town_monthly_metrics
+    GROUP BY municipality_id
+  ) latest
+    ON latest.municipality_id = t.municipality_id
+   AND latest.as_of = t.as_of;
+
+COMMENT ON VIEW public.customer_list_town_latest IS
+  'D24 突合/ランク join 用。自治体ごとの最新 as_of の町域行のみを返す。'
+  'security_invoker で基表 town_monthly_metrics の RLS(platinum 限定) を継承。';
+
+-- anon には出さない。platinum 判定は基表 RLS が担う（authenticated へ SELECT のみ付与）。
+GRANT SELECT ON public.customer_list_town_latest TO authenticated;
+
 COMMIT;
 
 -- =====================================================================

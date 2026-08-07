@@ -32,11 +32,17 @@ interface AttackRow {
   priority_reason: string | null
   match_candidates: unknown
 }
+interface MuniAsOf {
+  municipality_id: string
+  municipality_name: string
+  as_of: string
+}
 interface AttackList {
   id: string
   name: string
   row_count: number
   summary: { confirmed: number; ambiguous: number; out_of_scope: number }
+  as_of_by_municipality: MuniAsOf[]
   rows: AttackRow[]
 }
 
@@ -52,6 +58,13 @@ function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
   return m ? `${m[1]}/${m[2]}/${m[3]}` : '—'
+}
+
+// 突合基準 as_of（'YYYY-MM-DD'）→「YYYY年M月時点」。
+function fmtAsOfMonth(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})/)
+  if (!m) return iso
+  return `${m[1]}年${Number(m[2])}月時点`
 }
 
 export default function CustomersClient() {
@@ -217,6 +230,16 @@ export default function CustomersClient() {
                     </p>
                     <SimpleTable rows={outRows} />
                   </section>
+                )}
+
+                {/* 突合基準の as_of（自治体別）。データの鮮度を明示する。 */}
+                {data.as_of_by_municipality.length > 0 && (
+                  <footer className="mt-8 pt-4 border-t border-slate-200 text-xs text-slate-400">
+                    <span className="font-medium text-slate-500">町域データ: </span>
+                    {data.as_of_by_municipality
+                      .map((m) => `${m.municipality_name} ${fmtAsOfMonth(m.as_of)}`)
+                      .join(' / ')}
+                  </footer>
                 )}
               </>
             )}
