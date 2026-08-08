@@ -31,7 +31,7 @@ Standard 以上のユーザーが表示中エリアを自分の Google ドライ
 1. Google Cloud Console で OAuth 2.0 クライアント（ウェブアプリケーション）を作成。
    - スコープは `https://www.googleapis.com/auth/drive.file` のみ（アプリ作成ファイルのみアクセス可）。
    - 承認済みリダイレクト URI に `<オリジン>/api/integrations/google/callback` を登録
-     （ローカル: `http://localhost:3000/...` / 本番: `https://area-score-app.vercel.app/...`）。
+     （ローカル: `http://localhost:3000/...` / 本番: `https://areascore.jp/...`）。
    - Google Sheets API を有効化する。
 2. 暗号化鍵を生成: `openssl rand -base64 32`
 3. 以下をサーバー環境変数に設定（すべて `NEXT_PUBLIC_` を付けない）:

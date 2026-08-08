@@ -12,7 +12,7 @@
 
 ## 1. プロダクト/技術スタック
 - 不動産・マーケ向け地域分析SaaS。Next.js 16(App Router)+Tailwind / Route Handler / FastAPI(データ取得) / Supabase(PostgreSQL+Auth) / Stripe / Vercel。
-- 本番：area-score-app（Supabase ref `bstohiamtnlgcjulgedy` / ap-southeast-1 / PG17.6）。URL: area-score-app.vercel.app
+- 本番：area-score-app（Supabase ref `bstohiamtnlgcjulgedy` / ap-southeast-1 / PG17.6）。URL: areascore.jp
 - 認証はRoute Handler方式（C案）。Supabaseサーバークライアント経由。
 
 ## 2. DBスキーマ地図（実棚卸し済・2026/6/19）

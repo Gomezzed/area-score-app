@@ -48,3 +48,9 @@ __pycache__/
 
 # Claude Code local state
 .claude/
+
+# 作業用スクリーンショット（サイズ大・成果物ではない）
+docs/screenshots/
+
+# ローダの進捗ステート（ローカル実行の副産物）
+scripts/.reinfolib_progress.json

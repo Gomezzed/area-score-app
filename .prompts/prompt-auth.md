@@ -4,7 +4,7 @@ ultrathink
 
 ## 重要な前提
 - このプロジェクトは Next.js 16 App Router + Supabase + TypeScript + Tailwind CSS
-- 現行 URL: https://area-score-app.vercel.app
+- 現行 URL: https://areascore.jp
 - 既存実装を壊さず、段階的に動作確認しながら進めること
 - 不明点は推測せず、まず該当ファイルを読み込んで現状を把握してから着手すること
 
