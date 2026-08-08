@@ -54,3 +54,6 @@ docs/screenshots/
 
 # ローダの進捗ステート（ローカル実行の副産物）
 scripts/.reinfolib_progress.json
+
+# 実名を含む旧ドラフト（Crouch Boost名義）。決定ログ 2026-08-05 に基づき公開リポジトリには含めない
+.prompts/legal-pages-draft.md
