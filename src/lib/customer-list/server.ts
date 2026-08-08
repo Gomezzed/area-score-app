@@ -46,23 +46,26 @@ export interface LatestRow {
 const SELECT_COLS =
   'municipality_id, municipality_name, town_id, town_name, town_name_raw, office_name, as_of, inferred_priority_rank, inferred_reason'
 
-// 全市区町村（id, name）を取得する。住所→自治体の解決母集合（約1,916件）。
+// 全市区町村（id, name, prefecture_code）を取得する。住所→自治体の解決母集合（約1,916件）。
+//   prefecture_code は「都道府県アンカー」で候補を都道府県に絞るために使う（府中市問題）。
 //   ⚠ DB エラーは握りつぶさず throw する（呼び出し側で 500・書き込み中止）。
 export async function loadMunicipalities(
   supabase: SupabaseClient,
-): Promise<Array<{ id: string; name: string }>> {
-  const out: Array<{ id: string; name: string }> = []
+): Promise<Array<{ id: string; name: string; prefecture_code: string | null }>> {
+  const out: Array<{ id: string; name: string; prefecture_code: string | null }> = []
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE
     const { data, error } = await supabase
       .from('municipalities')
-      .select('id, name')
+      .select('id, name, prefecture_code')
       .range(from, from + PAGE - 1)
     if (error) {
       throw new Error(`municipalities fetch failed: ${error.message}`)
     }
     if (!data || data.length === 0) break
-    out.push(...(data as Array<{ id: string; name: string }>))
+    out.push(
+      ...(data as Array<{ id: string; name: string; prefecture_code: string | null }>),
+    )
     if (data.length < PAGE) break
   }
   return out
