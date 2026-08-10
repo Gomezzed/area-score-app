@@ -10,7 +10,7 @@ import {
 import {
   matchAddress,
   buildTownIndex,
-  resolveMunicipalityId,
+  resolveMunicipalityIds,
 } from '@/lib/customer-list/match'
 import {
   isCustomerListEnabled,
@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
     const muniIndex = buildTownIndex([], municipalities)
     const matchedIds = new Set<string>()
     for (const a of addresses) {
-      const id = resolveMunicipalityId(a, muniIndex)
-      if (id) matchedIds.add(id)
+      // 複数候補（府中市問題等）でも全候補の町域データを取得しておく（取りこぼし防止）。
+      for (const id of resolveMunicipalityIds(a, muniIndex)) matchedIds.add(id)
     }
     const { records, muniAsOf: asOf } = await loadTownData(
       supabase,

@@ -5,7 +5,9 @@
 
 // 突合の3値判定（原則1/5: 推測での一致を残さない）。
 //   confirmed    … 町域が一意に確定
-//   ambiguous    … 候補が複数（同名異町域など）→ match_candidates に保持
+//   ambiguous    … 候補が複数で一意に定まらない → match_candidates に保持
+//                  ・市区町村レベル: 都道府県省略で同名の市が複数（例: 府中市）
+//                  ・町域レベル    : 同名異町域（office_name 違い）
 //   out_of_scope … 町域データ未整備 or 市区町村を特定できず（＝参考値扱い）
 export type MatchStatus = 'confirmed' | 'ambiguous' | 'out_of_scope'
 
@@ -21,10 +23,16 @@ export interface TownRecord {
 }
 
 // 突合の候補（ambiguous 時に match_candidates jsonb へ保存する形）。
+//   2階層の ambiguous を1つの型で表す:
+//     - 市区町村レベル（府中市問題）: municipality_name / prefecture_code を持ち、
+//       町域は未確定なので town_* は null。
+//     - 町域レベル（同名異町域）    : town_id / town_name / office_name を持つ。
 export interface MatchCandidate {
   municipality_id: string
-  town_id: number
-  town_name: string
+  municipality_name?: string // 市区町村レベル候補の可読名（例: '府中市'）
+  prefecture_code?: string | null // 同上（どの府中市かの手がかり）
+  town_id: number | null // 町域レベル候補のみ実値。市区町村レベルでは null
+  town_name: string | null
   office_name: string | null
 }
 
