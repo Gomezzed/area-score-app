@@ -81,7 +81,11 @@
 - DBマイグレーションの適用禁止。適用はPMがSupabaseコネクタで実施する。
 - ⛔ Migration 2b は PR #18 の本番デプロイ後まで凍結中。触らない（2026/8/10時点でPR #18は未マージ・OPEN）。
 - `.env.local` の値を出力しない（キー名のみ可）。
-- `~/Desktop/area-score-app` は別プロジェクト。絶対に触らない。
+
+### 作業フォルダ（唯一の正・混同厳禁）
+- ✅ **作業フォルダは `/Users/gomez/dev/area-score-app` のみ。** 本番（Production/Preview）はここから稼働。すべての開発・commit・PRはここで行う。
+- ⛔ **`/Users/gomez/area-score-app` は使用しない旧clone（隔離済み）。** 2026/8/10時点で23コミット遅れ。ここでは作業しない。2026/8/8〜9のブランチ交錯事故はこの二重cloneが一因。
+- ⛔ **`~/Desktop/area-score-app` は Docker実データを含む別プロジェクト。絶対に触らない。** 削除・移動・ファイル書き込みを一切行わない。
 
 ## 7. 起動コマンド（参考）
-`cd /Users/gomez/area-score-app && claude --dangerously-skip-permissions --model claude-opus-4-8`
+`cd /Users/gomez/dev/area-score-app && claude --dangerously-skip-permissions --model claude-opus-4-8`
