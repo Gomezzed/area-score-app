@@ -18,7 +18,7 @@ import { TownHighlightsPanel } from '@/components/ui/TownHighlightsPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
 import { SheetsExportButton } from '@/components/ui/SheetsExportButton'
 import { canUse } from '@/lib/plans'
-import { LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale } from 'lucide-react'
+import { LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale, Users } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 
 // Leaflet は SSR 不可のため dynamic import
@@ -265,6 +265,22 @@ function DashboardContent() {
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">商圏レポート</span>
               </Link>
+            )}
+            {/* 顧客アタックリスト（Platinum のみ・canUse で自己ゲート。plan 直書き禁止。存在するルート /customers へ。
+                アイコンは /customers ヘッダーと同じ Users で視覚的に紐づけ） */}
+            {canUse(plan, 'townAcquisitionPriority') && (
+              <>
+                {/* 商圏レポートとの区切り（Platinum ボタン群の末尾を視覚的に分離） */}
+                <div aria-hidden className="hidden sm:block w-px h-6 bg-[#C7D6E4] mx-1" />
+                <Link
+                  href="/customers"
+                  className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
+                  title="顧客アタックリスト（Platinum）"
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">顧客アタックリスト</span>
+                </Link>
+              </>
             )}
             <Link
               href="/help"
