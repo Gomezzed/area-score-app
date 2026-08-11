@@ -29,6 +29,7 @@ interface AttackRow {
   media: string | null
   assignee: string | null
   priority_rank: string | null
+  priority_score: number | null
   priority_reason: string | null
   match_candidates: unknown
 }
@@ -278,6 +279,12 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
                   </span>
                 ) : (
                   <span className="text-slate-300">—</span>
+                )}
+                {/* 取得スコア（推定）を控えめに。ソートのタイブレークにも使う値。 */}
+                {r.priority_score != null && (
+                  <div className="mt-0.5 text-[10px] leading-none text-slate-400 tabular-nums">
+                    取得 {r.priority_score.toFixed(1)}
+                  </div>
                 )}
               </td>
               <td className="px-3 py-2">{r.customer_name ?? '—'}</td>
