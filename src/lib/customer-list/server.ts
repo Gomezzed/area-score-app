@@ -11,7 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeTownName } from './normalize.ts'
 import { latestPerMunicipality } from './latest.ts'
-import type { TownRecord } from './types.ts'
+import type { TownRecord, MatchStatus } from './types.ts'
 
 // サーバー側フィーチャーフラグ（H9 の教訓: UI と二層で封鎖する）。
 //   off のとき Route Handler は 404 を返す（機能の存在自体を隠す）。
@@ -40,11 +40,12 @@ export interface LatestRow {
   office_name: string | null
   as_of: string
   inferred_priority_rank: string | null
+  inferred_acquisition_score: number | null
   inferred_reason: string | null
 }
 
 const SELECT_COLS =
-  'municipality_id, municipality_name, town_id, town_name, town_name_raw, office_name, as_of, inferred_priority_rank, inferred_reason'
+  'municipality_id, municipality_name, town_id, town_name, town_name_raw, office_name, as_of, inferred_priority_rank, inferred_acquisition_score, inferred_reason'
 
 // 全市区町村（id, name, prefecture_code）を取得する。住所→自治体の解決母集合（約1,916件）。
 //   prefecture_code は「都道府県アンカー」で候補を都道府県に絞るために使う（府中市問題）。
@@ -127,6 +128,8 @@ export async function loadTownData(
 
 export interface RankInfo {
   rank: string | null
+  // 取得優先スコア（推定・小さいほど低優先。降順ソートのタイブレークに使う）。
+  score: number | null
   reason: string | null
 }
 
@@ -142,9 +145,11 @@ export async function loadRankData(
     const key = rankKey(r.municipality_id, normalizeTownName(r.town_name))
     const next: RankInfo = {
       rank: r.inferred_priority_rank,
+      score: r.inferred_acquisition_score,
       reason: r.inferred_reason,
     }
     // 同一町名が複数 town_id で存在する場合は最優先ランクを採る（S>A>B>C>D）。
+    //   採用行の取得スコア・根拠も同時に採る（ランクと整合した1件を丸ごと採用）。
     const existing = rankMap.get(key)
     if (!existing || rankOrder(next.rank) < rankOrder(existing.rank)) {
       rankMap.set(key, next)
@@ -174,6 +179,59 @@ export function rankOrder(rank: string | null | undefined): number {
     default:
       return 9
   }
+}
+
+// アタックリストの並び順決定に使うフィールドだけを持つ最小形（route の AttackRow が満たす）。
+export interface AttackSortRow {
+  match_status: MatchStatus
+  priority_rank: string | null
+  priority_score: number | null
+  last_contact_at: string | null
+  id: string
+}
+
+// status の表示グループ順（confirmed→ambiguous→out_of_scope）。
+//   確定(confirmed)と推定不能(非confirmed)を混ぜない直交キー（原則1）。ランク/スコアは
+//   confirmed 行にしか付かないため、非confirmed を最下段へ寄せる最上位キーとして使う。
+export function statusGroup(s: MatchStatus): number {
+  if (s === 'confirmed') return 0
+  if (s === 'ambiguous') return 1
+  return 2 // out_of_scope
+}
+
+// 取得スコア 降順（大きいほど上位）。NULL は最後（NULLS LAST）。
+function compareScoreDesc(a: number | null, b: number | null): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  return b - a
+}
+
+// 最終接触日 降順（新しいほど上位）。NULL は最後（NULLS LAST）。
+function compareLastContactDesc(a: string | null, b: string | null): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  return a > b ? -1 : 1
+}
+
+// アタックリストの決定的ソート比較関数。
+//   status グループ(confirmed→ambiguous→out_of_scope)
+//     → ランク(S>A>B>C>D・未設定は最後)
+//     → 取得スコア 降順(NULLS LAST)
+//     → 最終接触日 降順(NULLS LAST)
+//     → id 昇順（全順序を保証する決定的タイブレーク・省略不可）。
+//   最後の id 昇順により、上位キーが全同値でも順序が一意に定まる（テストで固定）。
+export function compareAttackRows(a: AttackSortRow, b: AttackSortRow): number {
+  const g = statusGroup(a.match_status) - statusGroup(b.match_status)
+  if (g !== 0) return g
+  const ro = rankOrder(a.priority_rank) - rankOrder(b.priority_rank)
+  if (ro !== 0) return ro
+  const sc = compareScoreDesc(a.priority_score, b.priority_score)
+  if (sc !== 0) return sc
+  const lc = compareLastContactDesc(a.last_contact_at, b.last_contact_at)
+  if (lc !== 0) return lc
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
 }
 
 // 行集合から自治体別 as_of（＝突合基準月）を抽出する。
