@@ -24,6 +24,17 @@
 
 from __future__ import annotations
 
+# ⛔ 2026-08-11 停止ガード（PM裁定・PO承認済み）
+# 本スクリプトは population_history へ線形補間値を書き戻す生成器であり、
+# 2026/6 の 004_seed_population_history_sample.sql と同じ汚染源である。
+# 人口推移グラフの確定仕様は「国勢調査の実測3点（2015/2020/2025）のみ・補間しない」。
+# 補間値は原則「確定データと推定データを絶対に混ぜない」に反する。
+# 解除する場合は仕様変更の決定ログを添えてこのブロックを削除すること。
+# （配置は from __future__ 直後＝Python 仕様上 __future__ は docstring 直後必須のため。
+#  load_dotenv/ネットワーク/DB 書き込み等あらゆる処理より前で停止する。）
+import sys
+sys.exit("STOP: 廃止されました（2026-08-11）。人口推移は population_stats の実測3点を使用します。")
+
 import os
 import sys
 import time
