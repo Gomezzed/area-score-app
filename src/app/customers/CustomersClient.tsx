@@ -68,10 +68,42 @@ const RANK_CHIP: Record<string, string> = {
   D: 'bg-slate-100 text-slate-600 ring-slate-300',
 }
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return '—'
-  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  return m ? `${m[1]}/${m[2]}/${m[3]}` : '—'
+// 最終接触からの経過日数。ISO(YYYY-MM-DD…) を日付として解釈。欠損/無効は null（＝未接触）。
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  return Math.floor((Date.now() - t) / 86400000)
+}
+
+// 最終接触セル。「12日前」形式。30日以上は seal 色＋太字、null は「未接触」。
+function LastContact({ iso }: { iso: string | null }) {
+  const d = daysSince(iso)
+  if (d === null) return <span className="text-slate-400">未接触</span>
+  const label = d <= 0 ? '今日' : `${d}日前`
+  const stale = d >= 30
+  return (
+    <span
+      className={stale ? 'font-bold' : undefined}
+      style={stale ? { color: '#B93B25' } : undefined}
+    >
+      {label}
+    </span>
+  )
+}
+
+// 突合サマリー。名簿の総行数（row_count）と町域確定できた件数・割合を明示する。
+//   row_count が 0 のときは割合を「─」にして 0 除算しない。
+function MatchSummary({ rowCount, confirmed }: { rowCount: number; confirmed: number }) {
+  const pct = rowCount > 0 ? ((confirmed / rowCount) * 100).toFixed(1) : null
+  return (
+    <div className="mb-3 text-sm text-slate-600">
+      名簿 <span className="font-bold tabular-nums">{rowCount}</span> 件
+      <span className="mx-2 text-slate-300">/</span>
+      突合できた住所 <span className="font-bold tabular-nums">{confirmed}</span> 件
+      （{pct === null ? '─' : `${pct}%`}）
+    </div>
+  )
 }
 
 // inferred_reason の定型末尾「… → <rank>（主因: <主因テキスト>）」から主因だけを取り出す。
@@ -258,6 +290,9 @@ export default function CustomersClient() {
                   <SummaryChip label="参考値" value={data.summary.out_of_scope} tone="slate" />
                 </div>
 
+                {/* 突合サマリー（名簿総数・確定件数・割合）。*/}
+                <MatchSummary rowCount={data.row_count} confirmed={data.summary.confirmed} />
+
                 {/* アタックリスト（統合・優先度順）。data.rows はサーバーで compareAttackRows
                     により確定行→要確認→参考値の順に整列済み。ここでは並べ替えず描画するだけ。
                     突合の確からしさは「根拠」列（match_status）で表し、確定/推定を混ぜない（原則1）。*/}
@@ -332,7 +367,9 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
                   {r.address_raw ?? ''}
                 </div>
               </td>
-              <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.last_contact_at)}</td>
+              <td className="px-3 py-2 whitespace-nowrap">
+                <LastContact iso={r.last_contact_at} />
+              </td>
               <td className="px-3 py-2">
                 {/* 主因だけを抜き出して1〜2行に収める。セル全体の title で根拠全文を読める。
                     ランク/スコア/根拠は inferred_* であり事実ではないため「推定」を明示（原則1）。*/}
