@@ -10,7 +10,6 @@ import {
   Lock,
   Loader2,
   AlertTriangle,
-  Info,
   Copy,
   Check,
 } from 'lucide-react'
@@ -94,6 +93,41 @@ function townSituationText(reason: string | null): string {
   return '—'
 }
 
+// 「根拠」列 — match_status から決定論的に決まる突合の確からしさ（推定スコアとは別軸の事実）。
+//   confirmed=町域を一意確定 / out_of_scope=町域データ未整備の参考値 / ambiguous=候補複数で要選択。
+//   ⛔ ambiguous はリンクにしない（S7 の候補解決 UI は未実装で遷移先が無い）。色は指定 hex を厳守。
+const GENCHI: Record<MatchStatus, { label: string; color: string; title: string }> = {
+  confirmed: {
+    label: '町域実測',
+    color: '#6B7789',
+    title: '住所を町域に一意確定できました（実測データに突合）。',
+  },
+  out_of_scope: {
+    label: '参考値',
+    color: '#8A6A16',
+    title: '対応する町域データが未整備のため優先度を付与できません（参考値）。',
+  },
+  ambiguous: {
+    label: '住所を選択',
+    color: '#8A6A16',
+    title: '同名の町域が複数あり一意に特定できません（候補の絞り込みは今後対応）。',
+  },
+}
+
+// 根拠チップ（突合の確からしさ）。色は指定 hex を inline で厳守（Tailwind purge の影響を受けない）。
+function GenchiChip({ status }: { status: MatchStatus }) {
+  const g = GENCHI[status]
+  return (
+    <span
+      title={g.title}
+      className="inline-flex items-center whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-medium"
+      style={{ color: g.color, borderColor: g.color }}
+    >
+      {g.label}
+    </span>
+  )
+}
+
 // 突合基準 as_of（'YYYY-MM-DD'）→「YYYY年M月時点」。
 function fmtAsOfMonth(iso: string): string {
   const m = iso.match(/^(\d{4})-(\d{2})/)
@@ -147,10 +181,6 @@ export default function CustomersClient() {
       setUploading(false)
     }
   }
-
-  const confirmedRows = data?.rows.filter((r) => r.match_status === 'confirmed') ?? []
-  const ambiguousRows = data?.rows.filter((r) => r.match_status === 'ambiguous') ?? []
-  const outRows = data?.rows.filter((r) => r.match_status === 'out_of_scope') ?? []
 
   return (
     <div className="min-h-screen bg-page-bg text-slate-900">
@@ -228,43 +258,17 @@ export default function CustomersClient() {
                   <SummaryChip label="参考値" value={data.summary.out_of_scope} tone="slate" />
                 </div>
 
-                {/* アタックリスト（confirmed・優先度順） */}
+                {/* アタックリスト（統合・優先度順）。data.rows はサーバーで compareAttackRows
+                    により確定行→要確認→参考値の順に整列済み。ここでは並べ替えず描画するだけ。
+                    突合の確からしさは「根拠」列（match_status）で表し、確定/推定を混ぜない（原則1）。*/}
                 <section className="mb-8">
-                  <h2 className="text-sm font-bold mb-2">アタックリスト（町域確定・優先度順）</h2>
-                  {confirmedRows.length === 0 ? (
-                    <EmptyNote text="町域を確定できた行がありません。" />
+                  <h2 className="text-sm font-bold mb-2">アタックリスト（優先度順）</h2>
+                  {data.rows.length === 0 ? (
+                    <EmptyNote text="表示できる行がありません。" />
                   ) : (
-                    <AttackTable rows={confirmedRows} />
+                    <AttackTable rows={data.rows} />
                   )}
                 </section>
-
-                {/* 要確認（ambiguous・分離表示） */}
-                {ambiguousRows.length > 0 && (
-                  <section className="mb-8">
-                    <h2 className="flex items-center gap-1.5 text-sm font-bold mb-2 text-[#854F0B]">
-                      <AlertTriangle className="w-4 h-4" />
-                      要確認（町域候補が複数）{ambiguousRows.length} 件
-                    </h2>
-                    <p className="text-xs text-slate-400 mb-2">
-                      同名の町域が複数あり一意に特定できませんでした。候補の絞り込みは今後のステップで対応します。
-                    </p>
-                    <SimpleTable rows={ambiguousRows} />
-                  </section>
-                )}
-
-                {/* 参考値（out_of_scope・分離表示） */}
-                {outRows.length > 0 && (
-                  <section className="mb-8">
-                    <h2 className="flex items-center gap-1.5 text-sm font-bold mb-2 text-slate-500">
-                      <Info className="w-4 h-4" />
-                      参考値（町域データ未整備）{outRows.length} 件
-                    </h2>
-                    <p className="text-xs text-slate-400 mb-2">
-                      対応する町域データが未整備のため、優先度を付与できません（参考値）。
-                    </p>
-                    <SimpleTable rows={outRows} />
-                  </section>
-                )}
 
                 {/* 突合基準の as_of（自治体別）。データの鮮度を明示する。 */}
                 {data.as_of_by_municipality.length > 0 && (
@@ -296,6 +300,7 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
             <th className="px-3 py-2 font-medium">住所（町域）</th>
             <th className="px-3 py-2 font-medium">最終接触</th>
             <th className="px-3 py-2 font-medium">町域の状況</th>
+            <th className="px-3 py-2 font-medium">根拠</th>
           </tr>
         </thead>
         <tbody>
@@ -345,32 +350,9 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
                   </span>
                 </div>
               </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-// 要確認 / 参考値の簡易表（優先度なし）。
-function SimpleTable({ rows }: { rows: AttackRow[] }) {
-  return (
-    <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
-            <th className="px-3 py-2 font-medium">顧客</th>
-            <th className="px-3 py-2 font-medium">住所</th>
-            <th className="px-3 py-2 font-medium">最終接触</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-b border-slate-100 last:border-0">
-              <td className="px-3 py-2">{r.customer_name ?? '—'}</td>
-              <td className="px-3 py-2 text-slate-500">{r.address_raw ?? '—'}</td>
-              <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.last_contact_at)}</td>
+              <td className="px-3 py-2">
+                <GenchiChip status={r.match_status} />
+              </td>
             </tr>
           ))}
         </tbody>
