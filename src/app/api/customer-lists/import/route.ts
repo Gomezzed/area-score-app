@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { guardFeature } from '@/lib/subscription'
 import {
@@ -16,6 +17,7 @@ import {
   isCustomerListEnabled,
   loadMunicipalities,
   loadTownData,
+  CustomerListDbError,
   type MuniAsOf,
 } from '@/lib/customer-list/server'
 import type { TownIndex } from '@/lib/customer-list/match'
@@ -28,6 +30,99 @@ const MAX_ROWS = 5000
 // 行 INSERT のバッチ分割サイズ。
 const INSERT_CHUNK = 500
 
+// 取り込み処理の段階識別子（観測性: どこで失敗したかを機械可読に示す）。
+type ImportStage =
+  | 'guardFeature'
+  | 'auth'
+  | 'loadMunicipalities'
+  | 'prescan'
+  | 'loadTownData'
+  | 'insert'
+
+type Timings = Partial<Record<ImportStage, number>>
+
+// 経過ミリ秒（整数）。performance.now() は node ランタイムのグローバル。
+function elapsedMsSince(start: number): number {
+  return Math.round(performance.now() - start)
+}
+
+// 全レスポンスに付与する追跡ヘッダ（サポート時に requestId を突合できる）。
+function requestIdHeader(requestId: string): Record<string, string> {
+  return { 'x-request-id': requestId }
+}
+
+// 失敗レスポンス（観測性エンベロープ）。
+//   ⛔ クライアントには stage/code など機械可読な最小情報のみ返す。
+//      detail / Supabase 生メッセージ / SQL / スキーマ名は一切含めない。
+function failEnvelope(
+  status: number,
+  stage: ImportStage,
+  code: string,
+  requestId: string,
+  timings: Timings,
+  startedAt: number,
+): NextResponse {
+  return NextResponse.json(
+    {
+      ok: false,
+      stage,
+      code,
+      elapsedMs: elapsedMsSince(startedAt),
+      requestId,
+      timings,
+    },
+    { status, headers: requestIdHeader(requestId) },
+  )
+}
+
+// PostgrestError / CustomerListDbError から SQLSTATE 等を取り出す（Sentry 専用）。
+function pgFieldsOf(error: unknown): {
+  code?: string
+  message?: string
+  details?: string
+  hint?: string
+} | null {
+  if (error instanceof CustomerListDbError) return error.pg
+  if (error && typeof error === 'object' && 'message' in error) {
+    const e = error as {
+      code?: string
+      message?: string
+      details?: string
+      hint?: string
+    }
+    return {
+      code: e.code,
+      message: e.message,
+      details: e.details,
+      hint: e.hint,
+    }
+  }
+  return null
+}
+
+// 例外を Sentry にだけ送る（握りつぶし禁止・全 catch から必ず呼ぶ）。
+//   ⚠ Fluid Compute はインスタンスを並行リクエストで再利用するため、
+//      グローバル setTag だとタグが他リクエストへ漏れる。withScope でイベント単位に閉じる。
+function reportImportError(
+  error: unknown,
+  ctx: { requestId: string; stage: ImportStage; timings: Timings },
+): void {
+  const pg = pgFieldsOf(error)
+  Sentry.withScope((scope) => {
+    scope.setTag('import_stage', ctx.stage)
+    if (pg?.code) scope.setTag('pg_code', pg.code)
+    scope.setContext('import', {
+      requestId: ctx.requestId,
+      stage: ctx.stage,
+      timings: ctx.timings,
+      pgMessage: pg?.message ?? null,
+      pgHint: pg?.hint ?? null,
+      pgDetails: pg?.details ?? null,
+    })
+    Sentry.captureException(error)
+  })
+}
+
 // POST /api/customer-lists/import
 //   Body(JSON): { csv: string, name?: string }
 //   処理順（厳守）:
@@ -38,32 +133,66 @@ const INSERT_CHUNK = 500
 //     ⑤ customer_lists / customer_list_rows へ INSERT（RLS: 自分の行のみ）
 //     ⑥ { id, row_count, summary } を返す
 export async function POST(request: NextRequest) {
+  // 観測性: 1リクエスト = 1 requestId。全レスポンスの x-request-id ヘッダにも載せる。
+  const requestId = crypto.randomUUID()
+  const startedAt = performance.now()
+  const timings: Timings = {}
+
   // ① サーバー側フィーチャーフラグ（UI と二層）。off なら存在ごと 404。
+  //    機能の存在自体を隠すため、段階識別子・診断情報は返さない（意図的に最小）。
   if (!isCustomerListEnabled()) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'not_found' },
+      { status: 404, headers: requestIdHeader(requestId) },
+    )
   }
 
   // ② platinum 認可（未認証 401 / 非platinum 403）。町域取得優先＝platinum専用。
+  //    判定は guardFeature に一任し、status（401/403）はその決定をそのまま保持する
+  //    （認可は緩めない・レスポンス整形のみ）。否認は例外ではなく正常系の制御。
+  const gStart = performance.now()
   const denied = await guardFeature('townAcquisitionPriority')
-  if (denied) return denied
+  timings.guardFeature = elapsedMsSince(gStart)
+  if (denied) {
+    const code = denied.status === 401 ? 'unauthorized' : 'feature_disabled'
+    return failEnvelope(
+      denied.status,
+      'guardFeature',
+      code,
+      requestId,
+      timings,
+      startedAt,
+    )
+  }
 
+  // ③ セッション再確認（guardFeature 通過済だが型の絞り込みのため）。
+  const aStart = performance.now()
   const supabase = await createSupabaseServerClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  // guardFeature 通過済だが型の絞り込みのため再確認。
-  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  timings.auth = elapsedMsSince(aStart)
+  if (!user) {
+    return failEnvelope(401, 'auth', 'unauthorized', requestId, timings, startedAt)
+  }
 
-  // ③ Body 検証 → CSV パース
+  // Body 検証 → CSV パース（段階ではなく入力検証。既知の 400 は具体的コードで返す。
+  //   invalid_json 等は想定内のクライアント入力エラーのため Sentry には送らない）。
   let body: { csv?: unknown; name?: unknown }
   try {
     body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'invalid_json' },
+      { status: 400, headers: requestIdHeader(requestId) },
+    )
   }
   const csvText = typeof body.csv === 'string' ? body.csv : ''
   if (!csvText.trim()) {
-    return NextResponse.json({ error: 'empty_csv' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'empty_csv' },
+      { status: 400, headers: requestIdHeader(requestId) },
+    )
   }
   const listName =
     typeof body.name === 'string' && body.name.trim()
@@ -72,14 +201,17 @@ export async function POST(request: NextRequest) {
 
   const rows = parseCsv(csvText)
   if (rows.length < 2) {
-    return NextResponse.json({ error: 'no_data_rows' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'no_data_rows' },
+      { status: 400, headers: requestIdHeader(requestId) },
+    )
   }
   const header = rows[0]
   const dataRows = rows.slice(1)
   if (dataRows.length > MAX_ROWS) {
     return NextResponse.json(
       { error: 'too_many_rows', max: MAX_ROWS, got: dataRows.length },
-      { status: 400 },
+      { status: 400, headers: requestIdHeader(requestId) },
     )
   }
 
@@ -87,38 +219,80 @@ export async function POST(request: NextRequest) {
   if (mapping.address == null) {
     return NextResponse.json(
       { error: 'address_column_not_found', header },
-      { status: 400 },
+      { status: 400, headers: requestIdHeader(requestId) },
     )
   }
 
-  // ④ 突合インデックス構築（全取得の廃止・statement timeout 対策）:
-  //    1) municipalities（約1,916件）から住所の市区町村を解決 → matchedIds
-  //       （対象外の市も id を保持できる）。
-  //    2) 解決済み id のみビューを .in() で絞って町域データ取得（無条件全取得しない）。
-  //    構築失敗（DB エラー = throw）は 500 town_index_unavailable を返し、
-  //    customer_lists / rows への書き込みを一切行わない（ゴミデータ禁止・fail closed）。
+  // ④ 突合インデックス構築（全取得の廃止・statement timeout 対策）。段階別に計測し、
+  //    どの段階の DB エラーかを機械可読な code で切り分ける（旧実装は全て
+  //    town_index_unavailable に潰していた）。構築失敗時は customer_lists / rows へ
+  //    一切書き込まない（ゴミデータ禁止・fail closed）。HTTP status は現状どおり 500。
   const addresses = dataRows.map((row) => cellOf(row, mapping, 'address'))
+
+  // ④-1 loadMunicipalities（住所→自治体の解決母集合）。
+  let municipalities: Awaited<ReturnType<typeof loadMunicipalities>>
+  const mStart = performance.now()
+  try {
+    municipalities = await loadMunicipalities(supabase)
+    timings.loadMunicipalities = elapsedMsSince(mStart)
+  } catch (error) {
+    timings.loadMunicipalities = elapsedMsSince(mStart)
+    reportImportError(error, { requestId, stage: 'loadMunicipalities', timings })
+    return failEnvelope(
+      500,
+      'loadMunicipalities',
+      'municipalities_unavailable',
+      requestId,
+      timings,
+      startedAt,
+    )
+  }
+
+  // ④-2 prescan（住所→自治体候補の解決・純CPU）。
+  //    複数候補（府中市問題等）でも全候補の町域データを後段で取得する（取りこぼし防止）。
+  let matchedIds: string[]
+  const pStart = performance.now()
+  try {
+    const muniIndex = buildTownIndex([], municipalities)
+    const ids = new Set<string>()
+    for (const a of addresses) {
+      for (const id of resolveMunicipalityIds(a, muniIndex)) ids.add(id)
+    }
+    matchedIds = Array.from(ids)
+    timings.prescan = elapsedMsSince(pStart)
+  } catch (error) {
+    timings.prescan = elapsedMsSince(pStart)
+    reportImportError(error, { requestId, stage: 'prescan', timings })
+    return failEnvelope(
+      500,
+      'prescan',
+      'prescan_failed',
+      requestId,
+      timings,
+      startedAt,
+    )
+  }
+
+  // ④-3 loadTownData（解決済み id のみ .in() で取得）＋突合インデックス構築。
+  //    ここが本障害（S6）の発生点: ビュー列不整合で PostgREST 42703 → throw。
   let index: TownIndex
   let muniAsOf: MuniAsOf[]
+  const lStart = performance.now()
   try {
-    const municipalities = await loadMunicipalities(supabase)
-    const muniIndex = buildTownIndex([], municipalities)
-    const matchedIds = new Set<string>()
-    for (const a of addresses) {
-      // 複数候補（府中市問題等）でも全候補の町域データを取得しておく（取りこぼし防止）。
-      for (const id of resolveMunicipalityIds(a, muniIndex)) matchedIds.add(id)
-    }
-    const { records, muniAsOf: asOf } = await loadTownData(
-      supabase,
-      Array.from(matchedIds),
-    )
+    const { records, muniAsOf: asOf } = await loadTownData(supabase, matchedIds)
     index = buildTownIndex(records, municipalities)
     muniAsOf = asOf
-  } catch {
-    // 握りつぶさない: 空インデックスで続行して全 out_of_scope 保存する旧バグの再発防止。
-    return NextResponse.json(
-      { error: 'town_index_unavailable' },
-      { status: 500 },
+    timings.loadTownData = elapsedMsSince(lStart)
+  } catch (error) {
+    timings.loadTownData = elapsedMsSince(lStart)
+    reportImportError(error, { requestId, stage: 'loadTownData', timings })
+    return failEnvelope(
+      500,
+      'loadTownData',
+      'town_index_unavailable',
+      requestId,
+      timings,
+      startedAt,
     )
   }
 
@@ -153,7 +327,9 @@ export async function POST(request: NextRequest) {
     }
   })
 
-  // ⑤ 名簿本体を作成（RLS: cl_insert_own）。
+  // ⑤ 名簿本体＋行を INSERT（RLS: cl_insert_own / clr_insert_own）。1 段階として計測。
+  //    PostgrestError は throw しないため、error 分岐でも必ず Sentry へ送る（握りつぶし禁止）。
+  const iStart = performance.now()
   const { data: list, error: listErr } = await supabase
     .from('customer_lists')
     .insert({
@@ -167,7 +343,13 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (listErr || !list) {
-    return NextResponse.json({ error: 'insert_failed' }, { status: 500 })
+    timings.insert = elapsedMsSince(iStart)
+    reportImportError(listErr ?? new Error('customer_lists insert returned no row'), {
+      requestId,
+      stage: 'insert',
+      timings,
+    })
+    return failEnvelope(500, 'insert', 'insert_failed', requestId, timings, startedAt)
   }
   const listId = list.id as string
 
@@ -182,18 +364,34 @@ export async function POST(request: NextRequest) {
     if (rowsErr) {
       // 途中失敗は不整合を避けるため親ごと削除（ON DELETE CASCADE で行も消える）。
       await supabase.from('customer_lists').delete().eq('id', listId)
-      return NextResponse.json({ error: 'insert_rows_failed' }, { status: 500 })
+      timings.insert = elapsedMsSince(iStart)
+      reportImportError(rowsErr, { requestId, stage: 'insert', timings })
+      return failEnvelope(
+        500,
+        'insert',
+        'insert_rows_failed',
+        requestId,
+        timings,
+        startedAt,
+      )
     }
   }
+  timings.insert = elapsedMsSince(iStart)
 
-  // ⑥ サマリを返す（突合基準の as_of を自治体別に含める）。
-  return NextResponse.json({
-    id: listId,
-    name: listName,
-    row_count: dataRows.length,
-    summary: { confirmed, ambiguous, out_of_scope: outOfScope },
-    as_of_by_municipality: muniAsOf,
-  })
+  // ⑥ サマリを返す（突合基準の as_of を自治体別に含める）。成功時も requestId/timings を載せる。
+  return NextResponse.json(
+    {
+      ok: true,
+      id: listId,
+      name: listName,
+      row_count: dataRows.length,
+      summary: { confirmed, ambiguous, out_of_scope: outOfScope },
+      as_of_by_municipality: muniAsOf,
+      requestId,
+      timings,
+    },
+    { headers: requestIdHeader(requestId) },
+  )
 }
 
 // 空文字は DB では null にする（未入力と空を同一視）。
