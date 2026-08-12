@@ -75,6 +75,25 @@ function fmtDate(iso: string | null): string {
   return m ? `${m[1]}/${m[2]}/${m[3]}` : '—'
 }
 
+// inferred_reason の定型末尾「… → <rank>（主因: <主因テキスト>）」から主因だけを取り出す。
+//   主因テキストは内部に全角（）を含みうる（例: 短期世帯急増（供給イベントの可能性））。
+//   貪欲マッチで「主因:」以降・末尾の閉じ括弧までを主因とみなす（機械生成の定型に依存）。
+//   ⛔ 抽出は既存テキストの一部を切り出すだけ。無い情報を生成しない（原則1）。
+function extractPrimaryCause(reason: string | null): string | null {
+  if (!reason) return null
+  const m = reason.match(/主因[：:]\s*([\s\S]+)）\s*$/)
+  return m ? m[1].trim() : null
+}
+
+// 「町域の状況」列に表示する要約テキスト。主因が取れなければ先頭40字＋「…」にフォールバック。
+//   priority_reason（=inferred_reason）が無い行（非 confirmed）は '—'（推定データ無し）。
+function townSituationText(reason: string | null): string {
+  const cause = extractPrimaryCause(reason)
+  if (cause) return cause
+  if (reason) return reason.slice(0, 40) + '…'
+  return '—'
+}
+
 // 突合基準 as_of（'YYYY-MM-DD'）→「YYYY年M月時点」。
 function fmtAsOfMonth(iso: string): string {
   const m = iso.match(/^(\d{4})-(\d{2})/)
@@ -276,7 +295,7 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
             <th className="px-3 py-2 font-medium">顧客</th>
             <th className="px-3 py-2 font-medium">住所（町域）</th>
             <th className="px-3 py-2 font-medium">最終接触</th>
-            <th className="px-3 py-2 font-medium">根拠</th>
+            <th className="px-3 py-2 font-medium">町域の状況</th>
           </tr>
         </thead>
         <tbody>
@@ -310,9 +329,21 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
               </td>
               <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.last_contact_at)}</td>
               <td className="px-3 py-2">
-                <span className="text-xs text-slate-500 leading-relaxed">
-                  {r.priority_reason ?? '—'}
-                </span>
+                {/* 主因だけを抜き出して1〜2行に収める。セル全体の title で根拠全文を読める。
+                    ランク/スコア/根拠は inferred_* であり事実ではないため「推定」を明示（原則1）。*/}
+                <div
+                  className="max-w-[260px]"
+                  title={r.priority_reason ?? undefined}
+                >
+                  {r.priority_reason && (
+                    <span className="mr-1 inline-block rounded px-1 text-[10px] font-medium text-slate-400 ring-1 ring-slate-200 align-middle">
+                      推定
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-500 line-clamp-2 align-middle">
+                    {townSituationText(r.priority_reason)}
+                  </span>
+                </div>
               </td>
             </tr>
           ))}
