@@ -19,6 +19,32 @@ export function isCustomerListEnabled(): boolean {
   return process.env.FEATURE_CUSTOMER_LIST === 'true'
 }
 
+// DB エラーを握りつぶさず throw する際に PostgrestError の中身を保持する専用例外。
+//   呼び出し側（Route Handler）が code(SQLSTATE)/message/details/hint を取り出して
+//   Sentry にだけ送れるようにする（クライアントには一切返さない）。
+//   ※ Error を継承するため既存の bare catch は従来どおり機能する（後方互換）。
+export class CustomerListDbError extends Error {
+  readonly pg: {
+    code?: string
+    message?: string
+    details?: string
+    hint?: string
+  }
+  constructor(
+    op: string,
+    pg: { code?: string; message?: string; details?: string; hint?: string },
+  ) {
+    super(`${op} failed (${pg.code ?? ''}): ${pg.message ?? ''}`)
+    this.name = 'CustomerListDbError'
+    this.pg = {
+      code: pg.code,
+      message: pg.message,
+      details: pg.details,
+      hint: pg.hint,
+    }
+  }
+}
+
 // PostgREST の1リクエスト上限（既定 1000 行）を跨いでページ取得する。
 const PAGE = 1000
 const MAX_PAGES = 20 // 安全弁（最大 2万行）。最新月のみのビューは十分収まる。
@@ -61,7 +87,7 @@ export async function loadMunicipalities(
       .select('id, name, prefecture_code')
       .range(from, from + PAGE - 1)
     if (error) {
-      throw new Error(`municipalities fetch failed: ${error.message}`)
+      throw new CustomerListDbError('municipalities', error)
     }
     if (!data || data.length === 0) break
     out.push(
@@ -93,9 +119,7 @@ export async function fetchLatestRows(
       .in('municipality_id', ids)
       .range(from, from + PAGE - 1)
     if (error) {
-      throw new Error(
-        `town latest fetch failed (${error.code ?? ''}): ${error.message}`,
-      )
+      throw new CustomerListDbError('customer_list_town_latest', error)
     }
     if (!data || data.length === 0) break
     rows.push(...(data as unknown as LatestRow[]))
