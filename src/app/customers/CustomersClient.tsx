@@ -11,6 +11,8 @@ import {
   Loader2,
   AlertTriangle,
   Info,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
@@ -47,6 +49,18 @@ interface AttackList {
   rows: AttackRow[]
 }
 
+// 取り込み失敗の表示情報。サーバーが返した観測性エンベロープ
+//   （{ ok:false, stage, code, elapsedMs, requestId }）をそのまま提示する。
+//   ⛔ サーバーが返さない情報を推測して補完しない。
+interface ImportFailure {
+  message: string
+  http?: number
+  stage?: string
+  code?: string
+  elapsedMs?: number
+  requestId?: string
+}
+
 const RANK_CHIP: Record<string, string> = {
   S: 'bg-rose-50 text-rose-700 ring-rose-200',
   A: 'bg-[#FAEEDA] text-[#854F0B] ring-amber-300',
@@ -73,7 +87,7 @@ export default function CustomersClient() {
   const allowed = canUse(plan, 'townAcquisitionPriority')
 
   const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<ImportFailure | null>(null)
   const [data, setData] = useState<AttackList | null>(null)
   const [fileName, setFileName] = useState<string>('')
 
@@ -91,7 +105,7 @@ export default function CustomersClient() {
       })
       if (!importRes.ok) {
         const body = await importRes.json().catch(() => ({}))
-        setError(mapError(body?.error, importRes.status))
+        setError(buildFailure(body, importRes.status))
         return
       }
       const imported = await importRes.json()
@@ -99,12 +113,17 @@ export default function CustomersClient() {
         `/api/customer-lists/${imported.id}/attack-list`,
       )
       if (!listRes.ok) {
-        setError('アタックリストの取得に失敗しました。')
+        setError({
+          message: 'アタックリストの取得に失敗しました。',
+          http: listRes.status,
+        })
         return
       }
       setData((await listRes.json()) as AttackList)
     } catch {
-      setError('ファイルの読み込みに失敗しました。CSV 形式をご確認ください。')
+      setError({
+        message: 'ファイルの読み込みに失敗しました。CSV 形式をご確認ください。',
+      })
     } finally {
       setUploading(false)
     }
@@ -177,12 +196,7 @@ export default function CustomersClient() {
               {fileName && (
                 <span className="ml-3 text-xs text-slate-500">{fileName}</span>
               )}
-              {error && (
-                <div className="mt-3 flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
+              {error && <ImportErrorCard failure={error} />}
             </div>
 
             {data && (
@@ -391,7 +405,83 @@ function GatedFallback() {
   )
 }
 
-// import API のエラーコードを日本語メッセージへ。
+// 取り込み失敗レスポンスを表示情報へ変換する。
+//   観測性エンベロープ（stage/code を含む）はそのまま診断表示に載せ、
+//   既知の入力エラー（CSV 形式など）は従来どおり具体的な案内を出す。
+//   ⛔ サーバーが返さない項目は補完しない。
+function buildFailure(body: unknown, status: number): ImportFailure {
+  const b = (body ?? {}) as Record<string, unknown>
+  if (typeof b.stage === 'string' && typeof b.code === 'string') {
+    return {
+      message: '取り込みに失敗しました。',
+      http: status,
+      stage: b.stage,
+      code: b.code,
+      elapsedMs: typeof b.elapsedMs === 'number' ? b.elapsedMs : undefined,
+      requestId: typeof b.requestId === 'string' ? b.requestId : undefined,
+    }
+  }
+  return { message: mapError(b.error, status), http: status }
+}
+
+// 取り込みエラーカード。段階/コード/所要時間/HTTP を提示し、問い合わせIDをコピー可能にする。
+function ImportErrorCard({ failure }: { failure: ImportFailure }) {
+  const [copied, setCopied] = useState(false)
+
+  const parts: string[] = []
+  if (failure.http != null) parts.push(`HTTP ${failure.http}`)
+  if (failure.stage) parts.push(`段階: ${failure.stage}`)
+  if (failure.code) parts.push(`コード: ${failure.code}`)
+  if (failure.elapsedMs != null) {
+    parts.push(`${(failure.elapsedMs / 1000).toFixed(1)}秒`)
+  }
+
+  async function copyRequestId() {
+    if (!failure.requestId) return
+    try {
+      await navigator.clipboard.writeText(failure.requestId)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard 非対応環境では何もしない（表示済みの ID を手動コピーできる）。
+    }
+  }
+
+  return (
+    <div className="mt-3 flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+      <div className="min-w-0">
+        <div>
+          {failure.message}
+          {parts.length > 0 && (
+            <span className="text-rose-600/80">（{parts.join('・')}）</span>
+          )}
+        </div>
+        {failure.requestId && (
+          <div className="mt-1 flex items-center gap-2 text-xs text-rose-600/90">
+            <span className="font-mono truncate">
+              問い合わせID: {failure.requestId}
+            </span>
+            <button
+              type="button"
+              onClick={copyRequestId}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-rose-300 hover:bg-rose-100 transition-colors shrink-0"
+            >
+              {copied ? (
+                <Check className="w-3 h-3" />
+              ) : (
+                <Copy className="w-3 h-3" />
+              )}
+              {copied ? 'コピーしました' : 'コピー'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// import API の既知エラーコードを日本語メッセージへ（入力検証など）。
 function mapError(code: unknown, status: number): string {
   switch (code) {
     case 'address_column_not_found':
@@ -406,6 +496,6 @@ function mapError(code: unknown, status: number): string {
     default:
       if (status === 403) return 'この機能は Platinum プラン限定です。'
       if (status === 401) return 'ログインが必要です。'
-      return '取り込みに失敗しました。時間をおいて再度お試しください。'
+      return '取り込みに失敗しました。'
   }
 }
