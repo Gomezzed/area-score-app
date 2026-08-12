@@ -39,33 +39,40 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
     onSelectRef.current = onSelect
   }, [onSelect])
 
-  // ── 地図初期化（都道府県切替で再構築）──
+  // ── 地図初期化（マウント時に1回だけ生成。破棄は最終アンマウント時のみ）──
+  //
+  //   以前は依存が [prefecture.code] で、都道府県を切り替えるたびに
+  //   cleanup が無条件で map.remove() を呼び、地図（preferCanvas の
+  //   Canvas レンダラーごと）破棄→再生成していた。直前のマーカー追加で
+  //   Leaflet が予約した Canvas 再描画（requestAnimationFrame）が、破棄後の
+  //   レンダラー（_ctx=undefined）に対して発火し
+  //   「Cannot read properties of undefined (reading 'clearRect'/'save')」で
+  //   本番クラッシュしていた（Sentry AREA-SCORE-APP-4 / AREA-SCORE-APP-5）。
+  //
+  //   対策：地図の生成はマウント時1回のみ。都道府県切替では破棄せず、
+  //   再センタリングはマーカー描画側の fitBounds に一本化する（下の effect）。
   useEffect(() => {
     if (!containerRef.current || typeof window === 'undefined') return
-    const lat = prefecture.center_lat ?? 36.2
-    const lng = prefecture.center_lng ?? 138.2
-    const zoom = prefecture.zoom_level ?? 9
+    let cancelled = false
 
     import('leaflet').then((L) => {
+      if (cancelled || mapRef.current) return
       delete (L.Icon.Default.prototype as any)._getIconUrl
-      if (!mapRef.current) {
-        mapRef.current = L.map(containerRef.current!, {
-          center: [lat, lng],
-          zoom,
-          zoomControl: true,
-          preferCanvas: true,
-        })
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 19,
-          keepBuffer: 4,
-        }).addTo(mapRef.current)
-      } else {
-        mapRef.current.setView([lat, lng], zoom, { animate: false })
-      }
+      mapRef.current = L.map(containerRef.current!, {
+        center: [prefecture.center_lat ?? 36.2, prefecture.center_lng ?? 138.2],
+        zoom: prefecture.zoom_level ?? 9,
+        zoomControl: true,
+        preferCanvas: true,
+      })
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+        keepBuffer: 4,
+      }).addTo(mapRef.current)
     })
 
-    // コンテナのサイズ変化（モバイルの回転・レイアウト変化）で再計測
+    // コンテナのサイズ変化（モバイルの回転・レイアウト変化）で再計測。
+    // 地図と同じライフサイクル（mount/unmount）で登録・解除する。
     const el = containerRef.current
     const ro = new ResizeObserver(() => {
       if (mapRef.current) mapRef.current.invalidateSize()
@@ -73,6 +80,7 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
     ro.observe(el)
 
     return () => {
+      cancelled = true
       ro.disconnect()
       if (mapRef.current) {
         mapRef.current.remove()
@@ -80,8 +88,9 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
         markersRef.current.clear()
       }
     }
+    // マウント時のみ生成（都道府県切替は下の描画 effect が setView/fitBounds で追従）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefecture.code])
+  }, [])
 
   // ── マーカー描画（表示中の市区町村／区が変わったら再描画 + 実点へフィット）──
   useEffect(() => {
@@ -147,11 +156,17 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
         points.push([lat, lng])
       })
 
-      // 実データ点の範囲へフィット（選択ではなく「表示集合」が変わったときのみ）
+      // 実データ点の範囲へフィット（選択ではなく「表示集合」が変わったときのみ）。
+      // 地図はマウント時1回生成に変わったため、都道府県切替時の再センタリングは
+      // ここ（fitBounds / setView）に一本化する。二段モーションを避けるため
+      // 別途の setView effect は設けない。
       if (points.length > 1) {
         map.fitBounds(points, { padding: [40, 40], maxZoom: 14, animate: false })
       } else if (points.length === 1) {
         map.setView(points[0], 13, { animate: false })
+      } else {
+        // 実点が0件の都道府県：旧・地図再生成時の setView 相当。府県代表中心へ寄せる。
+        map.setView([baseLat, baseLng], prefecture.zoom_level ?? 9, { animate: false })
       }
     })
 
