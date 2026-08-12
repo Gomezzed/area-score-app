@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -60,12 +60,56 @@ interface ImportFailure {
   requestId?: string
 }
 
-const RANK_CHIP: Record<string, string> = {
-  S: 'bg-rose-50 text-rose-700 ring-rose-200',
-  A: 'bg-[#FAEEDA] text-[#854F0B] ring-amber-300',
-  B: 'bg-brand-100 text-brand-700 ring-brand-300',
-  C: 'bg-slate-100 text-slate-600 ring-slate-300',
-  D: 'bg-slate-100 text-slate-600 ring-slate-300',
+// 取得優先ランクバッジの配色（S/A/B/C/D の5値・D30 ライトテーマに整合）。
+//   指定 hex を inline style で厳守する（Tailwind の動的クラスは purge され得るため）。
+//   ⛔ これは推定ランクの見た目であり、増減率のデータ色（delta-up/down）とは無関係・不可変更。
+const RANK_STYLE: Record<string, { bg: string; color: string; border: string }> = {
+  S: { bg: '#FBEDEA', color: '#B93B25', border: '#B93B25' },
+  A: { bg: '#EDF2F8', color: '#1E3F66', border: '#A8BCD4' },
+  B: { bg: '#F4F6F8', color: '#6B7789', border: '#D3DAE4' },
+  C: { bg: '#F8FAFC', color: '#8A94A3', border: '#E3E8EF' },
+  D: { bg: 'transparent', color: '#A6AEBB', border: '#E9EDF2' },
+}
+// 要確認（ambiguous 行の優先列に出すバッジ）。ランクではなく突合の未確定を表す warn 系。
+const YOKAKUNIN_STYLE = { bg: '#FBF3DC', color: '#8A6A16', border: '#E0CC8E' }
+
+// ランクバッジ。等幅・太字・中央寄せ・角丸2px・最小幅26px。
+function RankBadge({ rank }: { rank: string }) {
+  const s = RANK_STYLE[rank] ?? RANK_STYLE.D
+  return (
+    <span
+      className="inline-flex items-center justify-center font-mono font-bold text-xs"
+      style={{
+        minWidth: 26,
+        padding: '2px 4px',
+        borderRadius: 2,
+        backgroundColor: s.bg,
+        color: s.color,
+        border: `1px solid ${s.border}`,
+      }}
+    >
+      {rank}
+    </span>
+  )
+}
+
+// 要確認バッジ（ambiguous・優先列）。ランクの代わりに突合の未確定を示す。
+function YokakuninBadge() {
+  return (
+    <span
+      className="inline-flex items-center justify-center font-mono font-bold text-[10px]"
+      style={{
+        minWidth: 26,
+        padding: '2px 4px',
+        borderRadius: 2,
+        backgroundColor: YOKAKUNIN_STYLE.bg,
+        color: YOKAKUNIN_STYLE.color,
+        border: `1px solid ${YOKAKUNIN_STYLE.border}`,
+      }}
+    >
+      要確認
+    </span>
+  )
 }
 
 // 最終接触からの経過日数。ISO(YYYY-MM-DD…) を日付として解釈。欠損/無効は null（＝未接触）。
@@ -176,6 +220,15 @@ export default function CustomersClient() {
   const [data, setData] = useState<AttackList | null>(null)
   const [fileName, setFileName] = useState<string>('')
 
+  // ── 表示上の絞り込み（フィルタチップ）の状態 ──
+  // ⚠️ これは本人の自分のデータに対する表示上の絞り込みであり、プラン制御でも認可でもない。
+  //    認可は guardFeature / API 403 / RLS の3層で別に行われている（原則12）。
+  //    再フェッチはしない。すでに取得済みの data.rows をクライアント側で filter するだけ。
+  const [saOnly, setSaOnly] = useState(false) // S・A ランクのみ
+  const [staleOnly, setStaleOnly] = useState(false) // 30日以上未接触（null 含む）
+  const [ambiguousOnly, setAmbiguousOnly] = useState(false) // 要確認（ambiguous）のみ
+  const [assignee, setAssignee] = useState<string | null>(null) // 担当（null = 全員）
+
   async function handleFile(file: File) {
     setError(null)
     setUploading(true)
@@ -213,6 +266,33 @@ export default function CustomersClient() {
       setUploading(false)
     }
   }
+
+  // 担当の候補（充足している行のみ）。全行 null の名簿では担当チップを出さない。
+  const assignees = Array.from(
+    new Set((data?.rows ?? []).map((r) => r.assignee).filter((a): a is string => !!a)),
+  )
+  const ambiguousCount = data?.summary.ambiguous ?? 0
+  const anyFilter = saOnly || staleOnly || ambiguousOnly || assignee !== null
+
+  function resetFilters() {
+    setSaOnly(false)
+    setStaleOnly(false)
+    setAmbiguousOnly(false)
+    setAssignee(null)
+  }
+
+  // 取得済み配列に対するクライアント側フィルタ（AND 条件）。並び順は S6 のまま変えない。
+  //   ⚠️ 表示上の絞り込みであって認可ではない（上の状態宣言のコメント／原則12 参照）。
+  const filteredRows = (data?.rows ?? []).filter((r) => {
+    if (saOnly && !(r.priority_rank === 'S' || r.priority_rank === 'A')) return false
+    if (staleOnly) {
+      const d = daysSince(r.last_contact_at)
+      if (!(d === null || d >= 30)) return false
+    }
+    if (assignee !== null && r.assignee !== assignee) return false
+    if (ambiguousOnly && r.match_status !== 'ambiguous') return false
+    return true
+  })
 
   return (
     <div className="min-h-screen bg-page-bg text-slate-900">
@@ -282,16 +362,53 @@ export default function CustomersClient() {
 
             {data && (
               <>
-                {/* サマリ */}
-                <div className="flex flex-wrap gap-3 mb-6 text-sm">
-                  <SummaryChip label="取り込み" value={data.row_count} tone="slate" />
-                  <SummaryChip label="町域確定" value={data.summary.confirmed} tone="brand" />
-                  <SummaryChip label="要確認" value={data.summary.ambiguous} tone="amber" />
-                  <SummaryChip label="参考値" value={data.summary.out_of_scope} tone="slate" />
-                </div>
-
                 {/* 突合サマリー（名簿総数・確定件数・割合）。*/}
                 <MatchSummary rowCount={data.row_count} confirmed={data.summary.confirmed} />
+
+                {/* フィルタチップ。すべて取得済み配列へのクライアント側絞り込み（AND・再フェッチなし）。
+                    ⚠️ 表示上の絞り込みであり認可ではない（認可は guardFeature/API 403/RLS の3層・原則12）。*/}
+                <div className="flex flex-wrap items-center gap-2 mb-5">
+                  <FilterChip active={!anyFilter} onClick={resetFilters}>
+                    優先度順
+                  </FilterChip>
+                  <FilterChip active={saOnly} onClick={() => setSaOnly((v) => !v)}>
+                    S・Aのみ
+                  </FilterChip>
+                  <FilterChip active={staleOnly} onClick={() => setStaleOnly((v) => !v)}>
+                    30日以上未接触
+                  </FilterChip>
+                  {assignees.length > 0 && (
+                    <label
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ring-1 cursor-pointer transition-colors ${
+                        assignee !== null
+                          ? 'bg-brand-100 text-brand-700 ring-brand-300'
+                          : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      担当：
+                      <select
+                        value={assignee ?? ''}
+                        onChange={(e) => setAssignee(e.target.value || null)}
+                        className="bg-transparent outline-none cursor-pointer"
+                      >
+                        <option value="">全員</option>
+                        {assignees.map((a) => (
+                          <option key={a} value={a}>
+                            {a}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {ambiguousCount > 0 && (
+                    <FilterChip
+                      active={ambiguousOnly}
+                      onClick={() => setAmbiguousOnly((v) => !v)}
+                    >
+                      要確認 {ambiguousCount}
+                    </FilterChip>
+                  )}
+                </div>
 
                 {/* アタックリスト（統合・優先度順）。data.rows はサーバーで compareAttackRows
                     により確定行→要確認→参考値の順に整列済み。ここでは並べ替えず描画するだけ。
@@ -300,8 +417,10 @@ export default function CustomersClient() {
                   <h2 className="text-sm font-bold mb-2">アタックリスト（優先度順）</h2>
                   {data.rows.length === 0 ? (
                     <EmptyNote text="表示できる行がありません。" />
+                  ) : filteredRows.length === 0 ? (
+                    <EmptyNote text="この絞り込みに一致する行がありません。" />
                   ) : (
-                    <AttackTable rows={data.rows} />
+                    <AttackTable rows={filteredRows} />
                   )}
                 </section>
 
@@ -343,13 +462,9 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
             <tr key={r.id} className="border-b border-slate-100 last:border-0 align-top">
               <td className="px-3 py-2">
                 {r.priority_rank ? (
-                  <span
-                    className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold ring-1 ${
-                      RANK_CHIP[r.priority_rank] ?? RANK_CHIP.D
-                    }`}
-                  >
-                    {r.priority_rank}
-                  </span>
+                  <RankBadge rank={r.priority_rank} />
+                ) : r.match_status === 'ambiguous' ? (
+                  <YokakuninBadge />
                 ) : (
                   <span className="text-slate-300">—</span>
                 )}
@@ -398,26 +513,30 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
   )
 }
 
-function SummaryChip({
-  label,
-  value,
-  tone,
+// フィルタチップ（クリック可能な表示絞り込み）。active=選択状態。
+//   ⚠️ 表示上の絞り込みであり認可ではない（認可は guardFeature/API 403/RLS の3層・原則12）。
+function FilterChip({
+  active,
+  onClick,
+  children,
 }: {
-  label: string
-  value: number
-  tone: 'slate' | 'brand' | 'amber'
+  active: boolean
+  onClick: () => void
+  children: ReactNode
 }) {
-  const toneCls =
-    tone === 'brand'
-      ? 'bg-brand-100 text-brand-700 ring-brand-300'
-      : tone === 'amber'
-        ? 'bg-[#FAEEDA] text-[#854F0B] ring-amber-300'
-        : 'bg-slate-100 text-slate-600 ring-slate-300'
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg ring-1 ${toneCls}`}>
-      <span className="text-xs font-medium">{label}</span>
-      <span className="font-bold tabular-nums">{value}</span>
-    </span>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium ring-1 transition-colors ${
+        active
+          ? 'bg-brand-700 text-white ring-brand-700'
+          : 'bg-white text-slate-600 ring-slate-300 hover:bg-slate-50'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 
