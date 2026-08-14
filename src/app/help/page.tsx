@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MapPin, ArrowLeft, BookOpen, HelpCircle, Database, BarChart2, List, Info } from 'lucide-react'
+import { ArrowLeft, BookOpen, HelpCircle, Database, BarChart2, List, Info } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 
 export const metadata: Metadata = {
-  title: '使い方ガイド | エリアスコア分析',
+  title: '使い方ガイド | AreaScore 分析',
   description: 'エリアスコア分析ダッシュボードの使い方・用語説明・FAQ',
 }
 
@@ -93,20 +94,17 @@ const FAQS = [
 
 export default function HelpPage() {
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-page-bg">
       {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 px-5 py-3 flex items-center justify-between">
+      <header className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <MapPin className="w-4 h-4 text-white" />
-          </div>
-          <h1 className="text-white font-bold text-lg">エリアスコア</h1>
+          <Logo size="md" />
           <span className="text-slate-500 text-sm hidden sm:inline">／</span>
           <span className="text-slate-400 text-sm hidden sm:inline">使い方ガイド</span>
         </div>
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-brand-700 hover:bg-slate-100 rounded-lg text-sm transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           ダッシュボードへ
@@ -118,23 +116,23 @@ export default function HelpPage() {
 
         {/* Page title */}
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-blue-400" />
+          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <BookOpen className="w-6 h-6 text-brand-700" />
             使い方ガイド
           </h2>
-          <p className="text-slate-400 mt-1 text-sm">
+          <p className="text-slate-500 mt-1 text-sm">
             エリアスコア分析ダッシュボードの機能・用語・操作方法を説明します。
           </p>
         </div>
 
         {/* Section 1: アプリ概要 */}
-        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-            <BarChart2 className="w-5 h-5 text-blue-400" />
+        <section className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+            <BarChart2 className="w-5 h-5 text-brand-700" />
             アプリ概要
           </h3>
-          <p className="text-slate-300 text-sm leading-relaxed">
-            このアプリは<span className="text-white font-medium">市区町村 人口動態ダッシュボード</span>です。
+          <p className="text-slate-600 text-sm leading-relaxed">
+            このアプリは<span className="text-slate-900 font-medium">市区町村 人口動態ダッシュボード</span>です。
             総務省統計局の国勢調査（2015年・2020年・2025年速報）をもとに、全国47都道府県・全市区町村の人口・世帯数・
             人口増減を地図とリストで可視化します。エリアの人口動態を把握するための分析ツールとして活用できます。
           </p>
@@ -146,7 +144,7 @@ export default function HelpPage() {
               '市区町村データのCSVエクスポート',
             ].map((item) => (
               <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
-                <span className="text-blue-400 mt-0.5">•</span>
+                <span className="text-brand-700 mt-0.5">•</span>
                 {item}
               </li>
             ))}
@@ -154,24 +152,24 @@ export default function HelpPage() {
         </section>
 
         {/* Section 2: 用語の定義 */}
-        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-blue-400" />
+        <section className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-brand-700" />
             用語の定義
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-700">
+                <tr className="border-b border-slate-200">
                   <th className="text-left text-slate-400 font-medium pb-2 pr-4 w-40">用語</th>
                   <th className="text-left text-slate-400 font-medium pb-2">説明</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/50">
+              <tbody className="divide-y divide-slate-100">
                 {GLOSSARY.map(({ term, definition }) => (
                   <tr key={term} className="align-top">
                     <td className="py-3 pr-4">
-                      <span className="text-white font-medium whitespace-nowrap">{term}</span>
+                      <span className="text-slate-900 font-medium whitespace-nowrap">{term}</span>
                     </td>
                     <td className="py-3 text-slate-400 leading-relaxed">{definition}</td>
                   </tr>
@@ -182,27 +180,27 @@ export default function HelpPage() {
         </section>
 
         {/* Section 3: 使い方 */}
-        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <List className="w-5 h-5 text-blue-400" />
+        <section className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <List className="w-5 h-5 text-brand-700" />
             使い方（ステップガイド）
           </h3>
           <ol className="space-y-3">
             {STEPS.map((step, i) => (
               <li key={i} className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand-700 text-white text-xs font-bold flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
-                <span className="text-slate-300 text-sm leading-relaxed">{step}</span>
+                <span className="text-slate-600 text-sm leading-relaxed">{step}</span>
               </li>
             ))}
           </ol>
         </section>
 
         {/* Section 4: データ更新 */}
-        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-            <Database className="w-5 h-5 text-blue-400" />
+        <section className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+            <Database className="w-5 h-5 text-brand-700" />
             データ更新について
           </h3>
           <ul className="space-y-3">
@@ -213,7 +211,7 @@ export default function HelpPage() {
               '現在は速報集計値です。確定値の公表後に差し替え予定です',
             ].map((item) => (
               <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
-                <span className="text-emerald-400 mt-0.5 flex-shrink-0">✓</span>
+                <span className="text-emerald-600 mt-0.5 flex-shrink-0">✓</span>
                 {item}
               </li>
             ))}
@@ -221,25 +219,25 @@ export default function HelpPage() {
         </section>
 
         {/* Section 5: FAQ */}
-        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-blue-400" />
+        <section className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-brand-700" />
             よくある質問
           </h3>
           <div className="space-y-5">
             {FAQS.map(({ q, a }) => (
-              <div key={q} className="border-b border-slate-700/50 last:border-0 pb-5 last:pb-0">
-                <p className="text-white text-sm font-medium mb-2">Q. {q}</p>
-                <p className="text-slate-400 text-sm leading-relaxed">A. {a}</p>
+              <div key={q} className="border-b border-slate-100 last:border-0 pb-5 last:pb-0">
+                <p className="text-slate-900 text-sm font-medium mb-2">Q. {q}</p>
+                <p className="text-slate-500 text-sm leading-relaxed">A. {a}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* Section 6: データ出典・免責事項 */}
-        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Info className="w-5 h-5 text-blue-400" />
+        <section className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Info className="w-5 h-5 text-brand-700" />
             データ出典・免責事項
           </h3>
           <ul className="space-y-2 mb-4">
@@ -249,13 +247,13 @@ export default function HelpPage() {
               '駅乗降客数: 国土数値情報（国土交通省）',
             ].map((item) => (
               <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
-                <span className="text-blue-400 mt-0.5 flex-shrink-0">•</span>
+                <span className="text-brand-700 mt-0.5 flex-shrink-0">•</span>
                 {item}
               </li>
             ))}
           </ul>
           {/* REINFOLIB 出典クレジット（規約義務・文言は一字一句固定） */}
-          <p className="text-xs text-slate-500 leading-relaxed border-t border-slate-700/50 pt-4">
+          <p className="text-xs text-slate-500 leading-relaxed border-t border-slate-200 pt-4">
             このサービスは、国土交通省不動産情報ライブラリのAPI機能を使用していますが、提供情報の最新性、正確性、完全性等が保証されたものではありません。
           </p>
         </section>
@@ -264,7 +262,7 @@ export default function HelpPage() {
         <div className="text-center pb-4">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-700 hover:bg-brand-500 text-white rounded-lg text-sm font-medium transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             ダッシュボードに戻る

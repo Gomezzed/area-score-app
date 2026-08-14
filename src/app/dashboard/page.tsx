@@ -16,20 +16,22 @@ import { MunicipalityList } from '@/components/ui/MunicipalityList'
 import { MunicipalityDetailPanel } from '@/components/ui/MunicipalityDetailPanel'
 import { TownHighlightsPanel } from '@/components/ui/TownHighlightsPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
+import { SheetsExportButton } from '@/components/ui/SheetsExportButton'
 import { canUse } from '@/lib/plans'
-import { MapPin, LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale } from 'lucide-react'
+import { LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale, Users } from 'lucide-react'
+import { Logo } from '@/components/Logo'
 
 // Leaflet は SSR 不可のため dynamic import
 const MunicipalityMap = dynamic(
   () => import('@/components/map/MunicipalityMap').then((m) => m.MunicipalityMap),
-  { ssr: false, loading: () => <div className="w-full h-full bg-slate-700 animate-pulse rounded-lg" /> },
+  { ssr: false, loading: () => <div className="w-full h-full bg-slate-100 animate-pulse rounded-lg" /> },
 )
 
 // 共通のフルスクリーン ローディング（Suspense fallback と prefLoading で共用）
 function DashboardLoading() {
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="text-slate-400 flex items-center gap-3 text-sm">
+    <div className="min-h-screen bg-page-bg flex items-center justify-center">
+      <div className="text-slate-500 flex items-center gap-3 text-sm">
         <RefreshCw className="w-5 h-5 animate-spin" />
         読み込み中...
       </div>
@@ -151,22 +153,19 @@ function DashboardContent() {
   }
 
   return (
-    <div className="h-screen bg-slate-900 flex flex-col overflow-hidden">
+    <div className="h-screen bg-page-bg flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 flex-shrink-0">
+      <header className="bg-white border-b border-slate-200 flex-shrink-0">
         {/* Row 1: logo + actions */}
         <div className="px-3 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <MapPin className="w-4 h-4 text-white" />
-            </div>
-            <h1 className="text-white font-bold text-base sm:text-lg truncate">エリアスコア</h1>
+            <Logo size="md" />
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {!canAccessFull ? (
               <Link
                 href="/pricing"
-                className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 px-2 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
+                className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 px-2 sm:px-3 py-1.5 bg-brand-700 hover:bg-brand-500 text-white rounded-lg text-sm font-medium transition-colors"
                 title="プランをアップグレード"
               >
                 <Sparkles className="w-4 h-4" />
@@ -178,7 +177,7 @@ function DashboardContent() {
               <button
                 onClick={handleManageBilling}
                 disabled={portalLoading}
-                className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-60 rounded-lg text-sm transition-colors"
+                className="flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-brand-700 hover:bg-slate-100 disabled:opacity-60 rounded-lg text-sm transition-colors"
                 title="請求情報を管理（プラン変更・解約）"
               >
                 {portalLoading ? (
@@ -192,7 +191,7 @@ function DashboardContent() {
             <button
               onClick={handlePDFDownload}
               disabled={!limit.canExportPdf || municipalities.length === 0 || pdfLoading}
-              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-blue-700 hover:bg-blue-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 disabled:bg-white disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
               title={
                 limit.canExportPdf
                   ? 'PDF出力'
@@ -209,7 +208,7 @@ function DashboardContent() {
             <button
               onClick={handleCSVDownload}
               disabled={!limit.canExportCsv || municipalities.length === 0}
-              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 disabled:bg-white disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
               title={
                 limit.canExportCsv
                   ? 'CSV出力'
@@ -219,11 +218,18 @@ function DashboardContent() {
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">CSV出力</span>
             </button>
+            {/* Sheets 出力（Standard 以上・canExportSheets。フラグ ON 時のみ描画） */}
+            {limit.canExportSheets && (
+              <SheetsExportButton
+                prefectureNameEn={activePref?.name_en}
+                disabled={topLevel.length === 0}
+              />
+            )}
             {/* 注目町域 TOP20（Platinum のみ・canUse で自己ゲート。plan 直書き禁止） */}
             {canUse(plan, 'townAcquisitionPriority') && (
               <button
                 onClick={() => setHighlightsOpen(true)}
-                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 rounded-lg text-sm font-bold transition-colors"
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-brand-700 hover:bg-brand-500 text-white rounded-lg text-sm font-medium transition-colors"
                 title="注目町域 TOP20（Platinum）"
               >
                 <Trophy className="w-4 h-4" />
@@ -234,7 +240,7 @@ function DashboardContent() {
             {canUse(plan, 'areaCompare') && (
               <Link
                 href="/dashboard/compare"
-                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 rounded-lg text-sm font-bold transition-colors"
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
                 title="エリア比較（Platinum）"
               >
                 <Scale className="w-4 h-4" />
@@ -245,16 +251,32 @@ function DashboardContent() {
             {canUse(plan, 'tradeAreaReport') && (
               <Link
                 href="/dashboard/trade-area"
-                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-slate-900 rounded-lg text-sm font-bold transition-colors"
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
                 title="商圏レポート（Platinum）"
               >
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">商圏レポート</span>
               </Link>
             )}
+            {/* 顧客アタックリスト（Platinum のみ・canUse で自己ゲート。plan 直書き禁止。存在するルート /customers へ。
+                アイコンは /customers ヘッダーと同じ Users で視覚的に紐づけ） */}
+            {canUse(plan, 'townAcquisitionPriority') && (
+              <>
+                {/* 商圏レポートとの区切り（Platinum ボタン群の末尾を視覚的に分離） */}
+                <div aria-hidden className="hidden sm:block w-px h-6 bg-[#C7D6E4] mx-1" />
+                <Link
+                  href="/customers"
+                  className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
+                  title="顧客アタックリスト（Platinum）"
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">顧客アタックリスト</span>
+                </Link>
+              </>
+            )}
             <Link
               href="/help"
-              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
+              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-brand-700 hover:bg-slate-100 rounded-lg text-sm transition-colors"
               title="使い方ガイド"
             >
               <HelpCircle className="w-4 h-4" />
@@ -270,7 +292,7 @@ function DashboardContent() {
             )}
             <button
               onClick={signOut}
-              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg text-sm transition-colors"
+              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 text-slate-400 hover:text-brand-700 hover:bg-slate-100 rounded-lg text-sm transition-colors"
               title="ログアウト"
             >
               <LogOut className="w-4 h-4" />
@@ -291,8 +313,8 @@ function DashboardContent() {
                 onClick={() => selectRegion(r.id)}
                 className={`px-4 min-h-[44px] sm:min-h-0 sm:py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                   r.id === region
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                    ? 'bg-brand-700 text-white'
+                    : 'text-slate-500 hover:text-brand-700'
                 }`}
               >
                 {r.name}
@@ -310,7 +332,7 @@ function DashboardContent() {
       </header>
 
       {/* Stats bar */}
-      <div className="bg-slate-800/60 border-b border-slate-700 px-3 sm:px-5 py-2 flex items-center gap-4 sm:gap-6 flex-shrink-0">
+      <div className="bg-[#FBFCFD] border-b border-slate-200 px-3 sm:px-5 py-2 flex items-center gap-4 sm:gap-6 flex-shrink-0">
         <span className="text-xs sm:text-xs text-slate-500 truncate">
           {activePref?.name ?? '—'} ｜ 全{topLevel.length}市区町村（2025年国勢調査・速報）
         </span>
@@ -325,9 +347,9 @@ function DashboardContent() {
       {!canAccessFull && (
         <Link
           href="/pricing"
-          className="flex items-center gap-2 bg-blue-600/15 hover:bg-blue-600/25 border-b border-blue-700/40 px-3 sm:px-5 py-2 text-sm text-blue-200 transition-colors flex-shrink-0"
+          className="flex items-center gap-2 bg-brand-100 hover:bg-brand-300/40 border-b border-brand-300 px-3 sm:px-5 py-2 text-sm text-brand-700 transition-colors flex-shrink-0"
         >
-          <Lock className="w-4 h-4 flex-shrink-0 text-blue-300" />
+          <Lock className="w-4 h-4 flex-shrink-0 text-brand-700" />
           <span className="truncate">
             無料プランでは上位{FREE_VISIBLE_AREA_LIMIT}件のみ表示。全データを見るにはアップグレードが必要です
           </span>
@@ -340,7 +362,7 @@ function DashboardContent() {
         {/* List + Map（モバイル: 縦積み / デスクトップ: 横並び） */}
         <div className="absolute inset-0 flex flex-col md:flex-row">
           {/* Left: municipality list（モバイルは全幅・上段） */}
-          <aside className="w-full md:w-72 flex-shrink-0 h-[42%] md:h-full border-b md:border-b-0 md:border-r border-slate-700 overflow-hidden">
+          <aside className="w-full md:w-72 flex-shrink-0 h-[42%] md:h-full border-b md:border-b-0 md:border-r border-slate-200 overflow-hidden">
             <MunicipalityList
               municipalities={listMunicipalities}
               selectedId={selected?.id ?? null}

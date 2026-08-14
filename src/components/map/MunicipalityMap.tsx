@@ -124,11 +124,20 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
         const rateStr = m.deltaRate == null
           ? 'データなし'
           : `${m.deltaRate > 0 ? '+' : ''}${m.deltaRate.toFixed(2)}%`
+        // 文字として読む増減率は「テキスト専用」のデータ色を使う（塗り=deltaColor とは別管理）。
+        // globals.css の @theme が :root に出す変数を参照し、値の二重管理を避ける。
+        const rateTextColor = m.deltaRate == null
+          ? '#64748b'
+          : m.deltaRate >= 0
+            ? 'var(--color-delta-up)'
+            : 'var(--color-delta-down)'
         circle.bindPopup(
+          // ラベル文言は #64748b、本文（市区町村名・人口）は #0f172a。
+          // 増減率の「数値」はテキスト専用データ色（rateTextColor）。ピンの塗りは heatColor のまま。
           `<div style="font-family:sans-serif;min-width:150px">
-            <div style="font-weight:bold;font-size:14px;margin-bottom:4px">${m.name}</div>
-            <div style="font-size:13px">人口(${CENSUS.latestShort}): <b>${formatPopulation(m.popLatest)}</b></div>
-            <div style="font-size:12px;color:${heatColor}">増減率: <b>${rateStr}</b></div>
+            <div style="font-weight:bold;font-size:14px;margin-bottom:4px;color:#0f172a">${m.name}</div>
+            <div style="font-size:13px;color:#64748b">人口(${CENSUS.latestShort}): <b style="color:#0f172a">${formatPopulation(m.popLatest)}</b></div>
+            <div style="font-size:12px;color:#64748b">増減率: <b style="color:${rateTextColor}">${rateStr}</b></div>
           </div>`,
           { className: 'muni-popup' },
         )
@@ -184,12 +193,12 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
 
       {/* 増減率 凡例（ヒートマップ権限のある Standard 以上のみ表示） */}
       {canUseHeatmap && (
-        <div className="absolute bottom-6 left-3 sm:left-4 bg-slate-800/90 backdrop-blur-sm border border-slate-700 rounded-lg px-3 py-2 z-[1000]">
-          <div className="text-xs font-semibold text-slate-400 mb-2">人口増減率（{CENSUS.deltaRangeLabel}）</div>
+        <div className="absolute bottom-6 left-3 sm:left-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg px-3 py-2 z-[1000]">
+          <div className="text-xs font-semibold text-slate-500 mb-2">人口増減率（{CENSUS.deltaRangeLabel}）</div>
           {DELTA_BUCKETS.map((b) => (
             <div key={b.label} className="flex items-center gap-2 mb-1 last:mb-0">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: b.color }} />
-              <span className="text-xs text-slate-300">{b.label}</span>
+              <span className="text-xs text-slate-700">{b.label}</span>
             </div>
           ))}
         </div>

@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { LegalShell, LegalHeading, LegalParagraph } from '@/components/legal/LegalShell'
 
 export const metadata: Metadata = {
-  title: 'プライバシーポリシー ｜ エリアスコア',
+  title: 'プライバシーポリシー ｜ AreaScore',
   description: 'エリアスコアのプライバシーポリシー',
 }
 
@@ -11,9 +11,9 @@ const ul = 'list-disc pl-5 space-y-1.5 text-[15px] text-slate-700 leading-relaxe
 
 export default function PrivacyPage() {
   return (
-    <LegalShell title="プライバシーポリシー" established="2026年6月11日 制定">
+    <LegalShell title="プライバシーポリシー" established="2026年6月11日 制定／2026年8月5日 改定">
       <LegalParagraph>
-        Crouch Boost（以下「当方」といいます）は、当方が提供する地域分析サービス「エリアスコア」（以下「本サービス」といいます）における利用者の個人情報の取扱いについて、以下のとおりプライバシーポリシーを定めます。
+        Crouching Style（以下「当方」といいます）は、当方が提供する地域分析サービス「エリアスコア」（以下「本サービス」といいます）における利用者の個人情報の取扱いについて、以下のとおりプライバシーポリシーを定めます。
       </LegalParagraph>
 
       <section>
@@ -87,7 +87,8 @@ export default function PrivacyPage() {
           本ポリシーに関するお問い合わせは、下記までお願いいたします。
         </LegalParagraph>
         <div className="text-[15px] text-slate-700 leading-relaxed mt-2">
-          <p>事業者名: Crouch Boost　運営責任者: 村上 里輝</p>
+          <p>事業者名: Crouching Style</p>
+          <p>運営責任者: 個人情報の保護に関する法律に基づき、ご本人からの求めに応じて遅滞なく開示いたします。開示をご希望の方は下記メールアドレスまでご連絡ください。</p>
           <p>メールアドレス: info@crouchingstyle.com</p>
         </div>
       </section>

@@ -32,18 +32,18 @@ export function PrefectureDropdown({ prefectures, selectedCode, onSelect }: Prop
     <div ref={ref} className="relative w-full sm:w-auto">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center justify-between gap-2 w-full sm:w-auto sm:min-w-[10rem] px-3 min-h-[44px] sm:min-h-0 py-2 sm:py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg text-sm font-medium text-white transition-colors"
+        className="flex items-center justify-between gap-2 w-full sm:w-auto sm:min-w-[10rem] px-3 min-h-[44px] sm:min-h-0 py-2 sm:py-1.5 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium text-slate-900 transition-colors"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         <span>{selected.name}</span>
-        <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
         <ul
           role="listbox"
-          className="absolute left-0 top-full mt-1 w-full min-w-[10rem] max-h-72 overflow-y-auto bg-slate-800 border border-slate-600 rounded-lg shadow-2xl z-[1200] py-1"
+          className="absolute left-0 top-full mt-1 w-full min-w-[10rem] max-h-72 overflow-y-auto bg-white border border-slate-300 rounded-lg shadow-lg z-[1200] py-1"
         >
           {prefectures.map((p) => {
             const active = p.code === selected.code
@@ -55,7 +55,7 @@ export function PrefectureDropdown({ prefectures, selectedCode, onSelect }: Prop
                     setOpen(false)
                   }}
                   className={`w-full flex items-center justify-between gap-2 px-3 min-h-[44px] sm:min-h-0 py-2 text-left text-sm transition-colors ${
-                    active ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'
+                    active ? 'bg-brand-700 text-white' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   <span>{p.name}</span>

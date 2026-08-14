@@ -27,7 +27,7 @@ export function UseCases() {
     <section className="bg-white text-slate-900">
       <div className="max-w-6xl mx-auto px-4 py-20 sm:py-24">
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <p className="text-blue-600 font-semibold text-sm mb-3">活用シーン</p>
+          <p className="text-brand-700 font-semibold text-sm mb-3">活用シーン</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             こんな業務で使われています。
           </h2>
@@ -35,10 +35,10 @@ export function UseCases() {
         <div className="grid gap-6 md:grid-cols-3">
           {CASES.map((c) => (
             <div key={c.persona} className="rounded-2xl border border-slate-200 bg-slate-50 p-8 flex flex-col">
-              <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mb-5">
+              <div className="w-12 h-12 rounded-xl bg-brand-700 flex items-center justify-center mb-5">
                 <c.icon className="w-6 h-6 text-white" />
               </div>
-              <p className="text-blue-600 text-xs font-bold mb-2">{c.persona}</p>
+              <p className="text-brand-700 text-xs font-bold mb-2">{c.persona}</p>
               <h3 className="text-lg font-bold mb-3">{c.title}</h3>
               <p className="text-slate-600 text-sm leading-relaxed">{c.body}</p>
             </div>

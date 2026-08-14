@@ -27,7 +27,7 @@ export function Solution() {
     <section className="bg-slate-50 text-slate-900">
       <div className="max-w-6xl mx-auto px-4 py-20 sm:py-24">
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <p className="text-blue-600 font-semibold text-sm mb-3">エリアスコアの仕組み</p>
+          <p className="text-brand-700 font-semibold text-sm mb-3">エリアスコアの仕組み</p>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             3つの公的データを、1つの「エリアスコア」に。
           </h2>
@@ -42,8 +42,8 @@ export function Solution() {
           {SOURCES.map((s, i) => (
             <div key={s.label} className="flex flex-col lg:flex-row items-center gap-4 lg:gap-3">
               <div className="w-full lg:w-52 rounded-2xl border border-slate-200 bg-white p-6 text-center">
-                <div className="w-12 h-12 mx-auto rounded-xl bg-blue-50 flex items-center justify-center mb-4">
-                  <s.icon className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 mx-auto rounded-xl bg-brand-100 flex items-center justify-center mb-4">
+                  <s.icon className="w-6 h-6 text-brand-700" />
                 </div>
                 <p className="font-bold">{s.label}</p>
                 <p className="text-slate-500 text-xs mt-1">{s.sub}</p>
@@ -57,12 +57,12 @@ export function Solution() {
 
           <Equal className="w-6 h-6 text-slate-400 self-center rotate-90 lg:rotate-0 shrink-0" />
 
-          <div className="w-full lg:w-56 rounded-2xl bg-slate-900 text-white p-6 text-center flex flex-col items-center justify-center">
-            <p className="text-sm text-slate-300">エリアスコア</p>
+          <div className="w-full lg:w-56 rounded-2xl bg-brand-700 text-white p-6 text-center flex flex-col items-center justify-center">
+            <p className="text-sm text-brand-100">エリアスコア</p>
             <p className="text-5xl font-bold mt-2">
-              82<span className="text-2xl text-slate-400">/100</span>
+              82<span className="text-2xl text-brand-300">/100</span>
             </p>
-            <span className="mt-3 inline-block bg-emerald-500/20 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full">
+            <span className="mt-3 inline-block bg-white/15 text-white text-xs font-bold px-3 py-1 rounded-full">
               Tier A
             </span>
           </div>

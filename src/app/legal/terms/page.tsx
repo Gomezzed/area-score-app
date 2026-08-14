@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { LegalShell, LegalHeading, LegalParagraph } from '@/components/legal/LegalShell'
 
 export const metadata: Metadata = {
-  title: '利用規約 ｜ エリアスコア',
+  title: '利用規約 ｜ AreaScore',
   description: 'エリアスコアの利用規約',
 }
 
@@ -10,9 +10,9 @@ const ol = 'list-decimal pl-5 space-y-1.5 text-[15px] text-slate-700 leading-rel
 
 export default function TermsPage() {
   return (
-    <LegalShell title="利用規約" established="2026年6月11日 制定">
+    <LegalShell title="利用規約" established="2026年6月11日 制定／2026年8月5日 改定">
       <LegalParagraph>
-        この利用規約(以下「本規約」といいます)は、Crouch Boost（以下「当方」といいます）が提供する地域分析サービス「エリアスコア」（以下「本サービス」といいます）の利用条件を定めるものです。利用者は、本規約に同意のうえ本サービスを利用するものとします。
+        この利用規約(以下「本規約」といいます)は、Crouching Style（以下「当方」といいます）が提供する地域分析サービス「エリアスコア」（以下「本サービス」といいます）の利用条件を定めるものです。利用者は、本規約に同意のうえ本サービスを利用するものとします。
       </LegalParagraph>
 
       <section>

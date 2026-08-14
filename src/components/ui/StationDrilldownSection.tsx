@@ -84,11 +84,11 @@ export function StationDrilldownSection({ municipalityId }: { municipalityId: st
   const visibleList = expanded ? list : list.slice(0, MAX_VISIBLE)
 
   return (
-    <div className="mt-6 border-t border-slate-700 pt-5">
-      <h3 className="flex flex-wrap items-center gap-2 text-sm font-bold text-white mb-1">
-        <Train className="w-4 h-4 text-blue-400" />
+    <div className="mt-6 border-t border-slate-200 pt-5">
+      <h3 className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-900 mb-1">
+        <Train className="w-4 h-4 text-brand-700" />
         駅単位ドリルダウン
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 ring-1 ring-blue-400/40">
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-brand-100 text-brand-700">
           Standard+
         </span>
       </h3>
@@ -99,11 +99,11 @@ export function StationDrilldownSection({ municipalityId }: { municipalityId: st
       {loading && <div className="text-slate-500 text-sm py-6 text-center">読み込み中…</div>}
 
       {!loading && error && (
-        <div className="bg-slate-700/30 rounded-lg py-6 text-center text-slate-500 text-sm">{error}</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg py-6 text-center text-slate-500 text-sm">{error}</div>
       )}
 
       {!loading && !error && list.length === 0 && (
-        <div className="bg-slate-700/30 rounded-lg py-6 text-center text-slate-500 text-sm">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg py-6 text-center text-slate-500 text-sm">
           この市区町村に登録された駅はありません
         </div>
       )}
@@ -119,11 +119,11 @@ export function StationDrilldownSection({ municipalityId }: { municipalityId: st
               )
             }
             aria-label="駅を選択"
-            className="w-full rounded-lg bg-slate-700 border border-slate-600 text-white text-sm px-3 py-2 mb-3 focus:outline-none focus:border-blue-500"
+            className="w-full rounded-lg bg-white border border-slate-300 text-slate-900 text-sm px-3 py-2 mb-3 focus:outline-none focus:border-brand-700"
           >
             <option value="">駅を選択（{list.length}駅）</option>
             {list.map((s) => (
-              <option key={s.stationId} value={s.stationId} className="bg-slate-800">
+              <option key={s.stationId} value={s.stationId} className="bg-white">
                 {s.name}（{fmtInt(s.confirmed.passengersLatest)}人/日）
               </option>
             ))}
@@ -142,7 +142,7 @@ export function StationDrilldownSection({ municipalityId }: { municipalityId: st
             <button
               type="button"
               onClick={() => setExpandedFor(expanded ? null : municipalityId)}
-              className="w-full mt-2 py-1.5 rounded-lg bg-slate-700/30 border border-slate-700 text-[11px] font-bold text-blue-300 hover:text-blue-200 hover:bg-slate-700/50 transition-colors"
+              className="w-full mt-2 py-1.5 rounded-lg bg-white border border-[#C7D6E4] text-[11px] font-bold text-brand-700 hover:bg-brand-100 transition-colors"
             >
               {expanded ? `上位${MAX_VISIBLE}件に戻す` : `すべて表示（${list.length}駅）`}
             </button>
@@ -161,13 +161,13 @@ export function StationDrilldownSection({ municipalityId }: { municipalityId: st
 function SelectedStationCard({ s }: { s: StationItem }) {
   const label = [s.operator, s.lineName].filter(Boolean).join(' ・ ')
   return (
-    <div className="bg-slate-700/50 rounded-xl p-4 mb-3 text-center border border-slate-600">
-      <div className="text-sm font-bold text-white">
+    <div className="bg-slate-50 rounded-xl p-4 mb-3 text-center border border-slate-200">
+      <div className="text-sm font-bold text-slate-900">
         {s.name}
         <span className="text-slate-400 font-normal text-xs">駅</span>
       </div>
       {label && <div className="text-[11px] text-slate-400 mt-0.5">{label}</div>}
-      <div className="text-3xl font-black text-white mt-2">
+      <div className="text-3xl font-black text-slate-900 mt-2">
         {fmtInt(s.confirmed.passengersLatest)}
         <span className="text-base font-bold text-slate-400 ml-1">人/日</span>
       </div>
@@ -182,17 +182,17 @@ function SelectedStationCard({ s }: { s: StationItem }) {
 function StationRow({ s }: { s: StationItem }) {
   const label = [s.operator, s.lineName].filter(Boolean).join(' ・ ') || '—'
   return (
-    <div className="rounded-lg border border-slate-700 border-l-4 border-l-blue-400 bg-slate-800/60 px-3 py-2">
+    <div className="rounded-lg border border-slate-200 border-l-4 border-l-brand-700 bg-slate-50 px-3 py-2">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-sm font-bold text-white truncate">
+          <div className="text-sm font-bold text-slate-900 truncate">
             {s.name}
             <span className="text-slate-400 font-normal text-xs">駅</span>
           </div>
           <div className="text-[10px] text-slate-400 truncate">{label}</div>
         </div>
         <div className="text-right flex-shrink-0">
-          <div className="text-base font-black text-white leading-tight">
+          <div className="text-base font-black text-slate-900 leading-tight">
             {fmtInt(s.confirmed.passengersLatest)}
             <span className="text-[10px] font-bold text-slate-400 ml-0.5">人/日</span>
           </div>
