@@ -143,6 +143,13 @@ BEGIN
   ON CONFLICT (organization_id, user_id) DO NOTHING;
 
   RETURN NEW;
+EXCEPTION
+  -- 個人 org の自動生成が失敗しても、auth.users への INSERT を巻き戻してはならない。
+  -- org は backfill スクリプト(scripts/sql/step1_backfill_personal_orgs.sql)の再実行で後から
+  -- 復旧できるが、サインアップ停止は本番障害になるため。失敗は WARNING で記録し、サインアップは通す。
+  WHEN OTHERS THEN
+    RAISE WARNING 'handle_new_user_org failed for user %: %', NEW.id, SQLERRM;
+    RETURN NEW;
 END;
 $$;
 
