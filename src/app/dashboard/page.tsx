@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
-import { usePlanLimit, applyAreaVisibilityLimit, maskLockedAreaValues, FREE_VISIBLE_AREA_LIMIT } from '@/hooks/usePlanLimit'
+import { usePlanLimit, FREE_VISIBLE_AREA_LIMIT } from '@/hooks/usePlanLimit'
 import { usePrefectures } from '@/hooks/useCensus'
 import { useDashboardUrlState } from '@/hooks/useDashboardUrlState'
 // 注: ログアウトは useAuth().signOut を使用（supabase クライアントの直接importは不要）
@@ -84,25 +84,17 @@ function DashboardContent() {
   // 注目町域 TOP20 スライドオーバーの開閉（Platinum のみ）
   const [highlightsOpen, setHighlightsOpen] = useState(false)
 
-  // 無料プラン: トップレベル一覧の上位 visibleAreaLimit 件のみ閲覧可。
-  // ドリルダウン（区一覧）中はロックしない（アクセス可能な政令市配下のため）。
-  //   ※ visibleAreaLimit は free のみ数値（=3）、starter/standard は null（無制限）。
-  const lockedFromIndex =
-    limit.visibleAreaLimit != null && !expandedCity ? limit.visibleAreaLimit : null
-  // 地図には閲覧可能な市区町村のみ表示（ロック項目はマーカーから除外）。
-  //   applyAreaVisibilityLimit は上位N件のみ可視化し残りを lockedCount として返す。
-  const { visible: mapMunicipalities } = useMemo(
-    () => applyAreaVisibilityLimit(displayed, lockedFromIndex),
-    [displayed, lockedFromIndex],
+  // 閲覧ルール v3 のロック判定はサーバー（get_municipalities_gated）が確定済み。
+  //   各行の m.locked と NULL 化済み数値がそのまま届くため、クライアント側マスクは行わない。
+  // 地図には閲覧可能な行のみ表示（ロック行は lat/lng が NULL のためマーカー描画不可）。
+  const mapMunicipalities = useMemo(
+    () => displayed.filter((m) => !m.locked),
+    [displayed],
   )
 
-  // L-2(表示版): リストへ渡す前に、ロック対象（4件目以降）の実数値を null 化する。
-  //   id/name は維持（key・順位判定・検索のクラッシュ防止）。可視3件は実データのまま。
-  //   地図は上の mapMunicipalities（可視3件のみ）を使うため波及しない。
-  const listMunicipalities = useMemo(
-    () => maskLockedAreaValues(displayed, lockedFromIndex),
-    [displayed, lockedFromIndex],
-  )
+  // リストは displayed をそのまま渡す（ロック行の伏字・アップグレード導線は MunicipalityList が
+  //   m.locked を見て描画する）。
+  const listMunicipalities = displayed
 
   function handleCSVDownload() {
     // 料金設計v2.1: CSV出力は Standard 以上の機能（Starter は PDF のみ可）
@@ -378,7 +370,6 @@ function DashboardContent() {
               expandableNames={designatedNames}
               drilldownCity={expandedCity}
               onBack={exitCity}
-              lockedFromIndex={lockedFromIndex}
               onLockedClick={() => router.push('/pricing')}
             />
           </aside>
@@ -398,7 +389,7 @@ function DashboardContent() {
         </div>
 
         {/* Detail panel: モバイルは全画面オーバーレイ / デスクトップは右サイドパネル */}
-        <MunicipalityDetailPanel municipality={selected} onClose={closeArea} />
+        <MunicipalityDetailPanel municipality={selected} onClose={closeArea} plan={plan} />
 
         {/* 注目町域 TOP20（Platinum・自己ゲート）。詳細パネルと同じ absolute オーバーレイで flex に干渉しない */}
         <TownHighlightsPanel

@@ -10,14 +10,16 @@ import { TransactionSection } from './TransactionSection'
 import { TownPrioritySection } from './TownPrioritySection'
 import { StationDrilldownSection } from './StationDrilldownSection'
 import { MarketMetricsSection } from './MarketMetricsSection'
+import { type PlanId } from '@/lib/plans'
 import { X, Users, Home, TrendingUp, TrendingDown, BarChart2 } from 'lucide-react'
 
 interface Props {
   municipality: MunicipalityWithStats | null
   onClose: () => void
+  plan: PlanId
 }
 
-export function MunicipalityDetailPanel({ municipality: m, onClose }: Props) {
+export function MunicipalityDetailPanel({ municipality: m, onClose, plan }: Props) {
   const open = m != null
 
   return (
@@ -27,12 +29,12 @@ export function MunicipalityDetailPanel({ municipality: m, onClose }: Props) {
       }`}
       aria-hidden={!open}
     >
-      {m && <PanelBody m={m} onClose={onClose} />}
+      {m && <PanelBody m={m} onClose={onClose} plan={plan} />}
     </div>
   )
 }
 
-function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => void }) {
+function PanelBody({ m, onClose, plan }: { m: MunicipalityWithStats; onClose: () => void; plan: PlanId }) {
   const positive = (m.deltaRate ?? 0) >= 0
 
   return (
@@ -87,11 +89,13 @@ function PanelBody({ m, onClose }: { m: MunicipalityWithStats; onClose: () => vo
           <Row icon={<Home className="w-4 h-4 text-brand-700" />} label={`世帯数（${CENSUS.latestLabel}）`} value={m.householdsLatest == null ? '—' : `${m.householdsLatest.toLocaleString('ja-JP')}世帯`} />
         </div>
 
-        {/* 人口推移（2015〜2025） — 不動産取引セクションの上に配置 */}
-        <PopulationSection municipalityId={m.id} />
+        {/* 人口推移（2015〜2025） — 不動産取引セクションの上に配置。
+            city_code をキーに get_population_history_gated 経由で取得（ロック対象は空集合）。 */}
+        <PopulationSection cityCode={m.city_code} />
 
-        {/* マンション取引履歴 */}
-        <TransactionSection municipalityId={m.id} />
+        {/* マンション取引履歴。free は real_estate_transactions を閲覧不可（starter+）のため
+            fetch 自体を発火させない（空振りリクエストとコンソールエラーを出さない）。 */}
+        <TransactionSection municipalityId={plan === 'free' ? null : m.id} />
 
         {/* 駅乗降客数（XKT015 集約値） — 不動産取引セクションの下に配置 */}
         <StationSection total={m.stationPassengersTotal} />
@@ -132,8 +136,8 @@ const formatMan = (v: number): string =>
     ? `${(v / 10000).toLocaleString('ja-JP', { maximumFractionDigits: 1 })}万`
     : v.toLocaleString('ja-JP')
 
-function PopulationSection({ municipalityId }: { municipalityId: string }) {
-  const { data, loading } = usePopulationHistory(municipalityId)
+function PopulationSection({ cityCode }: { cityCode: string | null }) {
+  const { data, loading, error } = usePopulationHistory(cityCode)
   const hasData = data.length > 0
 
   return (
@@ -147,14 +151,22 @@ function PopulationSection({ municipalityId }: { municipalityId: string }) {
         <div className="text-slate-500 text-sm py-8 text-center">読み込み中…</div>
       )}
 
-      {!loading && !hasData && (
+      {/* RPC 失敗（例: セッション未確立時の 401）は「準備中」と区別して明示する */}
+      {!loading && error && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg py-8 text-center">
+          <Users className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+          <p className="text-amber-600 text-sm">読み込みに失敗しました。再読み込みしてください</p>
+        </div>
+      )}
+
+      {!loading && !error && !hasData && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg py-8 text-center">
           <Users className="w-7 h-7 text-slate-300 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">データ準備中（順次公開）</p>
         </div>
       )}
 
-      {!loading && hasData && (
+      {!loading && !error && hasData && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <ResponsiveContainer width="100%" height={150}>
             <LineChart data={data} margin={{ top: 4, right: 8, left: -6, bottom: 0 }}>
