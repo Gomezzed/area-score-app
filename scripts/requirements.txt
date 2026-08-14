@@ -5,3 +5,8 @@ python-dotenv>=1.0.0
 # Shapefile/GeoJSON 読込・CRS 変換(6668→4326)・dissolve・MakeValid に使用。
 geopandas>=0.14.0
 shapely>=2.0.0
+
+# cryptography は 45+ が Python 3.9 向け macOS wheel を提供せず、
+# sdist ビルドすると実行時に OpenSSL の symbol 不一致で ImportError になる
+# （_ERR_get_error_all / 2026-08-14 実測）。wheel のある版に固定する。
+cryptography<45
