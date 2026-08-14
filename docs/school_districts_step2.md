@@ -66,8 +66,24 @@ is_public = (
 - `propagate_school_district_license()`（AFTER UPDATE ON school_district_licenses）
   台帳更新を該当ポリゴン行へ伝播。**SD-15：許諾が取れたら台帳の `license_status` を
   更新するだけで、`is_public` が自動追随して即日公開**される。
+  判定に関わる列が実際に変化したときだけ発火する `WHEN` 句付き（`updated_at` は含めない＝
+  ローダー再実行での全件伝播を防ぐ）。
+- `propagate_school_district_license_delete()`（AFTER DELETE ON school_district_licenses）
+  台帳行が削除されたら、該当ポリゴン行のライセンス列を **DEFAULT 相当（PENDING /
+  commercial_use=false 等）へ戻す** = deny-by-default。**ポリゴン行は削除しない**
+  （非公開にするだけ。`is_public` は生成列で自動 false）。
 
-両関数とも `SECURITY DEFINER` / `search_path = public, pg_temp` / **anon に EXECUTE 無し**。
+3 関数とも `SECURITY DEFINER` / `search_path = public, pg_temp` / **anon に EXECUTE 無し**。
+
+## 4-2. PostGIS の配置と search_path（STEP3 以降の注意）
+
+PostGIS は **`extensions` スキーマに配置**されている（実測 v3.3.7）。DB の search_path に
+`extensions` が含まれるため、本 STEP2 の migration はそのまま適用可能。
+
+⚠️ **STEP3 以降で PostGIS 関数（`ST_Contains` 等）を呼ぶ `SECURITY DEFINER` 関数を書く場合は
+`SET search_path = public, extensions, pg_temp` とすること。**
+`public, pg_temp` のみだと関数が解決できず失敗する。
+（本 STEP2 の同期トリガー関数は PostGIS 関数を呼ばないため `public, pg_temp` で問題ない。）
 
 ## 5. インデックス / RLS / 権限
 

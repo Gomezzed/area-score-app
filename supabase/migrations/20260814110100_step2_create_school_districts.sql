@@ -186,9 +186,66 @@ COMMENT ON FUNCTION public.propagate_school_district_license() IS
   'STEP2/SD-15: school_district_licenses の AFTER UPDATE。該当 school_districts 行へライセンス列を伝播（許諾取得時の即日公開経路）。is_public は生成列なので自動追随する。';
 
 DROP TRIGGER IF EXISTS trg_propagate_school_district_license ON public.school_district_licenses;
+-- ライセンス判定に関わる列が実際に変化したときだけ発火（ローダー再実行での全件伝播を防ぐ）。
+-- updated_at は判定に含めない。
 CREATE TRIGGER trg_propagate_school_district_license
   AFTER UPDATE ON public.school_district_licenses
-  FOR EACH ROW EXECUTE FUNCTION public.propagate_school_district_license();
+  FOR EACH ROW
+  WHEN (
+    OLD.license_status       IS DISTINCT FROM NEW.license_status
+    OR OLD.commercial_use       IS DISTINCT FROM NEW.commercial_use
+    OR OLD.redistribution       IS DISTINCT FROM NEW.redistribution
+    OR OLD.attribution_required IS DISTINCT FROM NEW.attribution_required
+    OR OLD.attribution_text     IS DISTINCT FROM NEW.attribution_text
+    OR OLD.license_type         IS DISTINCT FROM NEW.license_type
+    OR OLD.license_url          IS DISTINCT FROM NEW.license_url
+    OR OLD.raw_public           IS DISTINCT FROM NEW.raw_public
+    OR OLD.raw_use              IS DISTINCT FROM NEW.raw_use
+    OR OLD.special_condition    IS DISTINCT FROM NEW.special_condition
+  )
+  EXECUTE FUNCTION public.propagate_school_district_license();
+
+-- ── 台帳 DELETE → ポリゴンを deny-by-default に戻す AFTER DELETE トリガー ──────
+-- 台帳行が削除されたら、該当 school_districts 行のライセンス列を DEFAULT 相当へ戻す。
+-- ⛔ school_districts 側の行は DELETE しない（ポリゴンは残し、非公開にするだけ）。
+-- is_public は生成列なので自動的に false になる。
+CREATE OR REPLACE FUNCTION public.propagate_school_district_license_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  UPDATE public.school_districts sd
+     SET license_status       = 'PENDING',
+         commercial_use       = false,
+         redistribution       = false,
+         attribution_required = true,
+         license_type         = NULL,
+         license_url          = NULL,
+         attribution_text     = NULL,
+         raw_public           = NULL,
+         raw_use              = NULL,
+         special_condition    = NULL,
+         updated_at           = now()
+   WHERE sd.source_version = OLD.source_version
+     AND sd.muni_code_5    = OLD.muni_code_5
+     AND sd.school_type    = OLD.school_type;
+
+  RETURN OLD;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.propagate_school_district_license_delete() FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.propagate_school_district_license_delete() TO service_role;
+
+COMMENT ON FUNCTION public.propagate_school_district_license_delete() IS
+  'STEP2: school_district_licenses の AFTER DELETE。該当 school_districts 行のライセンス列を DEFAULT 相当(PENDING/commercial_use=false 等)へ戻す＝deny-by-default。ポリゴン行は削除しない（is_public は生成列で自動 false）。';
+
+DROP TRIGGER IF EXISTS trg_propagate_school_district_license_delete ON public.school_district_licenses;
+CREATE TRIGGER trg_propagate_school_district_license_delete
+  AFTER DELETE ON public.school_district_licenses
+  FOR EACH ROW EXECUTE FUNCTION public.propagate_school_district_license_delete();
 
 -- ── インデックス ─────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS school_districts_geom_gist
