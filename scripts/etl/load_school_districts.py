@@ -82,19 +82,23 @@ SOURCE_TYPE_SCHOOL_TYPE = {
 #
 # logical field -> KSJ カラム名（実ファイルで確認して埋める）。
 FIELD_MAP = {
+    # 2026-08-14 実測確定（A27-23_23_GML.zip / A32-23_23_GML.zip を --print-fields で確認）。
+    # A27 と A32 は同じ並び。001=行政区域コード5桁 / 002=設置主体（名称。表記ゆれあり）/
+    # 003=学校コード（小=B・中=C の接頭辞）/ 004=学校名 / 005=所在地。
+    # 版が変わったら必ず --print-fields で再確認すること（推測で継承しない）。
     "KSJ_A27_2023": {
-        "muni_code_5":      None,   # TODO(PO): 行政区域コード列（例候補 A27_001）を実ファイルで確認して設定
-        "school_code":      None,   # TODO(PO): 学校コード列（任意。無ければ None のままで school_name を一意キーに使う）
-        "school_name":      None,   # TODO(PO): 学校名称列（必須）
-        "school_address":   None,   # TODO(PO): 所在地列（任意）
-        "establisher_code": None,   # TODO(PO): 設置主体コード列（任意）
+        "muni_code_5":      "A27_001",   # 例 '23100'（名古屋市＝区ではなく市コード。SD-14）
+        "school_code":      "A27_003",   # 例 'B123210000496'
+        "school_name":      "A27_004",   # 例 '南押切小学校'
+        "school_address":   "A27_005",   # 例 '名古屋市西区則武新町2-14-3'
+        "establisher_code": "A27_002",   # 例 '名古屋市立'（実体は名称。列名に反して数値コードではない）
     },
     "KSJ_A32_2023": {
-        "muni_code_5":      None,   # TODO(PO): A32 の行政区域コード列（未確認）
-        "school_code":      None,   # TODO(PO): A32 の学校コード列（未確認・任意）
-        "school_name":      None,   # TODO(PO): A32 の学校名称列（必須・未確認）
-        "school_address":   None,   # TODO(PO): A32 の所在地列（任意・未確認）
-        "establisher_code": None,   # TODO(PO): A32 の設置主体コード列（任意・未確認）
+        "muni_code_5":      "A32_001",   # 例 '23100'
+        "school_code":      "A32_003",   # 例 'C123210000635'
+        "school_name":      "A32_004",   # 例 '港北中学校'
+        "school_address":   "A32_005",   # 例 '名古屋市港区港北町2-1'
+        "establisher_code": "A32_002",   # 例 '名古屋市'（A27 は「〜立」付きで表記が揃っていない）
     },
 }
 # 必須の logical field（これが None、または実ファイルに無ければ中断）。
@@ -145,7 +149,9 @@ def fetch_license_targets(sb: Client, source_version: str, school_type: str):
         .select("muni_code_5,muni_code_6,pref_code,muni_name,is_priority_target")
         .eq("source_version", source_version)
         .eq("school_type", school_type)
-        .eq("is_priority_target", True)
+        # PostgREST は真偽値を小文字で要求する。Python の True を渡すと
+        # URL が is_priority_target=eq.True となり一致しないため、明示的に "true"。
+        .eq("is_priority_target", "true")
         .execute()
     )
     for r in resp.data or []:
@@ -204,17 +210,9 @@ def run(args) -> int:
     log.info("input=%s source_type=%s school_type=%s source_version=%s",
              args.input, args.source_type, args.school_type, args.source_version)
 
-    # 追加指示6: source_type × school_type の整合を検証（暗黙補正しない）。
-    expected_school_type = SOURCE_TYPE_SCHOOL_TYPE.get(args.source_type)
-    if expected_school_type is None:
-        raise SystemExit(f"未知の --source-type: {args.source_type}")
-    if args.school_type != expected_school_type:
-        raise SystemExit(
-            f"--source-type と --school-type が不整合です: "
-            f"{args.source_type} は {expected_school_type} のみ許可（指定 {args.school_type}）。"
-        )
-
-    # 読込。
+    # 読込。--print-fields は FIELD_MAP を埋めるための実カラム確認用途であり、
+    # --source-type / --school-type を要さない。先にファイルを読み、
+    # print-fields ならここで終了する。
     if not os.path.exists(args.input):
         raise SystemExit(f"--input が存在しません: {args.input}")
     gdf = gpd.read_file(args.input)
@@ -226,6 +224,22 @@ def run(args) -> int:
             sample = gdf[c].iloc[0] if len(gdf) else ""
             log.info("  col=%s 例=%r", c, sample)
         return 0
+
+    # ここから先（実投入・dry-run 含む）は --source-type / --school-type が必須。
+    if not args.source_type or not args.school_type:
+        raise SystemExit(
+            "--source-type と --school-type は（--print-fields 以外では）必須です。"
+        )
+
+    # 追加指示6: source_type × school_type の整合を検証（暗黙補正しない）。
+    expected_school_type = SOURCE_TYPE_SCHOOL_TYPE.get(args.source_type)
+    if expected_school_type is None:
+        raise SystemExit(f"未知の --source-type: {args.source_type}")
+    if args.school_type != expected_school_type:
+        raise SystemExit(
+            f"--source-type と --school-type が不整合です: "
+            f"{args.source_type} は {expected_school_type} のみ許可（指定 {args.school_type}）。"
+        )
 
     fmap = resolve_field_map(args.source_type, set(gdf.columns))
 
@@ -459,13 +473,17 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--input", required=True,
                    help="ローカルの Shapefile/GeoJSON/zip パス（KSJ は PO が手動DLして配置）")
-    # 追加指示6: --source-type は既定を置かず必須。取り違え防止。
-    p.add_argument("--source-type", required=True,
+    # 追加指示6: --source-type は既定を置かず、実投入時は必須（取り違え防止）。
+    # ただし --print-fields（実カラム確認）では不要なため argparse では required にせず、
+    # run() 内で print-fields 以外のときに必須チェックする。
+    p.add_argument("--source-type", default=None,
                    choices=sorted(SOURCE_TYPE_SCHOOL_TYPE.keys()),
-                   help="データセット種別（必須・既定なし）: KSJ_A27_2023(小) / KSJ_A32_2023(中)")
-    p.add_argument("--school-type", required=True,
+                   help="データセット種別（実投入では必須・既定なし）: "
+                        "KSJ_A27_2023(小) / KSJ_A32_2023(中)。--print-fields 時は省略可")
+    p.add_argument("--school-type", default=None,
                    choices=["elementary", "junior_high"],
-                   help="学校種（必須）。--source-type と整合しない場合はエラー終了")
+                   help="学校種（実投入では必須）。--source-type と整合しない場合はエラー終了。"
+                        "--print-fields 時は省略可")
     # --source-version は既定 R5 でよい（利用条件表の版。台帳と結合する版キー）。
     p.add_argument("--source-version", default="R5",
                    help="利用条件表の版（既定 R5=令和5年度版）。台帳の source_version と結合する版キー")
