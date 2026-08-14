@@ -1,3 +1,7 @@
 requests>=2.31.0
 supabase>=2.0.0
 python-dotenv>=1.0.0
+# STEP2 学校区ポリゴンETL（scripts/etl/load_school_districts.py）用。
+# Shapefile/GeoJSON 読込・CRS 変換(6668→4326)・dissolve・MakeValid に使用。
+geopandas>=0.14.0
+shapely>=2.0.0
