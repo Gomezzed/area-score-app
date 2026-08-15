@@ -9,6 +9,7 @@ import {
 } from '@/lib/server/google-oauth'
 import { createAreaScoreSpreadsheet } from '@/lib/server/google-sheets'
 import { fetchMunicipalityExportData } from '@/lib/server/municipality-export'
+import { isSheetsExportEnabled } from '@/lib/server/feature-flags'
 import {
   MUNICIPALITY_EXPORT_HEADERS,
   municipalityExportRows,
@@ -19,6 +20,7 @@ export const runtime = 'nodejs'
 // POST /api/export/sheets
 //   Body: { prefecture_name_en }
 //   処理順（厳守）:
+//     ⓪ サーバー側マスターフラグ検査（FEATURE_SHEETS_EXPORT。OFF なら 404 not_found）
 //     ① セッション確認
 //     ② サーバー側プラン判定（Standard 以上・canExportSheets。下位/free は 403）
 //     ③ user_integrations から復号 → refresh_token で access_token 取得
@@ -28,6 +30,13 @@ export const runtime = 'nodejs'
 //     ⑤ Sheets へ新規作成 → 値書込（RAW）→ 先頭行 太字＋行固定 batchUpdate
 //     ⑥ { url } を返す
 export async function POST(request: NextRequest) {
+  // ⓪ サーバー側マスターフラグ検査（模範: customer-list の isCustomerListEnabled）。
+  //   OFF は「機能が存在しない」を意味するため 404 not_found を返し存在を晒さない。
+  //   ※ 既存の 403 プラン判定は一切変更せず、この検査を最前段に追加するだけ（H9・締め）。
+  if (!isSheetsExportEnabled()) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  }
+
   const supabase = await createSupabaseServerClient()
 
   // ① セッション確認
