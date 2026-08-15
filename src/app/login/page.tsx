@@ -133,6 +133,16 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* パスワード再設定への導線 */}
+          <div className="text-right mt-3">
+            <Link
+              href="/auth/forgot-password"
+              className="text-sm text-brand-700 hover:text-brand-500 font-medium"
+            >
+              パスワードをお忘れですか？
+            </Link>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
