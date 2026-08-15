@@ -48,3 +48,9 @@ __pycache__/
 
 # Claude Code local state
 .claude/
+
+# 国土数値情報（KSJ）原本。再配布不可の自治体を含むためコミット禁止
+data/
+
+# Python 仮想環境
+.venv/
