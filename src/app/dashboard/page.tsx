@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState, useMemo, Suspense } from 'react'
+import { useState, useMemo, Suspense, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
@@ -36,6 +36,35 @@ function DashboardLoading() {
         読み込み中...
       </div>
     </div>
+  )
+}
+
+// プラン未達の分析機能も全プランに表示する（D43-② 案Q）。権限が無い場合はこのロック
+//   ボタンを描画し、クリックで /pricing へ誘導する（MunicipalityList の onLockedClick と同じ導線）。
+//   ここで描画するのはボタン(導線)のみで、実データは一切クライアントに渡さない（原則12）。
+//   実データを扱うパネル/ルート側でも canUse による自己ゲートが別途働くため、錠の表示は
+//   権限の緩和にはならない。
+function LockedFeatureButton({
+  icon,
+  label,
+  title,
+  onUpsell,
+}: {
+  icon: ReactNode
+  label: string
+  title: string
+  onUpsell: () => void
+}) {
+  return (
+    <button
+      onClick={onUpsell}
+      className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-slate-400 rounded-lg text-sm font-medium transition-colors"
+      title={title}
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+      <Lock className="w-3.5 h-3.5 text-brand-700" />
+    </button>
   )
 }
 
@@ -225,8 +254,13 @@ function DashboardContent() {
                 disabled={topLevel.length === 0}
               />
             )}
-            {/* 注目町域 TOP20（Platinum のみ・canUse で自己ゲート。plan 直書き禁止） */}
-            {canUse(plan, 'townAcquisitionPriority') && (
+            {/* 分析系の導線は全プランに表示する（D43-② 案Q）。権限があれば実機能へ、無ければ
+                錠つきボタン（LockedFeatureButton）で /pricing へ誘導する。錠側はボタン(導線)のみを
+                描画し、データは一切クライアントに渡さない（原則12）。実データを扱うパネル/ルート側
+                でも canUse による自己ゲート（例: TownHighlightsPanel は allowed=false で return null）
+                が働くため、錠の表示が権限の緩和になることはない。権限判定は canUse に集約（§3）。 */}
+            {/* 注目町域 TOP20（Platinum・townAcquisitionPriority） */}
+            {canUse(plan, 'townAcquisitionPriority') ? (
               <button
                 onClick={() => setHighlightsOpen(true)}
                 className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-brand-700 hover:bg-brand-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -235,9 +269,16 @@ function DashboardContent() {
                 <Trophy className="w-4 h-4" />
                 <span className="hidden sm:inline">注目TOP20</span>
               </button>
+            ) : (
+              <LockedFeatureButton
+                icon={<Trophy className="w-4 h-4" />}
+                label="注目TOP20"
+                title="注目町域 TOP20（Platinum プランで利用可能）"
+                onUpsell={() => router.push('/pricing')}
+              />
             )}
-            {/* エリア比較（Platinum のみ・canUse で自己ゲート。存在するルート /dashboard/compare へ） */}
-            {canUse(plan, 'areaCompare') && (
+            {/* エリア比較（Platinum・areaCompare。存在するルート /dashboard/compare へ） */}
+            {canUse(plan, 'areaCompare') ? (
               <Link
                 href="/dashboard/compare"
                 className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
@@ -246,9 +287,16 @@ function DashboardContent() {
                 <Scale className="w-4 h-4" />
                 <span className="hidden sm:inline">エリア比較</span>
               </Link>
+            ) : (
+              <LockedFeatureButton
+                icon={<Scale className="w-4 h-4" />}
+                label="エリア比較"
+                title="エリア比較（Platinum プランで利用可能）"
+                onUpsell={() => router.push('/pricing')}
+              />
             )}
-            {/* 商圏レポート（Platinum のみ・canUse で自己ゲート。存在するルート /dashboard/trade-area へ） */}
-            {canUse(plan, 'tradeAreaReport') && (
+            {/* 商圏レポート（Platinum・tradeAreaReport。存在するルート /dashboard/trade-area へ） */}
+            {canUse(plan, 'tradeAreaReport') ? (
               <Link
                 href="/dashboard/trade-area"
                 className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
@@ -257,22 +305,35 @@ function DashboardContent() {
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">商圏レポート</span>
               </Link>
+            ) : (
+              <LockedFeatureButton
+                icon={<FileText className="w-4 h-4" />}
+                label="商圏レポート"
+                title="商圏レポート（Platinum プランで利用可能）"
+                onUpsell={() => router.push('/pricing')}
+              />
             )}
-            {/* 顧客アタックリスト（Platinum のみ・canUse で自己ゲート。plan 直書き禁止。存在するルート /customers へ。
-                アイコンは /customers ヘッダーと同じ Users で視覚的に紐づけ） */}
-            {canUse(plan, 'townAcquisitionPriority') && (
-              <>
-                {/* 商圏レポートとの区切り（Platinum ボタン群の末尾を視覚的に分離） */}
-                <div aria-hidden className="hidden sm:block w-px h-6 bg-[#C7D6E4] mx-1" />
-                <Link
-                  href="/customers"
-                  className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
-                  title="顧客アタックリスト（Platinum）"
-                >
-                  <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">顧客アタックリスト</span>
-                </Link>
-              </>
+            {/* 商圏レポートとの区切り（分析ボタン群の末尾を視覚的に分離）。全プランで表示する。 */}
+            <div aria-hidden className="hidden sm:block w-px h-6 bg-[#C7D6E4] mx-1" />
+            {/* 顧客アタックリスト（Platinum・townAcquisitionPriority。plan 直書き禁止。存在する
+                ルート /customers へ。注目TOP20 と同じ townAcquisitionPriority キーのため、非platinum
+                では両方に同時に錠が出る。アイコンは /customers ヘッダーと同じ Users で視覚的に紐づけ） */}
+            {canUse(plan, 'townAcquisitionPriority') ? (
+              <Link
+                href="/customers"
+                className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
+                title="顧客アタックリスト（Platinum）"
+              >
+                <Users className="w-4 h-4" />
+                <span className="hidden sm:inline">顧客アタックリスト</span>
+              </Link>
+            ) : (
+              <LockedFeatureButton
+                icon={<Users className="w-4 h-4" />}
+                label="顧客アタックリスト"
+                title="顧客アタックリスト（Platinum プランで利用可能）"
+                onUpsell={() => router.push('/pricing')}
+              />
             )}
             <Link
               href="/help"
