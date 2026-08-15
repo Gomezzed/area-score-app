@@ -93,9 +93,10 @@ function PanelBody({ m, onClose, plan }: { m: MunicipalityWithStats; onClose: ()
             city_code をキーに get_population_history_gated 経由で取得（ロック対象は空集合）。 */}
         <PopulationSection cityCode={m.city_code} />
 
-        {/* マンション取引履歴。free は real_estate_transactions を閲覧不可（starter+）のため
-            fetch 自体を発火させない（空振りリクエストとコンソールエラーを出さない）。 */}
-        <TransactionSection municipalityId={plan === 'free' ? null : m.id} />
+        {/* マンション取引履歴。plan を渡し、free は錠カード（/pricing 導線）、starter+ は
+            従来どおり m.id で取得・描画する。free の fetch 抑止（municipalityId 相当を null 化）は
+            TransactionSection 内部で行うため、starter+ の閲覧挙動は不変（locked=false → m.id を使用）。 */}
+        <TransactionSection municipalityId={m.id} plan={plan} />
 
         {/* 駅乗降客数（XKT015 集約値） — 不動産取引セクションの下に配置 */}
         <StationSection total={m.stationPassengersTotal} />

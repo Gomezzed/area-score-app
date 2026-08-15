@@ -4,19 +4,28 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { Building2, Hash, JapaneseYen, Ruler, Square } from 'lucide-react'
+import Link from 'next/link'
+import { Building2, Hash, JapaneseYen, Ruler, Square, Lock } from 'lucide-react'
 import { useTransactions } from '@/hooks/useTransactions'
+import { type PlanId } from '@/lib/plans'
 import { TransactionYearSummary } from '@/types'
 
 interface Props {
   municipalityId: string | null
+  plan: PlanId
 }
 
 const fmt = (v: number | null | undefined, digits = 1): string =>
   v == null ? '—' : v.toLocaleString('ja-JP', { maximumFractionDigits: digits })
 
-export function TransactionSection({ municipalityId }: Props) {
-  const { yearly, loading, error } = useTransactions(municipalityId)
+export function TransactionSection({ municipalityId, plan }: Props) {
+  // 取引履歴の閲覧は Starter 以上。free は「プラン起因のロック」であって
+  //   「データ不在」ではない。両者を別分岐で扱い、文言で区別する。
+  //   free では従来どおり fetch を発火させない（municipalityId を null 化）ため
+  //   空振りリクエストは出ない。starter+ は locked=false となり municipalityId=m.id
+  //   をそのまま使う（＝従来の閲覧挙動を完全に維持）。
+  const locked = plan === 'free'
+  const { yearly, loading, error } = useTransactions(locked ? null : municipalityId)
 
   const hasData = yearly.some((y) => y.count > 0)
   const latest = hasData ? yearly[yearly.length - 1] : null
@@ -28,11 +37,31 @@ export function TransactionSection({ municipalityId }: Props) {
         マンション取引履歴
       </h3>
 
-      {loading && (
+      {/* プラン起因のロック（free）: アップセル導線。データ不在とは明確に区別する。 */}
+      {locked && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg py-8 px-4 text-center">
+          <Lock className="w-7 h-7 text-brand-700 mx-auto mb-2" />
+          <p className="text-slate-900 text-sm font-bold">
+            マンション取引履歴は Starter プラン以上
+          </p>
+          <p className="text-slate-500 text-xs mt-1 mb-4 leading-relaxed">
+            中古マンションの取引件数・平均価格・㎡単価の推移をご覧いただけます。
+          </p>
+          <Link
+            href="/pricing"
+            className="inline-flex items-center px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
+          >
+            プランを見る
+          </Link>
+        </div>
+      )}
+
+      {!locked && loading && (
         <div className="text-slate-500 text-sm py-8 text-center">読み込み中…</div>
       )}
 
-      {!loading && (error || !hasData) && (
+      {/* データ不在（starter+ でも取引データが無い市区町村）: 従来どおり「データなし」。 */}
+      {!locked && !loading && (error || !hasData) && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg py-8 text-center">
           <Building2 className="w-7 h-7 text-slate-400 mx-auto mb-2" />
           <p className="text-slate-500 text-sm">データなし</p>
@@ -42,7 +71,7 @@ export function TransactionSection({ municipalityId }: Props) {
         </div>
       )}
 
-      {!loading && !error && hasData && (
+      {!locked && !loading && !error && hasData && (
         <div className="space-y-5">
           {/* 最新年サマリ */}
           {latest && (
