@@ -1,7 +1,15 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState, useMemo, Suspense, type ReactNode } from 'react'
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+  Suspense,
+  type ReactNode,
+} from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
@@ -18,7 +26,7 @@ import { TownHighlightsPanel } from '@/components/ui/TownHighlightsPanel'
 import { generateMunicipalityCSV, downloadCSV } from '@/lib/csv'
 import { SheetsExportButton } from '@/components/ui/SheetsExportButton'
 import { canUse } from '@/lib/plans'
-import { LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale, Users } from 'lucide-react'
+import { LogOut, Download, FileText, RefreshCw, HelpCircle, Lock, Sparkles, CreditCard, Loader2, Trophy, Scale, Users, ChevronDown, FileSpreadsheet } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 
 // Leaflet は SSR 不可のため dynamic import
@@ -65,6 +73,171 @@ function LockedFeatureButton({
       <span className="hidden sm:inline">{label}</span>
       <Lock className="w-3.5 h-3.5 text-brand-700" />
     </button>
+  )
+}
+
+// データ出力メニュー（S5）。PDF出力 / CSV出力 / Sheetsに出力 を「データ出力 ▾」1つに集約する。
+//   案A: ボタン自体は全プランで常に表示・常に開ける（非表示・不能化しない）。開いた中の各項目に、
+//   権限が無ければ錠（locked）を付ける。⚠ 権限の無い項目をメニューから消す実装は禁止（案Q に反する）。
+//   錠項目クリックで /pricing へ。キーボード操作（Esc で閉じる・矢印/Tab で項目間トラップ）と
+//   aria 属性（haspopup=menu / expanded / role=menu / menuitem）を備える。
+type ExportMenuItem =
+  // 権限あり: 実行アクション（PDF/CSV）
+  | {
+      kind: 'action'
+      key: string
+      icon: ReactNode
+      label: string
+      onSelect: () => void
+      disabled?: boolean
+    }
+  // 権限なし: 錠つき導線（/pricing へ）。メニューからは消さない。
+  | {
+      kind: 'locked'
+      key: string
+      icon: ReactNode
+      label: string
+      title: string
+      onUpsell: () => void
+    }
+  // 既製のメニュー項目コンポーネントをそのまま差し込む（Sheets 出力＝SheetsExportButton）
+  | { kind: 'node'; key: string; node: ReactNode }
+
+function ExportMenu({ items }: { items: ExportMenuItem[] }) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const close = useCallback((refocus = true) => {
+    setOpen(false)
+    if (refocus) triggerRef.current?.focus()
+  }, [])
+
+  // 外側クリックで閉じる（トリガー/メニュー外の mousedown）。
+  useEffect(() => {
+    if (!open) return
+    function onDocMouseDown(e: MouseEvent) {
+      const t = e.target as Node
+      if (!menuRef.current?.contains(t) && !triggerRef.current?.contains(t)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
+  }, [open])
+
+  // 開いたら先頭の有効な項目へフォーカスを移す。
+  useEffect(() => {
+    if (!open) return
+    const first = menuRef.current?.querySelector<HTMLElement>(
+      '[role="menuitem"]:not([disabled])',
+    )
+    first?.focus()
+  }, [open])
+
+  // メニュー内の有効な menuitem 一覧（矢印/Tab のトラップ対象）。
+  function focusables(): HTMLElement[] {
+    return Array.from(
+      menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
+    ).filter((el) => !el.hasAttribute('disabled'))
+  }
+
+  function onMenuKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      close()
+      return
+    }
+    const els = focusables()
+    if (els.length === 0) return
+    const idx = els.indexOf(document.activeElement as HTMLElement)
+    // Tab は外へ出さずメニュー内で循環させる＝フォーカストラップ。
+    if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
+      e.preventDefault()
+      els[(idx + 1) % els.length]?.focus()
+    } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+      e.preventDefault()
+      els[(idx - 1 + els.length) % els.length]?.focus()
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      els[0]?.focus()
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      els[els.length - 1]?.focus()
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setOpen(true)
+          }
+        }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 rounded-lg text-sm font-medium transition-colors"
+        title="データ出力"
+      >
+        <Download className="w-4 h-4" />
+        <span className="hidden sm:inline">データ出力</span>
+        <ChevronDown className="w-3.5 h-3.5" />
+      </button>
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label="データ出力"
+          onKeyDown={onMenuKeyDown}
+          className="absolute right-0 z-30 mt-1 w-52 rounded-lg border border-[#C7D6E4] bg-white py-1 shadow-lg"
+        >
+          {items.map((it) =>
+            it.kind === 'node' ? (
+              // SheetsExportButton（menuItem）自身が role="menuitem"。クリックで親を閉じる。
+              <div key={it.key} role="none" onClick={() => setOpen(false)}>
+                {it.node}
+              </div>
+            ) : it.kind === 'locked' ? (
+              <button
+                key={it.key}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  it.onUpsell()
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-400 hover:bg-brand-100 transition-colors"
+                title={it.title}
+              >
+                {it.icon}
+                <span>{it.label}</span>
+                <Lock className="ml-auto w-3.5 h-3.5 text-brand-700" />
+              </button>
+            ) : (
+              <button
+                key={it.key}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  it.onSelect()
+                }}
+                disabled={it.disabled}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-brand-700 hover:bg-brand-100 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {it.icon}
+                <span>{it.label}</span>
+              </button>
+            ),
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -177,6 +350,78 @@ function DashboardContent() {
     }
   }
 
+  // データ出力メニュー（S5・案A）の項目。権限が無い項目は「消さず」錠つきで残す。
+  //   PDF=starter+ / CSV=standard+ / Sheets=standard+。プラン判定は usePlanLimit（=canUse 集約）に
+  //   由来し、ここでは緩めない（表示のみ・原則12）。Sheets はサーバー封鎖とは別に、UI 側マスター
+  //   フラグ（NEXT_PUBLIC_FEATURE_SHEETS_EXPORT）が ON のときだけ「機能として存在」するため、
+  //   OFF の環境では錠項目も含め出さない（存在を晒さない）。PDF/CSV はマスターフラグを持たない。
+  const sheetsFlagOn =
+    process.env.NEXT_PUBLIC_FEATURE_SHEETS_EXPORT === 'true'
+  const exportItems: ExportMenuItem[] = [
+    limit.canExportPdf
+      ? {
+          kind: 'action',
+          key: 'pdf',
+          icon: pdfLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileText className="w-4 h-4" />
+          ),
+          label: 'PDF出力',
+          onSelect: handlePDFDownload,
+          disabled: municipalities.length === 0 || pdfLoading,
+        }
+      : {
+          kind: 'locked',
+          key: 'pdf',
+          icon: <FileText className="w-4 h-4" />,
+          label: 'PDF出力',
+          title: 'PDF出力は Starterプラン以上で利用可能です',
+          onUpsell: () => router.push('/pricing'),
+        },
+    limit.canExportCsv
+      ? {
+          kind: 'action',
+          key: 'csv',
+          icon: <Download className="w-4 h-4" />,
+          label: 'CSV出力',
+          onSelect: handleCSVDownload,
+          disabled: municipalities.length === 0,
+        }
+      : {
+          kind: 'locked',
+          key: 'csv',
+          icon: <Download className="w-4 h-4" />,
+          label: 'CSV出力',
+          title: 'CSV出力は Standardプラン以上で利用可能です',
+          onUpsell: () => router.push('/pricing'),
+        },
+    ...(sheetsFlagOn
+      ? [
+          limit.canExportSheets
+            ? {
+                kind: 'node' as const,
+                key: 'sheets',
+                node: (
+                  <SheetsExportButton
+                    menuItem
+                    prefectureNameEn={activePref?.name_en}
+                    disabled={topLevel.length === 0}
+                  />
+                ),
+              }
+            : {
+                kind: 'locked' as const,
+                key: 'sheets',
+                icon: <FileSpreadsheet className="w-4 h-4" />,
+                label: 'Sheetsに出力',
+                title: 'Sheets出力は Standardプラン以上で利用可能です',
+                onUpsell: () => router.push('/pricing'),
+              },
+        ]
+      : []),
+  ]
+
   if (prefLoading) {
     return <DashboardLoading />
   }
@@ -217,43 +462,10 @@ function DashboardContent() {
                 <span className="hidden sm:inline">請求情報を管理</span>
               </button>
             ) : null}
-            <button
-              onClick={handlePDFDownload}
-              disabled={!limit.canExportPdf || municipalities.length === 0 || pdfLoading}
-              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 disabled:bg-white disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-              title={
-                limit.canExportPdf
-                  ? 'PDF出力'
-                  : 'PDF出力は Starterプラン以上で利用可能です'
-              }
-            >
-              {pdfLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <FileText className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline">PDF出力</span>
-            </button>
-            <button
-              onClick={handleCSVDownload}
-              disabled={!limit.canExportCsv || municipalities.length === 0}
-              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-white hover:bg-brand-100 border border-[#C7D6E4] text-brand-700 disabled:bg-white disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-              title={
-                limit.canExportCsv
-                  ? 'CSV出力'
-                  : 'CSV出力は Standardプラン以上で利用可能です'
-              }
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">CSV出力</span>
-            </button>
-            {/* Sheets 出力（Standard 以上・canExportSheets。フラグ ON 時のみ描画） */}
-            {limit.canExportSheets && (
-              <SheetsExportButton
-                prefectureNameEn={activePref?.name_en}
-                disabled={topLevel.length === 0}
-              />
-            )}
+            {/* データ出力（S5）: PDF出力 / CSV出力 / Sheetsに出力 を「データ出力 ▾」へ集約。
+                案A: メニューは全プランで常に開ける。権限の無い項目は錠つきで残す（消さない）。
+                分析3種＋顧客アタックリストはヘッダー直置きのまま（D43-④・畳まない）。 */}
+            <ExportMenu items={exportItems} />
             {/* 分析系の導線は全プランに表示する（D43-② 案Q）。権限があれば実機能へ、無ければ
                 錠つきボタン（LockedFeatureButton）で /pricing へ誘導する。錠側はボタン(導線)のみを
                 描画し、データは一切クライアントに渡さない（原則12）。実データを扱うパネル/ルート側
