@@ -15,13 +15,23 @@ interface Props {
   prefectureNameEn: string | undefined
   // データ未取得・0 件時などボタンを無効化する。
   disabled?: boolean
+  // 「データ出力 ▾」メニューの一項目（role="menuitem"）として描画する（S5）。
+  //   true のとき見た目のみ行スタイルに切り替える。出力ロジック・OAuth は不変。
+  menuItem?: boolean
+  // メニュー項目としてクリックされた際、親メニューを閉じるためのコールバック（任意）。
+  onActivate?: () => void
 }
 
 // Google Sheets 出力ボタン（Standard 以上・フラグ ON 時のみ描画）。
 //   未接続: クリックで /api/integrations/google/authorize へ遷移
 //   接続済: クリックで POST /api/export/sheets → 成功で新規タブに URL
 //   reconnect_required: 「Google に再接続」導線
-export function SheetsExportButton({ prefectureNameEn, disabled }: Props) {
+export function SheetsExportButton({
+  prefectureNameEn,
+  disabled,
+  menuItem,
+  onActivate,
+}: Props) {
   const [connected, setConnected] = useState<boolean | null>(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<Toast>(null)
@@ -88,6 +98,8 @@ export function SheetsExportButton({ prefectureNameEn, disabled }: Props) {
 
   const handleClick = useCallback(async () => {
     if (busy) return
+    // メニュー項目として呼ばれた場合は先に親メニューを閉じる（導線を塞がない）。
+    onActivate?.()
     if (connected !== true) {
       goAuthorize()
       return
@@ -131,7 +143,7 @@ export function SheetsExportButton({ prefectureNameEn, disabled }: Props) {
     } finally {
       setBusy(false)
     }
-  }, [busy, connected, prefectureNameEn, goAuthorize, showToast])
+  }, [busy, connected, prefectureNameEn, goAuthorize, showToast, onActivate])
 
   if (!SHEETS_EXPORT_ENABLED) return null
 
@@ -141,23 +153,41 @@ export function SheetsExportButton({ prefectureNameEn, disabled }: Props) {
     ? 'Google と連携して Sheets 出力を有効化します'
     : '表示中のエリアを Google スプレッドシートに出力します'
 
+  const isDisabled = busy || (!isConnect && (disabled || !prefectureNameEn))
+  const iconEl = busy ? (
+    <Loader2 className="w-4 h-4 animate-spin" />
+  ) : isConnect ? (
+    <Unplug className="w-4 h-4" />
+  ) : (
+    <FileSpreadsheet className="w-4 h-4" />
+  )
+
   return (
     <>
-      <button
-        onClick={handleClick}
-        disabled={busy || (!isConnect && (disabled || !prefectureNameEn))}
-        className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-        title={title}
-      >
-        {busy ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : isConnect ? (
-          <Unplug className="w-4 h-4" />
-        ) : (
-          <FileSpreadsheet className="w-4 h-4" />
-        )}
-        <span className="hidden sm:inline">{label}</span>
-      </button>
+      {menuItem ? (
+        // メニュー項目（role="menuitem"）。行スタイルのみ差し替え、ロジックは共通。
+        <button
+          type="button"
+          role="menuitem"
+          onClick={handleClick}
+          disabled={isDisabled}
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-brand-700 hover:bg-brand-100 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors"
+          title={title}
+        >
+          {iconEl}
+          <span>{label}</span>
+        </button>
+      ) : (
+        <button
+          onClick={handleClick}
+          disabled={isDisabled}
+          className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 px-2 sm:px-3 py-1.5 bg-green-700 hover:bg-green-600 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
+          title={title}
+        >
+          {iconEl}
+          <span className="hidden sm:inline">{label}</span>
+        </button>
+      )}
 
       {toast && (
         <div
