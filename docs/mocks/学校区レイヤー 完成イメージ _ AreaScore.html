@@ -171,7 +171,6 @@
 <header>
   <div class="hd">
     <div class="mark"><div class="sq">A</div><b>AreaScore</b></div>
-    <div class="wl"><div class="dot"></div>ハウスジャパン 様 仕様（ホワイトラベル）</div>
     <div class="grow"></div>
     <button class="navb">データ出力 ▾</button>
     <button class="navb">注目TOP20</button>
@@ -187,7 +186,7 @@
   <div class="bar">
     <div class="fld">
       <span class="lab">エリア</span>
-      <select><option>愛知県 岡崎市</option><option>愛知県 刈谷市</option><option>愛知県 安城市</option><option>鹿児島県 鹿児島市</option></select>
+      <select><option>愛知県 豊橋市</option><option>愛知県 岡崎市</option><option>愛知県 刈谷市</option><option>愛知県 豊田市</option><option>愛知県 安城市</option><option>愛知県 知立市</option><option>愛知県 高浜市</option><option>鹿児島県 鹿児島市</option></select>
     </div>
     <div class="fld">
       <span class="lab">表示粒度</span>
@@ -209,7 +208,7 @@
       <span class="lab">モード</span>
       <div class="seg" role="group" aria-label="モード切替">
         <button type="button" id="m-sell" aria-pressed="true" onclick="setMode(&#39;sell&#39;)"><i class="pip sell"></i>売り（媒介取得）</button>
-        <button type="button" id="m-buy" aria-pressed="false" onclick="setMode(&#39;buy&#39;)"><i class="pip buy"></i>買い（用地仕入れ）</button>
+        <button type="button" id="m-buy" aria-pressed="false" onclick="setMode(&#39;buy&#39;)"><i class="pip buy"></i>買い（購入希望）</button>
         <button type="button" id="m-gap" aria-pressed="false" onclick="setMode(&#39;gap&#39;)"><i class="pip gap"></i>ギャップ</button>
       </div>
     </div>
@@ -239,7 +238,7 @@
           <div class="lt" id="legt">査定の集まり方</div>
           <div id="legrows"><div class="lrow"><span class="sw" style="background:var(--sell4)"></span>非常に多い</div><div class="lrow"><span class="sw" style="background:var(--sell3)"></span>多い</div><div class="lrow"><span class="sw" style="background:var(--sell2)"></span>やや多い</div><div class="lrow"><span class="sw" style="background:var(--sell1)"></span>少ない</div><div class="lrow"><span class="sw" style="background-color:#212e42"></span>5件未満は非表示</div></div>
         </div>
-        <div class="scalebar">出典：国土数値情報 A27（2025年度版）</div>
+        <div class="scalebar">出典：国土数値情報（小学校区データ）（国土交通省）（https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-A27.html）（2023年度）を加工して作成</div>
       </div>
     </div>
 
@@ -326,7 +325,6 @@
           <tr><td><code>desired_school</code></td><td>条件付</td><td>希望校区（学校名）</td><td>買いは必須。契約上の運用ルールとして入力を義務化</td></tr>
           <tr><td><code>desired_area</code></td><td>任意</td><td>希望エリアの自由記述</td><td>校区が空のときの補完材料</td></tr>
           <tr><td><code>price_band</code></td><td>任意</td><td>価格帯</td><td>将来の絞り込み用</td></tr>
-          <tr><td><code>customer_name</code></td><td>任意</td><td>顧客名</td><td>アタックリストにのみ表示。地図には一切出さない</td></tr>
           <tr><td><code>last_contact_at</code></td><td>任意</td><td>最終接触日</td><td>アタックリストの並び順に使用</td></tr>
         </tbody>
       </table>
@@ -370,7 +368,7 @@ const TIERTX=["少ない","やや多い","多い","非常に多い"];
 const CFG={
  sell:{note:'<b>売りモード（媒介取得）</b>　直近12ヶ月に売却査定の反響が集まっている校区ほど濃く表示します。媒介を取りにいく順番を決めるための画面です。',
        lt:"査定の集まり方", cls:"sell", ramp:SELL, hd:"　売却査定・直近12ヶ月", rk:"　査定が多い順"},
- buy: {note:'<b>買いモード（用地仕入れ）</b>　その校区を希望している買客が多いほど濃く表示します。売り物を確保しておくべき校区が分かります。',
+ buy: {note:'<b>買いモード（購入希望）</b>　その校区を希望している買客が多いほど濃く表示します。売り物を確保しておくべき校区が分かります。',
        lt:"買い希望の集まり方", cls:"buy", ramp:BUY, hd:"　買い反響・直近12ヶ月", rk:"　買い希望が多い順"},
  gap: {note:'<b>ギャップ</b>　買い希望と売り物件のバランスを表示します。<b>緑が濃いほど「買いたい人は多いのに売り物が出ていない」</b>校区で、媒介を取れば早く決まる可能性が高い場所です。',
        lt:"買い希望と売り物のバランス", cls:"gap", hd:"　両モードの差分", rk:"　買い超が大きい順"}
@@ -454,7 +452,7 @@ function detail(){
   const sT=tier(d.s), bT=tier(d.b);
   box.innerHTML=`<div class="dt">
     <p class="nm">${d.n}小学校区</p>
-    <p class="sub">岡崎市 ・ 町域 ${d.t}件 ・ 2025年度 A27</p>
+    <p class="sub">岡崎市 ・ 町域 ${d.t}件 ・ 2023年度 A27</p>
     <div class="kv"><span class="k">売却査定の集まり方</span>
       <span class="v ${sT<0?"mk":""}">${sT<0?"件数が少なく非表示":TIERTX[sT]}</span></div>
     <div class="kv"><span class="k">買い希望の集まり方</span>

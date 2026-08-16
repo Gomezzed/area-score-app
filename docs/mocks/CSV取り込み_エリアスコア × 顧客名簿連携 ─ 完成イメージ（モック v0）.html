@@ -266,8 +266,7 @@ kbd{font-family:var(--mono); font-size:11px; background:#F1F3F5; border:1px soli
     <div>
       <b>すべてダミー数値です。</b>
       画面内の件数・世帯数・金額・突合率は、判断材料として形を掴むために置いた仮の値で、実測ではありません。実データは未投入です（<b>P1-2 プライバシーポリシー施行が未完のため投入不可</b>）。
-      町域名は青梅市の実在町名を使っていますが、対応する数値は架空です。
-      <br><b>【要確認】</b> 青梅市の町域データが <span class="num">public.town_monthly_metrics</span>（22自治体）に含まれるかは未確認です。ロードマップ上「西多摩」は重点自治体に挙がっていますが、実DBの照会が必要です。含まれない場合、この画面は成立しません。
+      <br>8/16実測で不在確認（town_monthly_metricsは24自治体・東京都なし）。町名・数値はデモ用架空。実装時は実在24自治体（例：岡崎）を使用
     </div>
   </div>
 
@@ -531,11 +530,11 @@ kbd{font-family:var(--mono); font-size:11px; background:#F1F3F5; border:1px soli
       <p class="lede">御社に実際に来た人の、財布と家族構成の分布。「この店舗の客層はこうだ」を勘ではなく数で持ちます。</p>
 
       <div class="toggle" role="group" aria-label="保持形態の切替">
-        <button aria-pressed="true" data-q1="B">案B：町域集計だけ保存（推奨）</button>
+        <button aria-pressed="true" data-q1="B">町域集計だけ保存（確定・CL-02/CL-21）</button>
         <button aria-pressed="false" data-q1="A">案A：個票にも保存</button>
       </div>
       <p class="note" id="q1note" style="margin:-6px 0 18px">
-        いま表示中は<b>案B</b>。取込時に町域単位へ丸めてから保存し、個人単位の年収・家族構成は残しません。件数が5件未満の町域は表示しません。
+        いま表示中は<b>町域集計だけ保存（確定）</b>。取込時に町域単位へ丸めてから保存し、個人単位の年収・家族構成は残しません。件数が5件未満の町域は表示しません。
       </p>
 
       <h3 class="sub">買える価格帯の分布　<span class="badge c">確定</span></h3>
@@ -728,7 +727,7 @@ kbd{font-family:var(--mono); font-size:11px; background:#F1F3F5; border:1px soli
         <div class="qb">
           <div class="grid g2">
             <div class="opt rec">
-              <div class="ot">案B：町域集計だけ保存 <span class="badge c">推奨</span></div>
+              <div class="ot">町域集計だけ保存 <span class="badge c">確定・CL-02/CL-21</span></div>
               <ul>
                 <li>取込時に町域単位へ丸めてから保存</li>
                 <li>タブ03はこの画面のまま全部作れる</li>
@@ -794,7 +793,7 @@ kbd{font-family:var(--mono); font-size:11px; background:#F1F3F5; border:1px soli
           </div>
           <div class="callout" style="margin-bottom:0">
             <b>推測で決めないでください。</b> 御社に1問聞くだけで確定します──
-            「営業が最後に接触した日が入る列はどれですか。空欄になることはありますか」
+            「営業が最後に接触した日が入る列はどれですか。空欄になることはありますか」（8/20 P1-8④で確定）
           </div>
         </div>
       </div>
@@ -845,7 +844,7 @@ kbd{font-family:var(--mono); font-size:11px; background:#F1F3F5; border:1px soli
   var q1 = Array.prototype.slice.call(document.querySelectorAll('[data-q1]'));
   var note = document.getElementById('q1note');
   var texts = {
-    B: 'いま表示中は<b>案B</b>。取込時に町域単位へ丸めてから保存し、個人単位の年収・家族構成は残しません。件数が5件未満の町域は表示しません。',
+    B: 'いま表示中は<b>町域集計だけ保存（確定）</b>。取込時に町域単位へ丸めてから保存し、個人単位の年収・家族構成は残しません。件数が5件未満の町域は表示しません。',
     A: 'いま表示中は<b>案A</b>。同じ画面が出せますが、裏側では個人単位の年収・自己資金・子供年齢がDBに残ります。<b>漏洩時の被害と委託契約の重さが上がります。</b>'
   };
   q1.forEach(function(b){
