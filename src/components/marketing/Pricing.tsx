@@ -41,7 +41,8 @@ const PLANS: PricingPlan[] = [
     monthly: '月額30,000円（税抜）',
     regular: '¥50,000',
     features: [
-      { label: '都道府県・市区町村レベルのスコア' },
+      { label: '都道府県・市区町村レベルのエリアスコア' },
+      { label: '人口推移グラフ' },
       { label: 'PDFレポート出力' },
       { label: 'メールサポート' },
     ],
@@ -55,7 +56,7 @@ const PLANS: PricingPlan[] = [
     features: [
       { label: '駅単位データ' },
       { label: '地図ヒートマップ' },
-      { label: 'PDF＋CSV出力（Salesforce連携）' },
+      { label: 'PDF＋CSV出力（Salesforce形式）' },
       { label: 'メール優先サポート' },
     ],
     cta: { label: 'Standardを始める', href: '/register?plan=standard' },
