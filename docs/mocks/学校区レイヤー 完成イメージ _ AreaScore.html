@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<!-- saved from url=(0065)file:///Users/gomez/Downloads/areascore-school-district-mock.html -->
+<html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>学校区レイヤー 完成イメージ | AreaScore</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#111c2e; --panel2:#16233a; --line:#25344c; --line2:#33475f;
+    --tx:#e6edf6; --tx2:#9fb0c6; --tx3:#6c8099;
+    --sell1:#46261c; --sell2:#6f3722; --sell3:#a44e2b; --sell4:#dd6f3c;
+    --buy1:#16324d;  --buy2:#1e4a75;  --buy3:#2a6aa8;  --buy4:#3b8fd8;
+    --gapB2:#0f7a58; --gapB1:#1d9e75; --gapN:#3d4a5e;  --gapS1:#a44e2b; --gapS2:#dd6f3c;
+    --mask:#212e42;
+    --r:8px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--tx);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
+    font-size:14px; line-height:1.7; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1280px; margin:0 auto; padding:0 20px 56px}
+
+  /* ---------- dummy banner ---------- */
+  .dummy{
+    background:#3a2a10; border-bottom:1px solid #6b4c17; color:#f0c274;
+    font-size:12.5px; padding:8px 20px; text-align:center; letter-spacing:.02em;
+  }
+
+  /* ---------- header ---------- */
+  header{border-bottom:1px solid var(--line); background:var(--panel)}
+  .hd{max-width:1280px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  .mark{display:flex; align-items:center; gap:9px}
+  .mark .sq{width:26px;height:26px;border-radius:6px;background:linear-gradient(0deg,#2a6aa8,#2a6aa8);display:grid;place-items:center;font-size:13px;font-weight:600;color:#dbeafe}
+  .mark b{font-weight:600; font-size:15px; letter-spacing:.01em}
+  .wl{
+    display:flex; align-items:center; gap:8px; margin-left:2px; padding:4px 11px;
+    border:1px dashed var(--line2); border-radius:99px; color:var(--tx2); font-size:12px;
+  }
+  .wl .dot{width:16px;height:16px;border-radius:4px;background:#334c66}
+  .grow{flex:1}
+  .navb{
+    background:transparent; border:1px solid var(--line); color:var(--tx2);
+    border-radius:var(--r); padding:6px 11px; font-size:12.5px; cursor:pointer; font-family:inherit;
+  }
+  .navb:hover{border-color:var(--line2); color:var(--tx)}
+  .navb.acc{border-color:#2a6aa8; color:#9fcbf2}
+  .plan{font-size:11.5px; padding:3px 9px; border-radius:99px; background:#1f2a4a; color:#a8bdf0; border:1px solid #33427a}
+
+  /* ---------- toolbar ---------- */
+  .bar{display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; padding:20px 0 14px}
+  .fld{display:flex; flex-direction:column; gap:5px}
+  .lab{font-size:11px; color:var(--tx3); letter-spacing:.04em}
+  .seg{display:flex; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:3px; gap:2px}
+  .seg button{
+    background:transparent; border:0; color:var(--tx2); font-family:inherit; font-size:13px;
+    padding:7px 15px; border-radius:6px; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:7px;
+  }
+  .seg button:hover{color:var(--tx)}
+  .seg button[aria-pressed="true"]{background:var(--panel2); color:var(--tx); box-shadow:inset 0 0 0 1px var(--line2)}
+  .seg .pip{width:9px;height:9px;border-radius:3px;background:var(--tx3)}
+  .seg button[aria-pressed="true"] .pip.sell{background:var(--sell4)}
+  .seg button[aria-pressed="true"] .pip.buy{background:var(--buy4)}
+  .seg button[aria-pressed="true"] .pip.gap{background:var(--gapB1)}
+  .seg.sm button{font-size:12.5px; padding:6px 12px}
+  select{
+    background:var(--panel); border:1px solid var(--line); color:var(--tx); font-family:inherit;
+    font-size:13px; padding:8px 11px; border-radius:var(--r);
+  }
+
+  /* ---------- mode note ---------- */
+  .note{
+    border-left:3px solid var(--line2); border-radius:0; background:var(--panel);
+    padding:11px 15px; font-size:12.5px; color:var(--tx2); margin-bottom:16px;
+  }
+  .note b{color:var(--tx); font-weight:500}
+  .note.sell{border-left-color:var(--sell4)}
+  .note.buy{border-left-color:var(--buy4)}
+  .note.gap{border-left-color:var(--gapB1)}
+
+  /* ---------- layout ---------- */
+  .cols{display:grid; grid-template-columns:1fr 336px; gap:16px; align-items:start}
+  @media (max-width:960px){ .cols{grid-template-columns:1fr} }
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+  .card h2{margin:0; font-size:13px; font-weight:500; padding:13px 16px; border-bottom:1px solid var(--line); color:var(--tx)}
+  .card h2 span{color:var(--tx3); font-size:11.5px; font-weight:400; margin-left:8px}
+
+  /* ---------- map ---------- */
+  .mapbox{position:relative; background:var(--panel2)}
+  svg.map{display:block; width:100%; height:auto}
+  .poly{stroke:#0b1220; stroke-width:1.4; cursor:pointer; transition:opacity .15s}
+  .poly:hover{opacity:.82}
+  .poly.sel{stroke:#e6edf6; stroke-width:2.4}
+  .poly:focus-visible{outline:2px solid #7dd3fc; outline-offset:1px}
+  .plabel{font-size:10.5px; fill:#dbe6f5; pointer-events:none; paint-order:stroke; stroke:#0b1220; stroke-width:2.6; stroke-linejoin:round}
+  .plabel.dim{fill:#7f93ab}
+
+  .legend{
+    position:absolute; left:14px; bottom:14px; background:rgba(11,18,32,.93);
+    border:1px solid var(--line2); border-radius:10px; padding:11px 13px; backdrop-filter:blur(4px);
+  }
+  .legend .lt{font-size:11px; color:var(--tx2); margin-bottom:8px; letter-spacing:.03em}
+  .lrow{display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--tx2); margin-bottom:4px}
+  .lrow:last-child{margin-bottom:0}
+  .sw{width:22px;height:11px;border-radius:3px;flex:none;border:1px solid rgba(255,255,255,.09)}
+  .scalebar{position:absolute; right:14px; bottom:14px; font-size:10.5px; color:var(--tx3)}
+
+  /* ---------- right panel ---------- */
+  .rows{max-height:452px; overflow:auto}
+  .row{
+    display:flex; align-items:center; gap:10px; padding:9px 16px; border-bottom:1px solid #1b2740;
+    cursor:pointer; font-size:13px;
+  }
+  .row:hover{background:var(--panel2)}
+  .row.sel{background:#182a45}
+  .row .chip{width:20px;height:20px;border-radius:5px;flex:none;border:1px solid rgba(255,255,255,.1)}
+  .row .nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .row .tg{font-size:11.5px; color:var(--tx2); flex:none}
+  .row .tg.mk{color:var(--tx3)}
+
+  /* ---------- detail ---------- */
+  .dt{padding:15px 16px}
+  .dt .nm{font-size:16px; font-weight:500; margin:0 0 3px}
+  .dt .sub{font-size:11.5px; color:var(--tx3); margin:0 0 14px}
+  .kv{display:flex; justify-content:space-between; align-items:baseline; padding:8px 0; border-bottom:1px solid #1b2740; font-size:13px}
+  .kv:last-of-type{border-bottom:0}
+  .kv .k{color:var(--tx2); font-size:12.5px}
+  .kv .v{font-weight:500}
+  .v.pos{color:#6ee7b7} .v.neg{color:#fca5a5} .v.mk{color:var(--tx3); font-weight:400; font-size:12.5px}
+  .pill{display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:3px 9px; border-radius:99px; border:1px solid var(--line2); color:var(--tx2)}
+  .empty{padding:36px 20px; text-align:center; color:var(--tx3); font-size:12.5px}
+  .cta{
+    display:block; width:100%; margin-top:14px; background:#1b3a5c; border:1px solid #2a6aa8; color:#c7e0f7;
+    font-family:inherit; font-size:13px; padding:9px; border-radius:var(--r); cursor:pointer;
+  }
+  .cta:hover{background:#204a72}
+
+  /* ---------- guard notice ---------- */
+  .guard{
+    margin-top:16px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+    font-size:12.5px; color:var(--tx2);
+  }
+  .guard b{color:var(--tx); font-weight:500}
+  .guard ul{margin:8px 0 0; padding-left:18px}
+  .guard li{margin-bottom:4px}
+
+  /* ---------- csv spec ---------- */
+  details.spec{margin-top:16px; background:var(--panel); border:1px solid var(--line); border-radius:12px}
+  details.spec summary{padding:13px 16px; cursor:pointer; font-size:13px; color:var(--tx); list-style:none}
+  details.spec summary::-webkit-details-marker{display:none}
+  details.spec summary::before{content:"▸ "; color:var(--tx3)}
+  details.spec[open] summary::before{content:"▾ "}
+  .spec-in{padding:0 16px 16px; border-top:1px solid var(--line)}
+  table{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:12px}
+  th,td{text-align:left; padding:7px 9px; border-bottom:1px solid #1b2740; vertical-align:top}
+  th{color:var(--tx3); font-weight:400; font-size:11.5px; letter-spacing:.03em}
+  td code{background:var(--panel2); padding:1px 6px; border-radius:4px; font-size:12px; color:#9fcbf2}
+  .req{color:#f0a868; font-size:11px}
+
+  footer{margin-top:22px; font-size:11.5px; color:var(--tx3); line-height:1.9}
+  footer b{color:var(--tx2); font-weight:500}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+<div class="dummy">表示イメージ確認用のモックです。数値・校区はすべてダミーで、実データではありません。</div>
+
+<header>
+  <div class="hd">
+    <div class="mark"><div class="sq">A</div><b>AreaScore</b></div>
+    <div class="grow"></div>
+    <button class="navb">データ出力 ▾</button>
+    <button class="navb">注目TOP20</button>
+    <button class="navb">エリア比較</button>
+    <button class="navb">商圏レポート</button>
+    <button class="navb acc">顧客アタックリスト</button>
+    <span class="plan">Platinum</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="bar">
+    <div class="fld">
+      <span class="lab">エリア</span>
+      <select><option>愛知県 豊橋市</option><option>愛知県 岡崎市</option><option>愛知県 刈谷市</option><option>愛知県 豊田市</option><option>愛知県 安城市</option><option>愛知県 知立市</option><option>愛知県 高浜市</option><option>鹿児島県 鹿児島市</option></select>
+    </div>
+    <div class="fld">
+      <span class="lab">表示粒度</span>
+      <div class="seg sm" role="group" aria-label="表示粒度">
+        <button type="button" aria-pressed="false">市区町村</button>
+        <button type="button" aria-pressed="true">学校区</button>
+        <button type="button" aria-pressed="false">町域</button>
+      </div>
+    </div>
+    <div class="fld">
+      <span class="lab">校区種別</span>
+      <div class="seg sm" role="group" aria-label="校区種別">
+        <button type="button" aria-pressed="true">小学校区</button>
+        <button type="button" aria-pressed="false">中学校区</button>
+      </div>
+    </div>
+    <div class="grow"></div>
+    <div class="fld">
+      <span class="lab">モード</span>
+      <div class="seg" role="group" aria-label="モード切替">
+        <button type="button" id="m-sell" aria-pressed="true" onclick="setMode(&#39;sell&#39;)"><i class="pip sell"></i>売り（媒介取得）</button>
+        <button type="button" id="m-buy" aria-pressed="false" onclick="setMode(&#39;buy&#39;)"><i class="pip buy"></i>買い（購入希望）</button>
+        <button type="button" id="m-gap" aria-pressed="false" onclick="setMode(&#39;gap&#39;)"><i class="pip gap"></i>ギャップ</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="note sell" id="note"><b>売りモード（媒介取得）</b>　直近12ヶ月に売却査定の反響が集まっている校区ほど濃く表示します。媒介を取りにいく順番を決めるための画面です。</div>
+
+  <div class="cols">
+
+    <div class="card">
+      <h2>学校区マップ<span id="maphd">　売却査定・直近12ヶ月</span></h2>
+      <div class="mapbox">
+        <svg class="map" viewBox="0 0 620 530" role="img" aria-labelledby="mtitle">
+          <title id="mtitle">岡崎市の小学校区を色の濃淡で表した地図</title>
+          <defs>
+            <pattern id="hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <rect width="7" height="7" fill="#212e42"></rect>
+              <line x1="0" y1="0" x2="0" y2="7" stroke="#2f3f57" stroke-width="2.5"></line>
+            </pattern>
+          </defs>
+          <rect x="0" y="0" width="620" height="530" fill="#16233a"></rect>
+          <g id="polys"><polygon class="poly" points="30,40 168,22 152,138 18,152" fill="var(--sell4)" tabindex="0" role="button" aria-label="岡崎小学校区 非常に多い" onclick="pick(1)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(1)}"></polygon><polygon class="poly" points="168,22 300,34 292,158 152,138" fill="var(--sell2)" tabindex="0" role="button" aria-label="広幡小学校区 やや多い" onclick="pick(2)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(2)}"></polygon><polygon class="poly" points="300,34 438,18 424,140 292,158" fill="url(#hatch)" tabindex="0" role="button" aria-label="梅園小学校区 件数が少なく非表示" onclick="pick(3)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(3)}"></polygon><polygon class="poly" points="438,18 575,38 568,150 424,140" fill="var(--sell3)" tabindex="0" role="button" aria-label="根石小学校区 多い" onclick="pick(4)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(4)}"></polygon><polygon class="poly" points="18,152 152,138 170,250 34,268" fill="var(--sell3)" tabindex="0" role="button" aria-label="竜美丘小学校区 多い" onclick="pick(5)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(5)}"></polygon><polygon class="poly" points="152,138 292,158 306,272 170,250" fill="var(--sell1)" tabindex="0" role="button" aria-label="三島小学校区 少ない" onclick="pick(6)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(6)}"></polygon><polygon class="poly" points="292,158 424,140 440,258 306,272" fill="var(--sell2)" tabindex="0" role="button" aria-label="井田小学校区 やや多い" onclick="pick(7)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(7)}"></polygon><polygon class="poly" points="424,140 568,150 580,264 440,258" fill="url(#hatch)" tabindex="0" role="button" aria-label="城北小学校区 件数が少なく非表示" onclick="pick(8)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(8)}"></polygon><polygon class="poly" points="34,268 170,250 158,368 22,380" fill="var(--sell4)" tabindex="0" role="button" aria-label="愛宕小学校区 非常に多い" onclick="pick(9)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(9)}"></polygon><polygon class="poly" points="170,250 306,272 298,386 158,368" fill="var(--sell1)" tabindex="0" role="button" aria-label="六名小学校区 少ない" onclick="pick(10)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(10)}"></polygon><polygon class="poly" points="306,272 440,258 432,372 298,386" fill="var(--sell1)" tabindex="0" role="button" aria-label="男川小学校区 少ない" onclick="pick(11)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(11)}"></polygon><polygon class="poly" points="440,258 580,264 572,382 432,372" fill="var(--sell3)" tabindex="0" role="button" aria-label="大平小学校区 多い" onclick="pick(12)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(12)}"></polygon><polygon class="poly" points="22,380 158,368 176,482 38,496" fill="url(#hatch)" tabindex="0" role="button" aria-label="藤川小学校区 件数が少なく非表示" onclick="pick(13)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(13)}"></polygon><polygon class="poly" points="158,368 298,386 312,500 176,482" fill="var(--sell3)" tabindex="0" role="button" aria-label="矢作北小学校区 多い" onclick="pick(14)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(14)}"></polygon><polygon class="poly" points="298,386 432,372 444,486 312,500" fill="var(--sell2)" tabindex="0" role="button" aria-label="矢作南小学校区 やや多い" onclick="pick(15)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(15)}"></polygon><polygon class="poly" points="432,372 572,382 586,492 444,486" fill="var(--sell1)" tabindex="0" role="button" aria-label="六ツ美北部小学校区 少ない" onclick="pick(16)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();pick(16)}"></polygon></g>
+          <g id="labels"><text class="plabel" x="92" y="92" text-anchor="middle">岡崎</text><text class="plabel" x="228" y="92" text-anchor="middle">広幡</text><text class="plabel dim" x="363.5" y="91.5" text-anchor="middle">梅園</text><text class="plabel" x="501.25" y="90.5" text-anchor="middle">根石</text><text class="plabel" x="93.5" y="206" text-anchor="middle">竜美丘</text><text class="plabel" x="230" y="208.5" text-anchor="middle">三島</text><text class="plabel" x="365.5" y="211" text-anchor="middle">井田</text><text class="plabel dim" x="503" y="207" text-anchor="middle">城北</text><text class="plabel" x="96" y="320.5" text-anchor="middle">愛宕</text><text class="plabel" x="233" y="323" text-anchor="middle">六名</text><text class="plabel" x="369" y="326" text-anchor="middle">男川</text><text class="plabel" x="506" y="323" text-anchor="middle">大平</text><text class="plabel dim" x="98.5" y="435.5" text-anchor="middle">藤川</text><text class="plabel" x="236" y="438" text-anchor="middle">矢作北</text><text class="plabel" x="371.5" y="440" text-anchor="middle">矢作南</text><text class="plabel" x="508.5" y="437" text-anchor="middle">六ツ美北部</text></g>
+        </svg>
+
+        <div class="legend">
+          <div class="lt" id="legt">査定の集まり方</div>
+          <div id="legrows"><div class="lrow"><span class="sw" style="background:var(--sell4)"></span>非常に多い</div><div class="lrow"><span class="sw" style="background:var(--sell3)"></span>多い</div><div class="lrow"><span class="sw" style="background:var(--sell2)"></span>やや多い</div><div class="lrow"><span class="sw" style="background:var(--sell1)"></span>少ない</div><div class="lrow"><span class="sw" style="background-color:#212e42"></span>5件未満は非表示</div></div>
+        </div>
+        <div class="scalebar">出典：国土数値情報（小学校区データ）（国土交通省）（https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-A27.html）（2023年度）を加工して作成</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>校区ランキング<span id="rankhd">　査定が多い順</span></h2>
+        <div class="rows" id="rows"><div class="row" onclick="pick(9)">
+      <span class="chip" style="background:var(--sell4)"></span>
+      <span class="nm">愛宕小学校区</span>
+      <span class="tg">非常に多い</span></div><div class="row" onclick="pick(1)">
+      <span class="chip" style="background:var(--sell4)"></span>
+      <span class="nm">岡崎小学校区</span>
+      <span class="tg">非常に多い</span></div><div class="row" onclick="pick(14)">
+      <span class="chip" style="background:var(--sell3)"></span>
+      <span class="nm">矢作北小学校区</span>
+      <span class="tg">多い</span></div><div class="row" onclick="pick(5)">
+      <span class="chip" style="background:var(--sell3)"></span>
+      <span class="nm">竜美丘小学校区</span>
+      <span class="tg">多い</span></div><div class="row" onclick="pick(4)">
+      <span class="chip" style="background:var(--sell3)"></span>
+      <span class="nm">根石小学校区</span>
+      <span class="tg">多い</span></div><div class="row" onclick="pick(12)">
+      <span class="chip" style="background:var(--sell3)"></span>
+      <span class="nm">大平小学校区</span>
+      <span class="tg">多い</span></div><div class="row" onclick="pick(7)">
+      <span class="chip" style="background:var(--sell2)"></span>
+      <span class="nm">井田小学校区</span>
+      <span class="tg">やや多い</span></div><div class="row" onclick="pick(15)">
+      <span class="chip" style="background:var(--sell2)"></span>
+      <span class="nm">矢作南小学校区</span>
+      <span class="tg">やや多い</span></div><div class="row" onclick="pick(2)">
+      <span class="chip" style="background:var(--sell2)"></span>
+      <span class="nm">広幡小学校区</span>
+      <span class="tg">やや多い</span></div><div class="row" onclick="pick(10)">
+      <span class="chip" style="background:var(--sell1)"></span>
+      <span class="nm">六名小学校区</span>
+      <span class="tg">少ない</span></div><div class="row" onclick="pick(6)">
+      <span class="chip" style="background:var(--sell1)"></span>
+      <span class="nm">三島小学校区</span>
+      <span class="tg">少ない</span></div><div class="row" onclick="pick(16)">
+      <span class="chip" style="background:var(--sell1)"></span>
+      <span class="nm">六ツ美北部小学校区</span>
+      <span class="tg">少ない</span></div><div class="row" onclick="pick(11)">
+      <span class="chip" style="background:var(--sell1)"></span>
+      <span class="nm">男川小学校区</span>
+      <span class="tg">少ない</span></div><div class="row" onclick="pick(13)">
+      <span class="chip" style="background:#212e42"></span>
+      <span class="nm">藤川小学校区</span>
+      <span class="tg mk">件数が少なく非表示</span></div><div class="row" onclick="pick(3)">
+      <span class="chip" style="background:#212e42"></span>
+      <span class="nm">梅園小学校区</span>
+      <span class="tg mk">件数が少なく非表示</span></div><div class="row" onclick="pick(8)">
+      <span class="chip" style="background:#212e42"></span>
+      <span class="nm">城北小学校区</span>
+      <span class="tg mk">件数が少なく非表示</span></div></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h2>校区の詳細</h2>
+        <div id="detail"><div class="empty">地図またはリストから校区を選ぶと、<br>詳細がここに表示されます。</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="guard">
+    <b>個人が特定されないための表示ルール</b>
+    <ul>
+      <li>直近12ヶ月に <b>5件未満</b> の校区は、件数・濃淡とも表示しません（斜線のグレー）。</li>
+      <li>件数そのものは画面・CSV・PDFのいずれにも出しません。表示は<b>4段階の相対濃淡のみ</b>です。</li>
+      <li>丁目単位の表示とピン留めは行いません。地図で表示できる最小単位は学校区です。</li>
+      <li>ギャップは売り・買いの<b>両方が5件以上</b>の校区でのみ判定します。片側でも満たさない場合は「判定不可」です。</li>
+    </ul>
+  </div>
+
+  <details class="spec">
+    <summary>買い反響CSVの取込仕様（先方に渡す列定義のドラフト）</summary>
+    <div class="spec-in">
+      <table>
+        <thead><tr><th>列名</th><th>必須</th><th>内容</th><th>備考</th></tr></thead>
+        <tbody>
+          <tr><td><code>lead_type</code></td><td class="req">必須</td><td>sell / buy</td><td>売却査定か買い問合せか。既存の売却CSVは sell 固定で移行</td></tr>
+          <tr><td><code>received_at</code></td><td class="req">必須</td><td>反響の受付日</td><td>YYYY-MM-DD。12ヶ月ローリング集計の基準</td></tr>
+          <tr><td><code>property_address</code></td><td>条件付</td><td>対象物件の所在地</td><td>売りは必須。ここから校区を自動付与</td></tr>
+          <tr><td><code>desired_school</code></td><td>条件付</td><td>希望校区（学校名）</td><td>買いは必須。契約上の運用ルールとして入力を義務化</td></tr>
+          <tr><td><code>desired_area</code></td><td>任意</td><td>希望エリアの自由記述</td><td>校区が空のときの補完材料</td></tr>
+          <tr><td><code>price_band</code></td><td>任意</td><td>価格帯</td><td>将来の絞り込み用</td></tr>
+          <tr><td><code>last_contact_at</code></td><td>任意</td><td>最終接触日</td><td>アタックリストの並び順に使用</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--tx3);margin:12px 0 0">
+        電話番号・メールアドレスの列は受け取りません（現行の顧客アタックリストと同じ方針）。
+        住所は座標に変換したうえで校区を判定し、番地は保持しません。
+      </p>
+    </div>
+  </details>
+
+  <footer>
+    <b>通学区域について</b>　学校区の境界は国土数値情報 A27 をもとに表示しています。通学区域は変更される場合があり、番地単位で境界と異なることがあります。実際の指定校は各市区町村の教育委員会にご確認ください。<br>
+    <b>データの範囲</b>　直近12ヶ月・自社に登録された反響のみを集計しています。市場全体の売買動向を示すものではありません。
+  </footer>
+</div>
+
+<script>
+const D=[
+ {id:1, n:"岡崎",      p:[[30,40],[168,22],[152,138],[18,152]],       s:24, b:9,  h:0.8, t:6},
+ {id:2, n:"広幡",      p:[[168,22],[300,34],[292,158],[152,138]],     s:11, b:14, h:1.4, t:5},
+ {id:3, n:"梅園",      p:[[300,34],[438,18],[424,140],[292,158]],     s:3,  b:18, h:2.1, t:4},
+ {id:4, n:"根石",      p:[[438,18],[575,38],[568,150],[424,140]],     s:16, b:6,  h:-0.3,t:5},
+ {id:5, n:"竜美丘",    p:[[18,152],[152,138],[170,250],[34,268]],     s:19, b:22, h:1.9, t:7},
+ {id:6, n:"三島",      p:[[152,138],[292,158],[306,272],[170,250]],   s:8,  b:4,  h:0.2, t:4},
+ {id:7, n:"井田",      p:[[292,158],[424,140],[440,258],[306,272]],   s:13, b:11, h:0.6, t:6},
+ {id:8, n:"城北",      p:[[424,140],[568,150],[580,264],[440,258]],   s:2,  b:7,  h:1.1, t:3},
+ {id:9, n:"愛宕",      p:[[34,268],[170,250],[158,368],[22,380]],     s:27, b:5,  h:-0.9,t:8},
+ {id:10,n:"六名",      p:[[170,250],[306,272],[298,386],[158,368]],   s:9,  b:25, h:2.6, t:5},
+ {id:11,n:"男川",      p:[[306,272],[440,258],[432,372],[298,386]],   s:6,  b:16, h:1.7, t:6},
+ {id:12,n:"大平",      p:[[440,258],[580,264],[572,382],[432,372]],   s:15, b:20, h:2.3, t:7},
+ {id:13,n:"藤川",      p:[[22,380],[158,368],[176,482],[38,496]],     s:4,  b:3,  h:-0.4,t:3},
+ {id:14,n:"矢作北",    p:[[158,368],[298,386],[312,500],[176,482]],   s:21, b:8,  h:0.4, t:9},
+ {id:15,n:"矢作南",    p:[[298,386],[432,372],[444,486],[312,500]],   s:12, b:13, h:1.2, t:6},
+ {id:16,n:"六ツ美北部",p:[[432,372],[572,382],[586,492],[444,486]],   s:7,  b:28, h:3.1, t:5}
+];
+const N=5;
+const SELL=["var(--sell1)","var(--sell2)","var(--sell3)","var(--sell4)"];
+const BUY =["var(--buy1)","var(--buy2)","var(--buy3)","var(--buy4)"];
+const TIERTX=["少ない","やや多い","多い","非常に多い"];
+
+const CFG={
+ sell:{note:'<b>売りモード（媒介取得）</b>　直近12ヶ月に売却査定の反響が集まっている校区ほど濃く表示します。媒介を取りにいく順番を決めるための画面です。',
+       lt:"査定の集まり方", cls:"sell", ramp:SELL, hd:"　売却査定・直近12ヶ月", rk:"　査定が多い順"},
+ buy: {note:'<b>買いモード（購入希望）</b>　その校区を希望している買客が多いほど濃く表示します。売り物を確保しておくべき校区が分かります。',
+       lt:"買い希望の集まり方", cls:"buy", ramp:BUY, hd:"　買い反響・直近12ヶ月", rk:"　買い希望が多い順"},
+ gap: {note:'<b>ギャップ</b>　買い希望と売り物件のバランスを表示します。<b>緑が濃いほど「買いたい人は多いのに売り物が出ていない」</b>校区で、媒介を取れば早く決まる可能性が高い場所です。',
+       lt:"買い希望と売り物のバランス", cls:"gap", hd:"　両モードの差分", rk:"　買い超が大きい順"}
+};
+
+let mode="sell", sel=null;
+
+const tier=v=> v<N?-1 : v<10?0 : v<15?1 : v<22?2 : 3;
+const gapv=d=> (d.s<N||d.b<N) ? null : d.b-d.s;
+function gapTier(g){ return g>=10?2 : g>=4?1 : g>=-3?0 : g>=-9?-1 : -2; }
+const GAPC={"2":"var(--gapB2)","1":"var(--gapB1)","0":"var(--gapN)","-1":"var(--gapS1)","-2":"var(--gapS2)"};
+const GAPT={"2":"買い超が大きい","1":"やや買い超","0":"ほぼ均衡","-1":"やや売り超","-2":"売り超が大きい"};
+
+function fill(d){
+  if(mode==="gap"){ const g=gapv(d); return g===null?"url(#hatch)":GAPC[gapTier(g)]; }
+  const v=mode==="sell"?d.s:d.b, t=tier(v);
+  return t<0?"url(#hatch)":CFG[mode].ramp[t];
+}
+function label(d){
+  if(mode==="gap"){ const g=gapv(d); return g===null?"判定不可":GAPT[gapTier(g)]; }
+  const v=mode==="sell"?d.s:d.b, t=tier(v);
+  return t<0?"件数が少なく非表示":TIERTX[t];
+}
+const isMask=d=> mode==="gap" ? gapv(d)===null : tier(mode==="sell"?d.s:d.b)<0;
+
+function order(){
+  const a=[...D];
+  if(mode==="gap") a.sort((x,y)=>{const gx=gapv(x),gy=gapv(y); if(gx===null&&gy===null)return 0; if(gx===null)return 1; if(gy===null)return -1; return gy-gx;});
+  else a.sort((x,y)=> (mode==="sell"?y.s-x.s:y.b-x.b));
+  return a;
+}
+
+function draw(){
+  const c=CFG[mode];
+  document.getElementById("note").className="note "+c.cls;
+  document.getElementById("note").innerHTML=c.note;
+  document.getElementById("maphd").textContent=c.hd;
+  document.getElementById("rankhd").textContent=c.rk;
+  ["sell","buy","gap"].forEach(m=>document.getElementById("m-"+m).setAttribute("aria-pressed",String(m===mode)));
+
+  document.getElementById("polys").innerHTML=D.map(d=>
+    `<polygon class="poly${sel===d.id?" sel":""}" points="${d.p.map(q=>q.join(",")).join(" ")}" fill="${fill(d)}"
+      tabindex="0" role="button" aria-label="${d.n}小学校区 ${label(d)}"
+      onclick="pick(${d.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();pick(${d.id})}"></polygon>`).join("");
+
+  document.getElementById("labels").innerHTML=D.map(d=>{
+    const cx=d.p.reduce((a,q)=>a+q[0],0)/4, cy=d.p.reduce((a,q)=>a+q[1],0)/4;
+    return `<text class="plabel${isMask(d)?" dim":""}" x="${cx}" y="${cy+4}" text-anchor="middle">${d.n}</text>`;
+  }).join("");
+
+  document.getElementById("legt").textContent=c.lt;
+  const L=[];
+  if(mode==="gap"){
+    [["2","買い超が大きい"],["1","やや買い超"],["0","ほぼ均衡"],["-1","やや売り超"],["-2","売り超が大きい"]]
+      .forEach(([k,t])=>L.push(`<div class="lrow"><span class="sw" style="background:${GAPC[k]}"></span>${t}</div>`));
+    L.push(`<div class="lrow"><span class="sw" style="background:url(#hatch);background-color:#212e42"></span>判定不可（5件未満）</div>`);
+  }else{
+    [3,2,1,0].forEach(t=>L.push(`<div class="lrow"><span class="sw" style="background:${c.ramp[t]}"></span>${TIERTX[t]}</div>`));
+    L.push(`<div class="lrow"><span class="sw" style="background-color:#212e42"></span>5件未満は非表示</div>`);
+  }
+  document.getElementById("legrows").innerHTML=L.join("");
+
+  document.getElementById("rows").innerHTML=order().map(d=>{
+    const mk=isMask(d);
+    const bg = mode==="gap" ? (gapv(d)===null?"#212e42":GAPC[gapTier(gapv(d))])
+                            : (tier(mode==="sell"?d.s:d.b)<0?"#212e42":c.ramp[tier(mode==="sell"?d.s:d.b)]);
+    return `<div class="row${sel===d.id?" sel":""}" onclick="pick(${d.id})">
+      <span class="chip" style="background:${bg}"></span>
+      <span class="nm">${d.n}小学校区</span>
+      <span class="tg${mk?" mk":""}">${label(d)}</span></div>`;
+  }).join("");
+
+  detail();
+}
+
+function detail(){
+  const box=document.getElementById("detail");
+  if(sel===null){ box.innerHTML='<div class="empty">地図またはリストから校区を選ぶと、<br>詳細がここに表示されます。</div>'; return; }
+  const d=D.find(x=>x.id===sel);
+  const g=gapv(d);
+  const sT=tier(d.s), bT=tier(d.b);
+  box.innerHTML=`<div class="dt">
+    <p class="nm">${d.n}小学校区</p>
+    <p class="sub">岡崎市 ・ 町域 ${d.t}件 ・ 2023年度 A27</p>
+    <div class="kv"><span class="k">売却査定の集まり方</span>
+      <span class="v ${sT<0?"mk":""}">${sT<0?"件数が少なく非表示":TIERTX[sT]}</span></div>
+    <div class="kv"><span class="k">買い希望の集まり方</span>
+      <span class="v ${bT<0?"mk":""}">${bT<0?"件数が少なく非表示":TIERTX[bT]}</span></div>
+    <div class="kv"><span class="k">需給バランス</span>
+      <span class="v ${g===null?"mk":(g>0?"pos":(g<0?"neg":""))}">${g===null?"判定不可":GAPT[gapTier(g)]}</span></div>
+    <div class="kv"><span class="k">世帯数の増減（前年比）</span>
+      <span class="v ${d.h>0?"pos":"neg"}">${d.h>0?"+":""}${d.h.toFixed(1)}%</span></div>
+    <div class="kv"><span class="k">町域データ</span><span class="v" style="font-size:12.5px">岡崎市 2026年6月時点</span></div>
+    <p style="margin:14px 0 0"><span class="pill">件数は表示しません</span></p>
+    <button class="cta" onclick="alert('顧客アタックリストの該当校区へ移動します（モックのため遷移しません）')">この校区の顧客リストを開く</button>
+  </div>`;
+}
+
+function pick(id){ sel = (sel===id?null:id); draw(); }
+function setMode(m){ mode=m; draw(); }
+draw();
+</script>
+
+
+</body></html>
