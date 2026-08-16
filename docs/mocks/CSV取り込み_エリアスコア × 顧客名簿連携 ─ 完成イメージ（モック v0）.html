@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<!-- saved from url=(0065)file:///Users/gomez/Downloads/areascore_customer_list_mockup.html -->
+<html lang="ja"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>エリアスコア × 顧客名簿連携 ─ 完成イメージ（モック v0）</title>
+<style>
+:root{
+  --paper:#FAFAF8;
+  --surface:#FFFFFF;
+  --ink:#16202E;
+  --ink2:#485667;
+  --muted:#828F9C;
+  --rule:#E3E7EB;
+  --rule-2:#CBD2D9;
+  --confirmed:#0E6F62;
+  --confirmed-bg:#E6F2F0;
+  --inferred:#6A4FB6;
+  --inferred-bg:#EFEAF8;
+  --shu:#AF2A1D;
+  --shu-bg:#FBEAE8;
+  --amber:#8A6212;
+  --amber-bg:#FBF2DC;
+  --lock:#9AA5B1;
+
+  --gothic:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic Medium","Yu Gothic","Noto Sans JP",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--gothic); font-size:14px; line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+
+/* ── ページ枠 ───────────────────────── */
+.wrap{max-width:1180px; margin:0 auto; padding:28px 20px 80px}
+
+.docmark{
+  display:flex; flex-wrap:wrap; align-items:baseline; gap:12px;
+  border-bottom:2px solid var(--ink); padding-bottom:12px; margin-bottom:14px;
+}
+.docmark h1{
+  font-family:var(--mincho); font-size:24px; font-weight:600;
+  letter-spacing:.04em; margin:0; line-height:1.4;
+}
+.docmark .meta{margin-left:auto; font-size:11px; color:var(--muted); font-family:var(--mono)}
+
+.dummybar{
+  display:flex; gap:10px; align-items:flex-start;
+  background:var(--amber-bg); border:1px solid #E5D2A0; border-left:4px solid var(--amber);
+  padding:11px 14px; font-size:12.5px; color:#6B4D0E; margin-bottom:22px; line-height:1.65;
+}
+.dummybar b{color:var(--amber)}
+
+/* ── 凡例（シグネチャ：確定と推定の視覚分離） ── */
+.legend{
+  display:flex; flex-wrap:wrap; gap:8px 22px; align-items:center;
+  background:var(--surface); border:1px solid var(--rule);
+  padding:12px 16px; margin-bottom:20px;
+}
+.legend .lbl{font-size:10.5px; letter-spacing:.14em; color:var(--muted); font-weight:700}
+.legend .item{display:flex; align-items:center; gap:8px; font-size:12.5px}
+.sw{width:26px; height:14px; flex:none; border-radius:1px}
+.sw.c{background:var(--confirmed-bg); border:1.5px solid var(--confirmed)}
+.sw.i{
+  background:var(--inferred-bg); border:1.5px dashed var(--inferred);
+  background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(106,79,182,.22) 3px 5px);
+}
+
+/* ── ブラウザ・シェル ───────────────── */
+.shell{border:1px solid var(--rule-2); background:var(--surface); box-shadow:0 1px 0 rgba(22,32,46,.04), 0 12px 32px -20px rgba(22,32,46,.35)}
+.urlbar{
+  display:flex; align-items:center; gap:10px; padding:9px 14px;
+  background:#F1F3F5; border-bottom:1px solid var(--rule);
+}
+.dots{display:flex; gap:6px}
+.dots i{width:9px; height:9px; border-radius:50%; background:#D2D7DC; display:block}
+.url{
+  flex:1; background:#fff; border:1px solid var(--rule); border-radius:3px;
+  padding:3px 10px; font-family:var(--mono); font-size:11px; color:var(--ink2);
+}
+
+/* アプリ・ヘッダー */
+.apphead{display:flex; align-items:center; gap:14px; padding:13px 18px; border-bottom:1px solid var(--rule); flex-wrap:wrap}
+.logo{font-family:var(--mincho); font-size:16px; letter-spacing:.1em; font-weight:600}
+.logo span{color:var(--confirmed)}
+.plan{
+  font-size:10px; letter-spacing:.1em; border:1px solid var(--ink); padding:2px 8px;
+  font-weight:700; font-family:var(--mono);
+}
+.apphead .who{margin-left:auto; font-size:11.5px; color:var(--muted); text-align:right; line-height:1.4}
+
+/* タブ */
+.tabs{display:flex; overflow-x:auto; border-bottom:1px solid var(--rule); background:#FCFCFB; scrollbar-width:thin}
+.tab{
+  appearance:none; background:none; border:0; border-bottom:2px solid transparent;
+  padding:12px 16px; font-family:var(--gothic); font-size:12.5px; color:var(--ink2);
+  cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:7px;
+}
+.tab .n{font-family:var(--mono); font-size:10px; color:var(--muted)}
+.tab:hover{background:#F4F6F7}
+.tab[aria-selected="true"]{border-bottom-color:var(--ink); color:var(--ink); font-weight:700; background:#fff}
+.tab[aria-selected="true"] .n{color:var(--ink)}
+.tab:focus-visible{outline:2px solid var(--confirmed); outline-offset:-2px}
+
+.panel{padding:24px 22px 30px; display:none}
+.panel[data-active="true"]{display:block; animation:fade .18s ease-out}
+@keyframes fade{from{opacity:0; transform:translateY(3px)} to{opacity:1; transform:none}}
+@media (prefers-reduced-motion:reduce){.panel[data-active="true"]{animation:none}}
+
+/* ── 共通パーツ ─────────────────────── */
+h2.sec{font-family:var(--mincho); font-size:19px; font-weight:600; margin:0 0 4px; letter-spacing:.03em}
+p.lede{margin:0 0 20px; color:var(--ink2); font-size:13px; max-width:74ch}
+h3.sub{
+  font-size:11px; letter-spacing:.16em; color:var(--muted); font-weight:700;
+  margin:26px 0 10px; padding-bottom:5px; border-bottom:1px solid var(--rule);
+}
+h3.sub:first-child{margin-top:0}
+
+.badge{
+  display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700;
+  padding:1px 7px; border-radius:2px; white-space:nowrap; font-family:var(--gothic);
+}
+.badge.c{background:var(--confirmed-bg); color:var(--confirmed); border:1px solid rgba(14,111,98,.35)}
+.badge.i{background:var(--inferred-bg); color:var(--inferred); border:1px dashed var(--inferred)}
+.badge.s{background:var(--shu-bg); color:var(--shu); border:1px solid rgba(175,42,29,.3)}
+.badge.g{background:#F1F3F5; color:var(--muted); border:1px solid var(--rule)}
+
+.grid{display:grid; gap:14px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+.card{border:1px solid var(--rule); background:var(--surface); padding:14px 16px}
+.card .k{font-size:10.5px; letter-spacing:.12em; color:var(--muted); font-weight:700; margin-bottom:6px}
+.card .v{font-family:var(--mono); font-size:26px; font-variant-numeric:tabular-nums; line-height:1.15; letter-spacing:-.03em}
+.card .v small{font-size:13px; color:var(--ink2); margin-left:2px}
+.card .note{font-size:11.5px; color:var(--muted); margin-top:5px; line-height:1.55}
+.card.warn{border-left:3px solid var(--shu)}
+.card.warn .v{color:var(--shu)}
+.card.ok{border-left:3px solid var(--confirmed)}
+
+table{width:100%; border-collapse:collapse; font-size:12.5px}
+th,td{padding:8px 10px; text-align:left; border-bottom:1px solid var(--rule); vertical-align:top}
+th{
+  font-size:10.5px; letter-spacing:.1em; color:var(--muted); font-weight:700;
+  border-bottom:1.5px solid var(--rule-2); white-space:nowrap;
+}
+td.n,th.n{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums}
+tbody tr:hover{background:#FAFBFC}
+.tablewrap{overflow-x:auto; border:1px solid var(--rule); background:var(--surface)}
+.tablewrap table{min-width:640px}
+
+.note{font-size:12px; color:var(--ink2)}
+.callout{
+  border:1px solid var(--rule); border-left:3px solid var(--ink); background:var(--surface);
+  padding:12px 15px; font-size:12.5px; line-height:1.7; margin:14px 0;
+}
+.callout.shu{border-left-color:var(--shu); background:var(--shu-bg); border-color:#EFCFCB}
+.callout.conf{border-left-color:var(--confirmed); background:var(--confirmed-bg); border-color:#C6E0DB}
+.callout b{font-weight:700}
+.callout .h{font-size:11px; letter-spacing:.12em; font-weight:700; display:block; margin-bottom:4px}
+
+/* 取込：列チップ */
+.cols{display:flex; flex-wrap:wrap; gap:5px; margin-top:4px}
+.chip{
+  font-size:11px; padding:2.5px 8px; border:1px solid var(--rule-2); border-radius:2px;
+  background:#fff; font-family:var(--gothic);
+}
+.chip.keep{border-color:rgba(14,111,98,.4); background:var(--confirmed-bg); color:var(--confirmed)}
+.chip.drop{
+  border-color:var(--rule); background:#F6F7F8; color:var(--lock);
+  text-decoration:line-through; text-decoration-thickness:1px;
+}
+.chip.drop.hot{border-color:rgba(175,42,29,.35); background:var(--shu-bg); color:var(--shu)}
+
+.steps{counter-reset:s; margin:0; padding:0; list-style:none}
+.steps>li{
+  position:relative; padding:0 0 0 40px; margin-bottom:22px;
+}
+.steps>li::before{
+  counter-increment:s; content:counter(s);
+  position:absolute; left:0; top:1px; width:26px; height:26px;
+  border:1.5px solid var(--ink); border-radius:50%;
+  display:grid; place-items:center; font-family:var(--mono); font-size:12px; font-weight:700;
+}
+.steps>li::after{
+  content:""; position:absolute; left:13px; top:31px; bottom:-18px; width:1px; background:var(--rule-2);
+}
+.steps>li:last-child::after{display:none}
+.steps h4{margin:2px 0 6px; font-size:14px; font-weight:700}
+
+/* 進捗バー */
+.bar{height:9px; background:#EEF1F3; position:relative; overflow:hidden; border-radius:1px}
+.bar i{display:block; height:100%}
+.bar i.c{background:var(--confirmed)}
+.bar i.a{background:var(--amber)}
+.bar i.u{background:var(--shu)}
+.barrow{display:flex; align-items:center; gap:12px; margin-bottom:9px}
+.barrow .lb{width:150px; flex:none; font-size:12px}
+.barrow .bar{flex:1}
+.barrow .vv{width:96px; flex:none; text-align:right; font-family:var(--mono); font-size:12px}
+@media(max-width:640px){.barrow{flex-wrap:wrap}.barrow .lb{width:100%}.barrow .vv{width:auto}}
+
+/* 象限図 */
+.quad{width:100%; height:auto; display:block}
+.quad text{font-family:var(--gothic)}
+
+/* 分布バー（購買力） */
+.hist{display:flex; align-items:flex-end; gap:7px; height:132px; padding-top:8px}
+.hist .col{flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:5px; height:100%}
+.hist .bl{width:100%; background:var(--confirmed-bg); border:1px solid var(--confirmed); border-bottom:0}
+.hist .bl.hi{background:var(--confirmed)}
+.hist .cap{font-size:10px; color:var(--muted); font-family:var(--mono); white-space:nowrap}
+.hist .qty{font-size:10.5px; font-family:var(--mono); color:var(--ink2)}
+
+/* 錠 */
+.locked{
+  border:1px dashed var(--rule-2); background:repeating-linear-gradient(45deg,#FAFBFC 0 6px,#F4F6F7 6px 12px);
+  padding:16px; text-align:center; color:var(--lock); font-size:12.5px;
+}
+
+/* トグル */
+.toggle{display:inline-flex; border:1px solid var(--rule-2); background:#fff; margin-bottom:14px}
+.toggle button{
+  appearance:none; border:0; background:none; padding:7px 14px; cursor:pointer;
+  font-family:var(--gothic); font-size:12px; color:var(--ink2);
+}
+.toggle button[aria-pressed="true"]{background:var(--ink); color:#fff; font-weight:700}
+.toggle button:focus-visible{outline:2px solid var(--confirmed); outline-offset:-2px}
+
+/* 判断ページ */
+.qbox{border:1px solid var(--rule); background:var(--surface); margin-bottom:18px}
+.qbox .qh{
+  display:flex; gap:11px; align-items:baseline; padding:12px 16px; border-bottom:1px solid var(--rule);
+  background:#FCFCFB;
+}
+.qbox .qh .qn{font-family:var(--mono); font-weight:700; font-size:13px; color:var(--shu)}
+.qbox .qh h4{margin:0; font-size:14px; font-weight:700}
+.qbox .qb{padding:14px 16px}
+.opt{border:1px solid var(--rule); padding:11px 13px; background:#FCFCFC}
+.opt.rec{border-color:var(--confirmed); border-width:1.5px; background:var(--confirmed-bg)}
+.opt .ot{font-size:12.5px; font-weight:700; margin-bottom:5px; display:flex; align-items:center; gap:7px}
+.opt ul{margin:5px 0 0; padding-left:17px; font-size:12px; color:var(--ink2)}
+.opt li{margin-bottom:2px}
+
+.foot{margin-top:26px; padding-top:16px; border-top:1px solid var(--rule); font-size:11.5px; color:var(--muted)}
+kbd{font-family:var(--mono); font-size:11px; background:#F1F3F5; border:1px solid var(--rule-2); padding:0 4px; border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="docmark">
+    <h1>顧客名簿連携 ― 完成イメージ</h1>
+    <div class="meta">MOCK v0 / 2026-08-13<br>エリアスコア SaaS / Crouching Style</div>
+  </div>
+
+  <div class="dummybar">
+    <div>
+      <b>すべてダミー数値です。</b>
+      画面内の件数・世帯数・金額・突合率は、判断材料として形を掴むために置いた仮の値で、実測ではありません。実データは未投入です（<b>P1-2 プライバシーポリシー施行が未完のため投入不可</b>）。
+      町域名は青梅市の実在町名を使っていますが、対応する数値は架空です。
+      <br><b>【要確認】</b> 青梅市の町域データが <span class="num">public.town_monthly_metrics</span>（22自治体）に含まれるかは未確認です。ロードマップ上「西多摩」は重点自治体に挙がっていますが、実DBの照会が必要です。含まれない場合、この画面は成立しません。
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lbl">凡例</span>
+    <span class="item"><span class="sw c"></span><b>確定</b>＝御社CSV由来の事実（実線・塗り）</span>
+    <span class="item"><span class="sw i"></span><b>推定</b>＝エリアスコアの算出値（破線・斜線）</span>
+    <span class="item" style="color:var(--muted)">この2つは画面のどこでも混ぜません</span>
+  </div>
+
+  <!-- ══════════════ アプリ ══════════════ -->
+  <div class="shell">
+    <div class="urlbar">
+      <span class="dots"><i></i><i></i><i></i></span>
+      <span class="url">https://areascore.jp/dashboard?pref=tokyo&amp;area=13205&amp;view=customers</span>
+    </div>
+
+    <div class="apphead">
+      <span class="logo">エリア<span>スコア</span></span>
+      <span class="plan">PLATINUM</span>
+      <div class="who">
+        ファミリアホームサービス株式会社<br>
+        ハウスドゥ 青梅河辺 ／ 東京都青梅市
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-t="t1"><span class="n">01</span>名簿を取り込む</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="t2"><span class="n">02</span>取りこぼしマップ</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="t3"><span class="n">03</span>潜在層プロファイル</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="t4"><span class="n">04</span>アタックリスト</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="t5"><span class="n">05</span>媒体 × 町域</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="t6"><span class="n">06</span>判断が必要な3点</button>
+    </div>
+
+    <!-- ─────── 01 取込 ─────── -->
+    <section class="panel" data-active="true" id="t1">
+      <h2 class="sec">名簿を取り込む</h2>
+      <p class="lede">御社の顧客管理システムから出したCSVを、そのまま置くだけ。列の対応づけは形式を自動で判定します。氏名・連絡先はエリアスコアに保存されません。</p>
+
+      <ol class="steps">
+        <li>
+          <h4>ファイルを置く</h4>
+          <div class="card" style="border-style:dashed; text-align:center; padding:22px">
+            <div class="num" style="font-size:13px">顧客一覧_20260813.csv</div>
+            <div class="note" style="margin-top:4px">1,270行 / 100列 / CP932</div>
+            <div style="margin-top:9px"><span class="badge c">形式を自動判定：ハウスドゥ 顧客一覧形式</span></div>
+          </div>
+          <p class="note" style="margin-top:8px">
+            列名と並び順から形式を特定します。判定できない場合だけ、列の対応づけ画面が開きます。
+          </p>
+        </li>
+
+        <li>
+          <h4>読み込む列を確認する</h4>
+          <div class="grid g2">
+            <div class="card ok">
+              <div class="k">読み込む　<span class="num">35列</span></div>
+              <div class="cols">
+                <span class="chip keep">顧客番号</span><span class="chip keep">FC名</span><span class="chip keep">店舗名</span>
+                <span class="chip keep">店舗営業担当者ID</span><span class="chip keep">郵便番号</span><span class="chip keep">都道府県</span>
+                <span class="chip keep">市区</span><span class="chip keep">住所</span><span class="chip keep">顧客種別</span>
+                <span class="chip keep">顧客ランク</span><span class="chip keep">顧客ステータス</span><span class="chip keep">受付日</span>
+                <span class="chip keep">状態変更日</span><span class="chip keep">反響手段</span><span class="chip keep">反響エリア</span>
+                <span class="chip keep">反響媒体①</span><span class="chip keep">反響媒体②</span><span class="chip keep">DM郵送希望</span>
+                <span class="chip keep">メール禁止フラグ</span><span class="chip keep">メルマガフラグ</span><span class="chip keep">年収本人</span>
+                <span class="chip keep">年収合算者</span><span class="chip keep">自己資金(最低)</span><span class="chip keep">自己資金(最高)</span>
+                <span class="chip keep">家族構成大人人数</span><span class="chip keep">家族構成子供人数</span><span class="chip keep">子供年齢1-3</span>
+                <span class="chip keep">現住居種別</span><span class="chip keep">現住居家賃</span><span class="chip keep">マッチング物件価格帯</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="k">読み込まない　<span class="num">65列</span></div>
+              <div class="cols">
+                <span class="chip drop hot">顧客名</span><span class="chip drop hot">顧客名フリガナ</span><span class="chip drop hot">生年月日</span>
+                <span class="chip drop hot">電話番号</span><span class="chip drop hot">FAX番号</span><span class="chip drop hot">携帯番号</span>
+                <span class="chip drop hot">携帯番号（補助）1</span><span class="chip drop hot">携帯番号（補助）2</span><span class="chip drop hot">携帯番号（補助）3</span>
+                <span class="chip drop hot">メールアドレス</span><span class="chip drop hot">携帯メールアドレス</span><span class="chip drop hot">同居人氏名</span>
+                <span class="chip drop hot">同居人生年月日</span><span class="chip drop hot">勤務先本人</span><span class="chip drop hot">勤務先合算者</span>
+                <span class="chip drop hot">住宅ローン審査状況</span><span class="chip drop hot">住宅ローン金融機関名</span><span class="chip drop hot">現借入</span>
+                <span class="chip drop">顧客性別</span><span class="chip drop">続柄1-3</span><span class="chip drop">新住所</span>
+                <span class="chip drop">新電話番号</span><span class="chip drop">引越日</span><span class="chip drop">ステップメールID</span>
+                <span class="chip drop">…ほか41列</span>
+              </div>
+              <p class="note">読み飛ばす、ではなく<b>保存先の列が存在しません</b>。誤設定で入る経路そのものがありません。</p>
+            </div>
+          </div>
+          <div class="callout shu">
+            <span class="h">なぜ切るのか</span>
+            電話番号・メール・生年月日・勤務先・ローン審査状況は、突合にも可視化にも一切使いません。持てば漏洩時の被害と委託契約の重さだけが増えます。
+            <b>「必要だから持たない」のではなく「使わないから持たない」</b>という説明が、そのまま御社への説明資料になります。
+          </div>
+        </li>
+
+        <li>
+          <h4>取り込み結果を確認する</h4>
+          <div class="grid g4" style="margin-bottom:16px">
+            <div class="card ok"><div class="k">読み込み</div><div class="v">1,247<small>件</small></div><div class="note">1,270行中</div></div>
+            <div class="card"><div class="k">除外</div><div class="v">23<small>件</small></div><div class="note">空行 8 ／ 住所欠落 11 ／ 重複 4</div></div>
+            <div class="card warn"><div class="k">連絡不可</div><div class="v">99<small>件</small></div><div class="note">DM不可 87 ／ メール禁止 12<br>アタックリストから自動除外</div></div>
+            <div class="card ok"><div class="k">町域まで特定</div><div class="v">94.6<small>%</small></div><div class="note">1,180件</div></div>
+          </div>
+
+          <h3 class="sub">住所の突合結果</h3>
+          <div class="barrow">
+            <span class="lb">町域まで特定できた</span>
+            <span class="bar"><i class="c" style="width:94.6%"></i></span>
+            <span class="vv">1,180 / 94.6%</span>
+          </div>
+          <div class="barrow">
+            <span class="lb">候補が複数（要確認）</span>
+            <span class="bar"><i class="a" style="width:2.5%"></i></span>
+            <span class="vv">31 / 2.5%</span>
+          </div>
+          <div class="barrow">
+            <span class="lb">特定できなかった</span>
+            <span class="bar"><i class="u" style="width:2.9%"></i></span>
+            <span class="vv">36 / 2.9%</span>
+          </div>
+
+          <div class="callout">
+            <span class="h">特定できなかった理由（上位）</span>
+            町名が旧表記のまま 14件 ／ 丁目がない住所 11件 ／ 市外（青梅市以外）7件 ／ 住所が空 4件<br>
+            <span class="note">理由ごとにCSVで書き出せます。御社側で直して再取込すると、<b>顧客番号をキーに上書き</b>されます（重複しません）。</span>
+          </div>
+
+          <div class="callout conf">
+            <span class="h">開発側の注記</span>
+            この画面が<b>「候補が複数」を初めて実データで観測する場所</b>です。現行の本番では該当0件のため、この経路は未検証（S7）。
+            まず件数と理由の内訳を出すところまでを実装し、選択して直すUIはその後。<b>0件だと思っていたものが31件出た、が最も高い今回の収穫になります。</b>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ─────── 02 取りこぼしマップ ─────── -->
+    <section class="panel" id="t2">
+      <h2 class="sec">取りこぼしマップ</h2>
+      <p class="lede">縦は町域の伸び（エリアスコアの推定）、横は御社の反響件数（確定した事実）。左上に落ちた町域が、伸びているのに御社が取れていないエリアです。</p>
+
+      <div class="grid g2" style="align-items:start">
+        <div>
+          <svg class="quad" viewBox="0 0 460 380" role="img" aria-label="町域ランクと自社反響件数の4象限散布図">
+            <!-- 象限背景 -->
+            <rect x="52" y="24" width="184" height="150" fill="#FBEAE8"></rect>
+            <rect x="236" y="24" width="184" height="150" fill="#E6F2F0"></rect>
+            <rect x="52" y="174" width="184" height="150" fill="#FBFBFA"></rect>
+            <rect x="236" y="174" width="184" height="150" fill="#FBF2DC"></rect>
+            <!-- 枠 -->
+            <rect x="52" y="24" width="368" height="300" fill="none" stroke="#CBD2D9"></rect>
+            <line x1="236" y1="24" x2="236" y2="324" stroke="#CBD2D9" stroke-dasharray="3 3"></line>
+            <line x1="52" y1="174" x2="420" y2="174" stroke="#CBD2D9" stroke-dasharray="3 3"></line>
+
+            <!-- 象限ラベル -->
+            <text x="62" y="42" font-size="11" font-weight="700" fill="#AF2A1D">取りこぼし</text>
+            <text x="62" y="56" font-size="9.5" fill="#9A6560">伸びている・取れていない</text>
+            <text x="410" y="42" font-size="11" font-weight="700" fill="#0E6F62" text-anchor="end">主戦場</text>
+            <text x="410" y="56" font-size="9.5" fill="#5D8C86" text-anchor="end">守る・シェアを固める</text>
+            <text x="62" y="316" font-size="10.5" fill="#9AA5B1">静観</text>
+            <text x="410" y="302" font-size="11" font-weight="700" fill="#8A6212" text-anchor="end">費用対効果を見直す</text>
+            <text x="410" y="316" font-size="9.5" fill="#A08A56" text-anchor="end">反響は多いが伸びていない</text>
+
+            <!-- 点 -->
+            <g font-size="9.5" font-family="sans-serif">
+              <circle cx="86" cy="58" r="6" fill="#AF2A1D"></circle><text x="97" y="61" fill="#16202E">河辺町6丁目</text>
+              <circle cx="112" cy="92" r="5" fill="#AF2A1D"></circle><text x="123" y="95" fill="#16202E">東青梅3丁目</text>
+              <circle cx="96" cy="132" r="4.5" fill="#C56A5E"></circle><text x="107" y="135" fill="#16202E">新町5丁目</text>
+              <circle cx="168" cy="70" r="4" fill="#C56A5E"></circle><text x="178" y="73" fill="#16202E">師岡町2丁目</text>
+
+              <circle cx="292" cy="64" r="7" fill="#0E6F62"></circle><text x="304" y="67" fill="#16202E">野上町3丁目</text>
+              <circle cx="340" cy="104" r="6" fill="#0E6F62"></circle><text x="352" y="107" fill="#16202E">河辺町5丁目</text>
+              <circle cx="268" cy="140" r="4.5" fill="#4C8C83"></circle><text x="279" y="143" fill="#16202E">今寺2丁目</text>
+
+              <circle cx="330" cy="216" r="6" fill="#8A6212"></circle><text x="342" y="219" fill="#16202E">長淵4丁目</text>
+              <circle cx="286" cy="262" r="5" fill="#8A6212"></circle><text x="298" y="265" fill="#16202E">友田町1丁目</text>
+
+              <circle cx="96" cy="236" r="3.5" fill="#B4BCC4"></circle>
+              <circle cx="130" cy="284" r="3.5" fill="#B4BCC4"></circle>
+              <circle cx="76" cy="300" r="3" fill="#B4BCC4"></circle>
+              <circle cx="164" cy="252" r="3" fill="#B4BCC4"></circle>
+            </g>
+
+            <!-- 軸 -->
+            <text x="14" y="30" font-size="9.5" fill="#828F9C">高</text>
+            <text x="14" y="322" font-size="9.5" fill="#828F9C">低</text>
+            <text x="20" y="185" font-size="10" fill="#6A4FB6" transform="rotate(-90 20 185)" text-anchor="middle">町域の伸び（推定）</text>
+            <text x="236" y="352" font-size="10" fill="#0E6F62" text-anchor="middle">御社の反響件数（確定）</text>
+            <text x="56" y="340" font-size="9.5" fill="#828F9C">0件</text>
+            <text x="416" y="340" font-size="9.5" fill="#828F9C" text-anchor="end">多い</text>
+          </svg>
+          <p class="note" style="margin-top:2px">円の大きさ＝直近12ヶ月の世帯増減の絶対値（確定）</p>
+        </div>
+
+        <div>
+          <h3 class="sub">左上（取りこぼし）の町域</h3>
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>町域</th>
+                  <th class="n">世帯増減<br><span style="font-weight:400">12ヶ月・確定</span></th>
+                  <th>町域ランク<br><span style="font-weight:400">推定</span></th>
+                  <th class="n">自社反響<br><span style="font-weight:400">確定</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>河辺町6丁目</td><td class="n">+128</td><td><span class="badge i">S</span></td><td class="n" style="color:var(--shu); font-weight:700">2</td></tr>
+                <tr><td>東青梅3丁目</td><td class="n">+94</td><td><span class="badge i">S</span></td><td class="n" style="color:var(--shu); font-weight:700">5</td></tr>
+                <tr><td>師岡町2丁目</td><td class="n">+61</td><td><span class="badge i">A</span></td><td class="n">11</td></tr>
+                <tr><td>新町5丁目</td><td class="n">+47</td><td><span class="badge i">A</span></td><td class="n">4</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout shu" style="margin-top:14px">
+            <span class="h">この画面が言っていること</span>
+            河辺町6丁目は12ヶ月で<b>128世帯増えている</b>のに、御社の反響は<b>2件</b>。
+            隣の野上町3丁目は増加が同程度で反響<b>38件</b>。<b>ここにチラシが入っていない可能性が高い。</b>
+          </div>
+
+          <div class="callout">
+            <span class="h">断定しない（設計上の線）</span>
+            「河辺町6丁目にマンションが建った」とは書きません。書けるのは
+            <b>「この町域で世帯が128増えた（事実）」</b>と <b>「増加の型はS＝供給イベントの可能性が高い（推定・根拠つき）」</b>まで。
+            推定にはすべて<span class="badge i">推定</span>と算出根拠が付きます。
+          </div>
+        </div>
+      </div>
+
+      <h3 class="sub">町域一覧（既存の町域リストに列が2本増えるだけ）</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>町域</th><th class="n">世帯数</th><th class="n">12ヶ月増減</th>
+              <th>町域ランク</th><th class="n">自社顧客</th><th class="n">うち売主</th><th>直近の動き</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>野上町3丁目</td><td class="n">1,842</td><td class="n">+131</td><td><span class="badge i">S</span></td><td class="n"><span class="badge c">38件</span></td><td class="n">6</td><td>2026-07-28</td></tr>
+            <tr><td>河辺町6丁目</td><td class="n">2,104</td><td class="n">+128</td><td><span class="badge i">S</span></td><td class="n"><span class="badge s">2件</span></td><td class="n">0</td><td>2025-11-04</td></tr>
+            <tr><td>河辺町5丁目</td><td class="n">1,677</td><td class="n">+88</td><td><span class="badge i">A</span></td><td class="n"><span class="badge c">44件</span></td><td class="n">9</td><td>2026-08-02</td></tr>
+            <tr><td>東青梅3丁目</td><td class="n">1,321</td><td class="n">+94</td><td><span class="badge i">S</span></td><td class="n"><span class="badge s">5件</span></td><td class="n">1</td><td>2026-03-19</td></tr>
+            <tr><td>師岡町2丁目</td><td class="n">988</td><td class="n">+61</td><td><span class="badge i">A</span></td><td class="n"><span class="badge c">11件</span></td><td class="n">2</td><td>2026-06-11</td></tr>
+            <tr><td>長淵4丁目</td><td class="n">1,455</td><td class="n">−22</td><td><span class="badge i">C</span></td><td class="n"><span class="badge c">51件</span></td><td class="n">14</td><td>2026-08-05</td></tr>
+            <tr><td>友田町1丁目</td><td class="n">906</td><td class="n">−41</td><td><span class="badge i">D</span></td><td class="n"><span class="badge c">33件</span></td><td class="n">12</td><td>2026-07-22</td></tr>
+            <tr><td>千ヶ瀬町4丁目</td><td class="n">743</td><td class="n">+3</td><td><span class="badge i">C</span></td><td class="n" style="color:var(--lock)">─</td><td class="n" style="color:var(--lock)">─</td><td style="color:var(--lock)">─</td></tr>
+            <tr><td>大門1丁目</td><td class="n">1,102</td><td class="n">+12</td><td><span class="badge i">B</span></td><td class="n"><span class="badge c">7件</span></td><td class="n">1</td><td>2026-05-30</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note" style="margin-top:8px">
+        「自社顧客」は1件以上のときだけバッジ表示、0件は淡色の「─」（確定仕様 D43-③）。
+        <b>解約すると、この2列は自動的に消えます</b>──町域ランクの参照権限がDB側で切れるため（設計どおり）。
+      </p>
+    </section>
+
+    <!-- ─────── 03 潜在層 ─────── -->
+    <section class="panel" id="t3">
+      <h2 class="sec">潜在層プロファイル</h2>
+      <p class="lede">御社に実際に来た人の、財布と家族構成の分布。「この店舗の客層はこうだ」を勘ではなく数で持ちます。</p>
+
+      <div class="toggle" role="group" aria-label="保持形態の切替">
+        <button aria-pressed="true" data-q1="B">案B：町域集計だけ保存（推奨）</button>
+        <button aria-pressed="false" data-q1="A">案A：個票にも保存</button>
+      </div>
+      <p class="note" id="q1note" style="margin:-6px 0 18px">
+        いま表示中は<b>案B</b>。取込時に町域単位へ丸めてから保存し、個人単位の年収・家族構成は残しません。件数が5件未満の町域は表示しません。
+      </p>
+
+      <h3 class="sub">買える価格帯の分布　<span class="badge c">確定</span></h3>
+      <div class="card">
+        <div class="hist">
+          <div class="col"><span class="qty">31</span><span class="bl" style="height:18%"></span><span class="cap">〜2000</span></div>
+          <div class="col"><span class="qty">88</span><span class="bl" style="height:44%"></span><span class="cap">2000-2500</span></div>
+          <div class="col"><span class="qty">164</span><span class="bl hi" style="height:82%"></span><span class="cap">2500-3000</span></div>
+          <div class="col"><span class="qty">197</span><span class="bl hi" style="height:100%"></span><span class="cap">3000-3500</span></div>
+          <div class="col"><span class="qty">142</span><span class="bl hi" style="height:72%"></span><span class="cap">3500-4000</span></div>
+          <div class="col"><span class="qty">76</span><span class="bl" style="height:38%"></span><span class="cap">4000-4500</span></div>
+          <div class="col"><span class="qty">29</span><span class="bl" style="height:16%"></span><span class="cap">4500-</span></div>
+        </div>
+        <p class="note" style="margin-top:10px">
+          単位：万円 ／ 算出＝年収本人＋年収合算者＋自己資金（最高）から導く上限。<span class="badge c">確定</span>の入力値のみ使用。
+          <b>中央値 3,180万円・上位25% 3,860万円</b>（ダミー）
+        </p>
+      </div>
+
+      <div class="grid g2" style="margin-top:14px">
+        <div class="card">
+          <div class="k">この予算で買える町域　<span class="badge i">推定</span></div>
+          <p class="note" style="margin-top:2px">中央値3,180万円と町域相場の突合</p>
+          <div class="tablewrap" style="border:0; margin-top:8px">
+            <table style="min-width:0">
+              <tbody><tr><td>野上町3丁目</td><td class="n">3,050万</td><td><span class="badge c">届く</span></td></tr>
+              <tr><td>河辺町6丁目</td><td class="n">3,240万</td><td><span class="badge c">届く</span></td></tr>
+              <tr><td>東青梅3丁目</td><td class="n">3,780万</td><td><span class="badge g">上位25%層のみ</span></td></tr>
+              <tr><td>長淵4丁目</td><td class="n">2,610万</td><td><span class="badge c">届く</span></td></tr>
+            </tbody></table>
+          </div>
+          <p class="note">接客中に「ご予算だとこのエリアです」を地図で即答するための土台。</p>
+        </div>
+
+        <div class="card">
+          <div class="k">ライフステージ　<span class="badge c">確定</span></div>
+          <div class="tablewrap" style="border:0; margin-top:6px">
+            <table style="min-width:0">
+              <thead><tr><th>層</th><th class="n">件数</th><th class="n">構成比</th></tr></thead>
+              <tbody>
+                <tr><td><b>賃貸・子供あり・上の子5〜7歳</b></td><td class="n">218</td><td class="n">18.5%</td></tr>
+                <tr><td>賃貸・子供あり・上の子0〜4歳</td><td class="n">301</td><td class="n">25.5%</td></tr>
+                <tr><td>賃貸・子供なし</td><td class="n">247</td><td class="n">20.9%</td></tr>
+                <tr><td>持家・住み替え</td><td class="n">189</td><td class="n">16.0%</td></tr>
+                <tr><td>その他・不明</td><td class="n">225</td><td class="n">19.1%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">
+            太字は<b>就学タイミングで動く層</b>。ここが厚いなら、学校区レイヤーは推測ではなく需要の裏づけがある機能になります。
+          </p>
+        </div>
+      </div>
+
+      <h3 class="sub">商圏半径の実測　<span class="badge c">確定</span></h3>
+      <div class="card">
+        <div class="barrow"><span class="lb">現住所 〜 2km</span><span class="bar"><i class="c" style="width:41%"></i></span><span class="vv">484件 / 41%</span></div>
+        <div class="barrow"><span class="lb">2 〜 5km</span><span class="bar"><i class="c" style="width:29%"></i></span><span class="vv">342件 / 29%</span></div>
+        <div class="barrow"><span class="lb">5 〜 10km</span><span class="bar"><i class="c" style="width:18%"></i></span><span class="vv">212件 / 18%</span></div>
+        <div class="barrow"><span class="lb">10km 〜（市外）</span><span class="bar"><i class="c" style="width:12%"></i></span><span class="vv">142件 / 12%</span></div>
+        <p class="note" style="margin-top:6px">
+          <b>顧客の70%は自宅から5km以内で家を探している（ダミー）。</b>
+          商圏レポートの円が、勘のバッファから<b>この店舗の実測円</b>に変わります。既存の商圏レポート機能の説得力が直接上がる部分です。
+        </p>
+      </div>
+
+      <h3 class="sub">件数が少ない町域の扱い</h3>
+      <div class="locked">
+        千ヶ瀬町4丁目 ／ 大柳町 ／ 黒沢2丁目 ほか 14町域<br>
+        <span style="font-size:11.5px">該当が5件未満のため表示しません（個人が特定されうるため）</span>
+      </div>
+    </section>
+
+    <!-- ─────── 04 アタックリスト ─────── -->
+    <section class="panel" id="t4">
+      <h2 class="sec">アタックリスト</h2>
+      <p class="lede">町域の伸びと御社のステータスを掛けて、明日かける順に並べます。氏名と連絡先はこの画面にありません。</p>
+
+      <div class="callout conf">
+        <span class="h">この画面に無いもの</span>
+        氏名・フリガナ・電話番号・メールアドレス・生年月日・勤務先。<b>エリアスコアはこれらを保存していません。</b>
+        「御社システムで開く」を押すと、顧客番号で御社の顧客管理システムの該当画面へ飛びます。<b>連絡先は御社の中だけにあります。</b>
+      </div>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="n">#</th><th>顧客番号</th><th>町域</th>
+              <th>町域ランク<br><span style="font-weight:400">推定</span></th>
+              <th>顧客ランク<br><span style="font-weight:400">御社・確定</span></th>
+              <th>ステータス</th><th class="n">最終の動き</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="n">1</td><td class="num">1884803</td><td>野上町3丁目</td><td><span class="badge i">S</span></td><td><span class="badge c">A</span></td><td>追客中</td><td class="n">2026-07-28</td><td><span class="badge g">御社システムで開く ↗</span></td></tr>
+            <tr><td class="n">2</td><td class="num">1877214</td><td>野上町3丁目</td><td><span class="badge i">S</span></td><td><span class="badge c">A</span></td><td>追客中</td><td class="n">2026-06-02</td><td><span class="badge g">御社システムで開く ↗</span></td></tr>
+            <tr><td class="n">3</td><td class="num">1859930</td><td>東青梅3丁目</td><td><span class="badge i">S</span></td><td><span class="badge c">B</span></td><td>追客中</td><td class="n">2026-03-19</td><td><span class="badge g">御社システムで開く ↗</span></td></tr>
+            <tr><td class="n">4</td><td class="num">1841076</td><td>河辺町5丁目</td><td><span class="badge i">A</span></td><td><span class="badge c">A</span></td><td>媒介中</td><td class="n">2026-08-02</td><td><span class="badge g">御社システムで開く ↗</span></td></tr>
+            <tr><td class="n">5</td><td class="num">1836512</td><td>師岡町2丁目</td><td><span class="badge i">A</span></td><td><span class="badge c">B</span></td><td>追客無し</td><td class="n">2025-12-08</td><td><span class="badge g">御社システムで開く ↗</span></td></tr>
+            <tr style="opacity:.5"><td class="n">─</td><td class="num">1822905</td><td>長淵4丁目</td><td><span class="badge i">C</span></td><td><span class="badge c">A</span></td><td colspan="3" style="color:var(--shu)">DM不可・メール禁止のため対象外</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="note" style="margin-top:9px">
+        並び順＝町域ランク → 取得スコア（推定）→ 最終の動き → 顧客番号（確定仕様 S6）。
+        「全員Sランクで一列に並ぶ」問題は解消済み。
+      </p>
+
+      <div class="callout shu">
+        <span class="h">未確定：「最終の動き」に何を入れるか</span>
+        頂いたCSVに<b>最終接触日の列がありません</b>。候補は <span class="num">状態変更日</span> ／ <span class="num">受付日</span> ／ <span class="num">担当任命日</span> の3つ。
+        <b>ここを間違えると、並び順が営業の実感とズレます</b>（例：受付日を使うと、昨日話した客が2年前扱いで最下位に沈む）。
+        → 判断ポイント <b>Q3</b>
+      </div>
+
+      <h3 class="sub">店舗・担当で切り替える</h3>
+      <div class="grid g3">
+        <div class="card"><div class="k">ハウスドゥ 青梅河辺</div><div class="v">1,247<small>件</small></div><div class="note">表示中</div></div>
+        <div class="card" style="opacity:.55"><div class="k">（2店舗目）</div><div class="v">─</div><div class="note">FC名・店舗名の列で自動的に分かれます</div></div>
+        <div class="card" style="opacity:.55"><div class="k">担当者別</div><div class="v">─</div><div class="note">店舗営業担当者IDで分割可能</div></div>
+      </div>
+    </section>
+
+    <!-- ─────── 05 媒体×町域 ─────── -->
+    <section class="panel" id="t5">
+      <h2 class="sec">媒体 × 町域</h2>
+      <p class="lede">どの町域の客が、どこから来ているか。広告予算をどこに動かすかの、いちばん直接の材料です。</p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>町域</th><th>ランク</th><th class="n">来店</th><th class="n">チラシ</th><th class="n">Web・ポータル</th><th class="n">紹介</th><th class="n">計</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>野上町3丁目</td><td><span class="badge i">S</span></td><td class="n">14</td><td class="n">17</td><td class="n">5</td><td class="n">2</td><td class="n"><b>38</b></td></tr>
+            <tr><td>河辺町5丁目</td><td><span class="badge i">A</span></td><td class="n">9</td><td class="n">6</td><td class="n">26</td><td class="n">3</td><td class="n"><b>44</b></td></tr>
+            <tr style="background:var(--shu-bg)"><td><b>河辺町6丁目</b></td><td><span class="badge i">S</span></td><td class="n">1</td><td class="n">0</td><td class="n">1</td><td class="n">0</td><td class="n"><b>2</b></td></tr>
+            <tr><td>長淵4丁目</td><td><span class="badge i">C</span></td><td class="n">6</td><td class="n">31</td><td class="n">9</td><td class="n">5</td><td class="n"><b>51</b></td></tr>
+            <tr><td>友田町1丁目</td><td><span class="badge i">D</span></td><td class="n">4</td><td class="n">24</td><td class="n">3</td><td class="n">2</td><td class="n"><b>33</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid g2" style="margin-top:16px">
+        <div class="callout shu" style="margin:0">
+          <span class="h">読み取れること 1</span>
+          <b>チラシの投下先がランクと逆になっています。</b>
+          長淵4丁目（ランクC・世帯減）にチラシ由来31件、河辺町6丁目（ランクS・128世帯増）に0件。
+          <b>同じ枚数を河辺町6丁目に回すだけで、費用ゼロで反響の質が変わる可能性があります。</b>
+        </div>
+        <div class="callout" style="margin:0">
+          <span class="h">読み取れること 2</span>
+          河辺町5丁目はWeb・ポータル由来が26件と突出。<b>町域ごとに効く媒体が違います。</b>
+          「全町域に同じ配分」をやめる根拠がこの1枚で出ます。
+        </div>
+      </div>
+
+      <h3 class="sub">売主はどこから出ているか　<span class="badge c">確定</span></h3>
+      <div class="grid g2">
+        <div class="card">
+          <div class="k">売却相談が多い町域</div>
+          <div class="tablewrap" style="border:0; margin-top:6px">
+            <table style="min-width:0">
+              <thead><tr><th>町域</th><th class="n">売主</th><th class="n">12ヶ月世帯増減</th><th>ランク</th></tr></thead>
+              <tbody>
+                <tr><td>長淵4丁目</td><td class="n">14</td><td class="n">−22</td><td><span class="badge i">C</span></td></tr>
+                <tr><td>友田町1丁目</td><td class="n">12</td><td class="n">−41</td><td><span class="badge i">D</span></td></tr>
+                <tr><td>河辺町5丁目</td><td class="n">9</td><td class="n">+88</td><td><span class="badge i">A</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="callout conf" style="margin:0">
+          <span class="h">これは仮説の検証データです</span>
+          「世帯が減り高齢化した町域から売り物が出る」は設計アーカイブに<b>売却発生スコア</b>として書かれたまま、実データで確かめられていませんでした。
+          このCSVの<b>顧客種別＝売主</b>が、初めての検証材料になります。仮説が当たれば、次は<b>売主が出る前に当てにいく</b>機能に進めます。
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────── 06 判断 ─────── -->
+    <section class="panel" id="t6">
+      <h2 class="sec">判断が必要な3点</h2>
+      <p class="lede">ここまでの画面のうち、どこまでを作るかが以下で決まります。決めていただければ実装に入ります。</p>
+
+      <div class="qbox">
+        <div class="qh"><span class="qn">Q1</span><h4>年収・家族構成を、個人単位で持つか</h4></div>
+        <div class="qb">
+          <div class="grid g2">
+            <div class="opt rec">
+              <div class="ot">案B：町域集計だけ保存 <span class="badge c">推奨</span></div>
+              <ul>
+                <li>取込時に町域単位へ丸めてから保存</li>
+                <li>タブ03はこの画面のまま全部作れる</li>
+                <li>個人単位の年収・家族構成はDBに存在しない</li>
+                <li>5件未満の町域は非表示（特定を防ぐ）</li>
+                <li>実装 +4〜6h（要見積）</li>
+              </ul>
+            </div>
+            <div class="opt">
+              <div class="ot">案A：個票にも保存</div>
+              <ul>
+                <li>実装は最も単純</li>
+                <li>個別接客で「この客の予算」を出せる</li>
+                <li><b>年収・自己資金が個人単位で残る＝漏洩時の被害が最大</b></li>
+                <li>委託契約の重さが跳ね上がる</li>
+              </ul>
+            </div>
+          </div>
+          <p class="note" style="margin-top:10px">
+            案Aの利点（個別接客）は<b>御社の顧客管理システム側に元から入っています</b>。エリアスコアが二重に持つ必要はない、というのが推奨の理由です。
+          </p>
+        </div>
+      </div>
+
+      <div class="qbox">
+        <div class="qh"><span class="qn">Q2</span><h4>取込の入口を、プリセットにするか汎用UIにするか</h4></div>
+        <div class="qb">
+          <div class="grid g2">
+            <div class="opt rec">
+              <div class="ot">案A：ハウスドゥ形式プリセット1本 <span class="badge c">推奨</span></div>
+              <ul>
+                <li>タブ01の「形式を自動判定」が動く</li>
+                <li>実装 約1日（要見積）</li>
+                <li><b>他のハウスドゥFC店にそのまま横展開できる</b></li>
+                <li>他社形式が来たら都度追加</li>
+              </ul>
+            </div>
+            <div class="opt">
+              <div class="ot">案B：汎用の列マッピングUI（S2）</div>
+              <ul>
+                <li>どの会社のCSVでも入る</li>
+                <li>工数が数倍</li>
+                <li>お客様に列を選ばせる＝オンボードで詰まる箇所が増える</li>
+              </ul>
+            </div>
+          </div>
+          <div class="callout shu" style="margin-bottom:0">
+            <b>この判断には材料が足りていません。</b>
+            契約3社のうち何社がハウスドゥ系かがどこにも記録されていません（P1-5が未着手）。
+            <b>先に P1-5 を埋めてください。</b>1社だけなら案A一択、3社バラバラなら案Bを検討する価値が出ます。
+          </div>
+        </div>
+      </div>
+
+      <div class="qbox">
+        <div class="qh"><span class="qn">Q3</span><h4>「最終の動き」に、どの列を使うか</h4></div>
+        <div class="qb">
+          <p class="note" style="margin-top:0">頂いたCSVに最終接触日の列がありません。タブ04の並び順が、この選択で変わります。</p>
+          <div class="grid g3">
+            <div class="opt"><div class="ot">状態変更日</div><ul><li>ステータスが動いた日</li><li>営業の動きに最も近そう</li><li><b>空の行が多い可能性</b></li></ul></div>
+            <div class="opt"><div class="ot">受付日</div><ul><li>必ず入っている</li><li><b>反響の初日＝古い客が全員沈む</b></li></ul></div>
+            <div class="opt"><div class="ot">担当任命日</div><ul><li>担当替えの日</li><li>接触とは別物</li></ul></div>
+          </div>
+          <div class="callout" style="margin-bottom:0">
+            <b>推測で決めないでください。</b> 御社に1問聞くだけで確定します──
+            「営業が最後に接触した日が入る列はどれですか。空欄になることはありますか」
+          </div>
+        </div>
+      </div>
+
+      <h3 class="sub">この画面が成立するための前提（未確認2件）</h3>
+      <div class="grid g2">
+        <div class="callout shu" style="margin:0">
+          <span class="h">前提1 ─ 青梅市の町域データ</span>
+          <span class="num">public.town_monthly_metrics</span> は22自治体。<b>青梅市が含まれるか未確認です。</b>
+          含まれなければ、タブ02〜05はすべて空になります。<b>実装より先に、DBへの1本のクエリで確認してください。</b>
+        </div>
+        <div class="callout shu" style="margin:0">
+          <span class="h">前提2 ─ プライバシーポリシー施行（P1-2）</span>
+          実名簿の投入は<b>これが施行されるまで不可</b>。ドラフトは作成済みなので、施行の意思決定だけです。
+          モックの確認・設計・実装は先行できますが、<b>実データが入るのはこの後</b>です。
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="foot">
+    エリアスコア SaaS ／ Crouching Style ─ 顧客名簿連携 完成イメージ MOCK v0（2026-08-13）<br>
+    この文書は実装前の設計イメージです。数値はすべてダミー。タブは <kbd>←</kbd> <kbd>→</kbd> でも移動できます。
+  </div>
+</div>
+
+<script>
+(function(){
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+
+  function show(id){
+    tabs.forEach(function(t){ t.setAttribute('aria-selected', String(t.dataset.t === id)); });
+    panels.forEach(function(p){ p.setAttribute('data-active', String(p.id === id)); });
+  }
+
+  tabs.forEach(function(t, i){
+    t.addEventListener('click', function(){ show(t.dataset.t); });
+    t.addEventListener('keydown', function(e){
+      if(e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      var next = (i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      tabs[next].focus(); show(tabs[next].dataset.t);
+    });
+  });
+
+  // Q1 トグル
+  var q1 = Array.prototype.slice.call(document.querySelectorAll('[data-q1]'));
+  var note = document.getElementById('q1note');
+  var texts = {
+    B: 'いま表示中は<b>案B</b>。取込時に町域単位へ丸めてから保存し、個人単位の年収・家族構成は残しません。件数が5件未満の町域は表示しません。',
+    A: 'いま表示中は<b>案A</b>。同じ画面が出せますが、裏側では個人単位の年収・自己資金・子供年齢がDBに残ります。<b>漏洩時の被害と委託契約の重さが上がります。</b>'
+  };
+  q1.forEach(function(b){
+    b.addEventListener('click', function(){
+      q1.forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+      note.innerHTML = texts[b.dataset.q1];
+    });
+  });
+})();
+</script>
+
+
+</body></html>
