@@ -265,8 +265,8 @@ export const BETA_PLANS: BetaPlan[] = [
     regularPriceLabel: '¥50,000',
     features: [
       '都道府県・市区町村レベルのエリアスコア',
-      '人口動態グラフ',
-      'CSV出力',
+      '人口推移グラフ',
+      'PDFレポート出力',
       'メールサポート',
     ],
   },
@@ -277,8 +277,9 @@ export const BETA_PLANS: BetaPlan[] = [
     regularPriceLabel: '¥100,000',
     features: [
       'Starter の全機能',
+      '駅単位データ',
       '地図ヒートマップ',
-      'PDFレポート',
+      'CSV出力（Salesforce形式）',
       'メール優先サポート',
     ],
     recommended: true,
@@ -291,7 +292,8 @@ export const BETA_PLANS: BetaPlan[] = [
     features: [
       'Standard の全機能',
       'エリア比較',
-      'Slack・Zoom サポート',
+      '商圏レポート',
+      'Slack / Zoom サポート',
       'PDFロゴ対応',
     ],
   },
