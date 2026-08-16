@@ -42,7 +42,7 @@ export function SchoolDistrictControl({
   const toggleDisabled = noMuniSelected || availableTypes.length === 0
 
   return (
-    <div className="absolute top-3 right-3 z-[1000] w-56 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm">
+    <div className="absolute top-20 left-3 z-[1000] w-56 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm">
       {/* トグル行 */}
       <label
         className={`flex items-center justify-between gap-2 ${
