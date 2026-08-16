@@ -24,12 +24,48 @@ const MIN_PASSWORD_LENGTH = 6
 
 type Phase = 'checking' | 'ready' | 'no-session' | 'done'
 
+// /auth/confirm（token_hash 方式）が verifyOtp 失敗時に ?reason=<code> を付けて
+// この画面へ遷移する。値は必ず allowlist で検証し、生のクエリ文字列は描画しない
+// （reflected XSS 防止）。allowlist 外は 'unknown' に丸める。
+type Reason = 'expired' | 'invalid' | 'used' | 'unknown'
+
+const REASON_MESSAGES: Record<Reason, { title: string; body: string }> = {
+  expired: {
+    title: 'リンクの有効期限が切れています',
+    body: 'お手数ですが、もう一度パスワード再設定メールを送信してください。',
+  },
+  invalid: {
+    title: 'リンクが無効です',
+    body: 'お手数ですが、もう一度パスワード再設定メールを送信してください。',
+  },
+  used: {
+    title: 'このリンクは既に使用されています',
+    body: '再度お手続きする場合は、もう一度メールを送信してください。',
+  },
+  unknown: {
+    title: '予期しないエラーが発生しました',
+    body: '時間をおいて再度お試しください。',
+  },
+}
+
+// URL の ?reason= を allowlist 照合して返す。未指定は null（従来の汎用文言を使う）。
+// allowlist 外の任意文字列は 'unknown' に丸め、クエリ値そのものは一切描画しない。
+function parseReason(): Reason | null {
+  if (typeof window === 'undefined') return null
+  const r = new URLSearchParams(window.location.search).get('reason')
+  if (r === null) return null
+  if (r === 'expired' || r === 'invalid' || r === 'used' || r === 'unknown') return r
+  return 'unknown'
+}
+
 export default function UpdatePasswordPage() {
   const [phase, setPhase] = useState<Phase>('checking')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // /auth/confirm 失敗時の理由コード（no-session カードの文言に反映）。
+  const [reason, setReason] = useState<Reason | null>(null)
 
   // マウント時に recovery セッションの有無を確認する。
   useEffect(() => {
@@ -40,6 +76,7 @@ export default function UpdatePasswordPage() {
         data: { session },
       } = await supabase.auth.getSession()
       if (!active) return
+      if (!session) setReason(parseReason())
       setPhase(session ? 'ready' : 'no-session')
     }
 
@@ -115,12 +152,12 @@ export default function UpdatePasswordPage() {
         {phase === 'no-session' && (
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 text-center">
             <div className="text-red-700 text-lg font-semibold mb-2">
-              リンクが無効か、期限切れです
+              {reason ? REASON_MESSAGES[reason].title : 'リンクが無効か、期限切れです'}
             </div>
             <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-              パスワード再設定用のリンクが無効になっているか、有効期限が
-              切れている可能性があります。お手数ですが、もう一度再設定用の
-              メールを送信してください。
+              {reason
+                ? REASON_MESSAGES[reason].body
+                : 'パスワード再設定用のリンクが無効になっているか、有効期限が切れている可能性があります。お手数ですが、もう一度再設定用のメールを送信してください。'}
             </p>
             <Link
               href="/auth/forgot-password"
