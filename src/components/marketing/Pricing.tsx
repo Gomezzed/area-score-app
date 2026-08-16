@@ -5,7 +5,7 @@ import type { PaidPlanId } from '@/lib/plans'
 
 // ⑧ Pricing（ライト）— 正式リリース向け 4プラン構成
 //   Free / Starter / Standard / Platinum。Standard を「おすすめ」バッジ＋ボーダーで強調。
-//   有料プランは先行申込価格（2026/8/31 までのご契約に適用・契約継続中据え置き）を
+//   有料プランは先行申込価格（2026/9/30 までのご契約に適用・契約継続中据え置き）を
 //   主表示し、通常価格を打ち消し線で併記する。
 //   CTA 配線:
 //     - Free / Starter / Standard … 既存 /register へ href 誘導
@@ -87,7 +87,7 @@ export function Pricing() {
             事業規模に合わせて選べる4プラン。
           </h2>
           <p className="text-brand-700 text-sm mt-4">
-            2026年8月31日までにご契約いただいた価格は、契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
+            2026年9月30日までにご契約いただいた価格は、契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
           </p>
         </div>
 

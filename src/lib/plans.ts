@@ -229,7 +229,7 @@ export function planFromPriceId(priceId: string | null | undefined): PlanId {
 // ============================================================
 // 正式リリース用 料金プラン（表示専用）
 //   Free / Starter / Standard / Platinum の4プラン構成（LP と同順）。
-//   先行申込価格（2026年8月31日までのご契約に適用）を主表示し、
+//   先行申込価格（2026年9月30日までのご契約に適用）を主表示し、
 //   通常価格を打ち消し表示する Google One 形式。
 //   先行申込価格は契約継続中ずっと据え置き。
 //
@@ -243,7 +243,7 @@ export type BetaPlanId = PlanId
 export interface BetaPlan {
   id: BetaPlanId
   name: string
-  betaPriceLabel: string // 先行申込価格（主表示。2026/8/31 までのご契約に適用）
+  betaPriceLabel: string // 先行申込価格（主表示。2026/9/30 までのご契約に適用）
   // 通常価格（打ち消し表示）。Free は割引対象外のため null（期限バッジも出さない）。
   regularPriceLabel: string | null
   features: string[]

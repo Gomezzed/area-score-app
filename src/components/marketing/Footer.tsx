@@ -83,7 +83,7 @@ export function Footer() {
 
         <div className="border-t border-slate-200 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-xs text-slate-400">© 2026 AreaScore</p>
-          <p className="text-xs text-slate-400">先行申込受付中（2026年8月31日まで）</p>
+          <p className="text-xs text-slate-400">先行申込受付中（2026年9月30日まで）</p>
         </div>
       </div>
     </footer>

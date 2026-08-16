@@ -32,7 +32,7 @@ export default function PricingPage() {
         <div className="text-center mb-8">
           <span className="inline-flex items-center gap-2 bg-brand-100 text-brand-700 text-xs font-medium rounded-full px-3 py-1 mb-5">
             <span className="w-1.5 h-1.5 rounded-full bg-brand-700" />
-            先行申込受付中（2026年8月31日まで）
+            先行申込受付中（2026年9月30日まで）
           </span>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">料金プラン</h1>
           <p className="text-slate-500 mt-3">
@@ -42,7 +42,7 @@ export default function PricingPage() {
 
         <div className="max-w-2xl mx-auto mb-12 bg-brand-100 border border-brand-300 rounded-xl px-5 py-3 text-center">
           <p className="text-brand-700 text-sm">
-            <strong className="font-bold">2026年8月31日まで</strong>
+            <strong className="font-bold">2026年9月30日まで</strong>
             にご契約いただいた価格は、契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
           </p>
         </div>
@@ -76,7 +76,7 @@ export default function PricingPage() {
                   <span className="text-slate-400 text-sm whitespace-nowrap">/月（税抜）</span>
                   {plan.regularPriceLabel && (
                     <span className="bg-brand-100 text-brand-700 text-[11px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap">
-                      8/31まで
+                      9/30まで
                     </span>
                   )}
                 </div>
