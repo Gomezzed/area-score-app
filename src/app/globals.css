@@ -96,3 +96,24 @@ html .leaflet-container .leaflet-control-attribution {
 .leaflet-container .leaflet-control-attribution a {
   color: #1e3f66; /* CDN: .leaflet-container a{color:#0078A8} (0,1,1) に勝つ */
 }
+
+/* 学区図ラベル（M2-0 / SD-36）。Leaflet divIcon の既定の白ボックス・枠を消し、
+   校区名テキストだけを地図上に載せる。境界線オーバーレイの補助表示。 */
+.school-district-label {
+  background: transparent;
+  border: none;
+  width: auto !important;
+  height: auto !important;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.school-district-label span {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e3a8a;
+  /* 地図タイル上でも読めるよう白フチ（縁取り）を付ける。 */
+  text-shadow:
+    0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff;
+}
