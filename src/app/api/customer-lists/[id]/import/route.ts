@@ -6,6 +6,7 @@ import { parseCsv } from '@/lib/customer-list/csv-import'
 import {
   resolveColumnMapping,
   UnknownPresetError,
+  type ResolveRoute,
 } from '@/lib/customer-list/presets'
 import { extractRows } from '@/lib/customer-list/row-extract'
 import { planUpsert } from '@/lib/customer-list/upsert-plan'
@@ -32,7 +33,7 @@ import {
   type Timings,
 } from '@/lib/customer-list/api-envelope'
 import type { TownIndex } from '@/lib/customer-list/match'
-import type { MatchResult } from '@/lib/customer-list/types'
+import type { MatchResult, ColumnMapping } from '@/lib/customer-list/types'
 
 export const runtime = 'nodejs'
 
@@ -314,9 +315,24 @@ export async function POST(
     }
     timings.missing = elapsedMsSince(misStart)
 
-    // 名簿本体の行数を今回の CSV に合わせる（updated_at も DB 由来の値で揃える）。
-    const patch: { row_count: number; updated_at?: string } = {
+    // 名簿本体を今回の取込に合わせて更新する（RLS: cl_update_org。取込は作成者本人のみ
+    //   実行できる〔上の④で 403 済み〕ため user_id=auth.uid() を満たし UPDATE が通る）。
+    //   - row_count : 今回の CSV の件数（既存処理を踏襲・二重に書かない）。
+    //   - updated_at: DB 由来の値で揃える（既存挙動のまま）。
+    //   - imported_at: 実取込の時刻。空リスト作成時点で DEFAULT now() が入っているため、
+    //       実際に取り込めたこのタイミングで更新する（PR-E 決定5）。tracked が無く dbNow が
+    //       取れない CSV では実行時刻で補う（DB 時刻との差はミリ秒オーダーで実害なし）。
+    //   - column_mapping: v:2 の nested 形で保存（決定1）。既存 flat 形（レガシー /import）
+    //       とは "v" の有無で判別できる。⛔ レガシー側の flat 保存は変更しない。
+    const patch: {
+      row_count: number
+      updated_at?: string
+      imported_at: string
+      column_mapping: Record<string, unknown>
+    } = {
       row_count: plan.tracked.length + plan.untracked.length,
+      imported_at: dbNow ?? new Date().toISOString(),
+      column_mapping: buildColumnMappingV2(rows[0], mapping, resolveRoute, presetId),
     }
     if (dbNow) patch.updated_at = dbNow
     await supabase.from('customer_lists').update(patch).eq('id', listId)
@@ -358,4 +374,27 @@ export async function POST(
     },
     { headers: requestIdHeader(requestId) },
   )
+}
+
+// column_mapping を v:2 の nested 形で組み立てる（決定1）。
+//   { v: 2, columns: {論理列→実ヘッダ名}, resolve_route, preset_id? }
+//   - "v" は数値リテラル 2（読取り側が `m.v === 2 ? m.columns : m` で flat と分岐できる）。
+//   - "columns" は単一 index マッピング（heuristic / preset 双方が持つ。preset の複合住所は
+//       結合末尾列が address に入る）を header 名へ解決したもの。
+//   - "preset_id" は ?preset= があるときだけ入れる。無ければキーごと省略（null を入れない）。
+//   ⛔ resolve_route の型は presets.ts の ResolveRoute をそのまま使う（新設しない）。
+function buildColumnMappingV2(
+  header: string[],
+  mapping: ColumnMapping,
+  route: ResolveRoute,
+  presetId: string | null,
+): Record<string, unknown> {
+  const columns: Record<string, string> = {}
+  for (const key of Object.keys(mapping) as (keyof ColumnMapping)[]) {
+    const idx = mapping[key]
+    if (idx != null) columns[key] = header[idx] ?? ''
+  }
+  const out: Record<string, unknown> = { v: 2, columns, resolve_route: route }
+  if (presetId != null && presetId !== '') out.preset_id = presetId
+  return out
 }
