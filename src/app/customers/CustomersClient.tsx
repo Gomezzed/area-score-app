@@ -13,6 +13,7 @@ import {
   Copy,
   Check,
   RefreshCw,
+  Trash2,
 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
@@ -246,6 +247,7 @@ export default function CustomersClient() {
   const [creating, setCreating] = useState(false)
   const [createdListId, setCreatedListId] = useState<string | null>(null)
   const [preset, setPreset] = useState<PresetChoice>(DEFAULT_PRESET_CHOICE)
+  const [deleting, setDeleting] = useState(false)
 
   // ── 表示上の絞り込み（フィルタチップ）の状態 ──
   // ⚠️ これは本人の自分のデータに対する表示上の絞り込みであり、プラン制御でも認可でもない。
@@ -325,6 +327,38 @@ export default function CustomersClient() {
       })
     } finally {
       setUploading(false)
+    }
+  }
+
+  // 取込未完了（row_count=0）のリストを削除する（案①・PR-E commit4）。
+  //   既存の DELETE /api/customer-lists/[id]（二層封鎖済み・RLS 作成者限定）を呼ぶ。
+  //   ⛔ 削除に成功したときだけ state を初期化して作成ステップへ戻す。失敗時は state を
+  //      消さない（消せていないのに消えたと見せない）。
+  async function handleDelete() {
+    if (!createdListId || deleting || uploading) return
+    setError(null)
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/customer-lists/${createdListId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(buildFailure(body, res.status))
+        return
+      }
+      // 削除成功 → 作成ステップへ戻す。
+      setCreatedListId(null)
+      setListName('')
+      setPreset(DEFAULT_PRESET_CHOICE)
+      setFileName('')
+      setError(null)
+    } catch {
+      setError({
+        message: 'リストの削除に失敗しました。時間をおいて再度お試しください。',
+      })
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -474,8 +508,24 @@ export default function CustomersClient() {
                   ⛔ 形式を選ばせず指紋任せにしない（fallback:heuristic で住所が静かに壊れるのを防ぐ）。*/}
               {!data && createdListId && (
                 <div className="flex flex-col gap-3 max-w-md">
+                  {/* 取込未完了の明示＋離脱警告（案①・PR-E commit4）。作成済みだが row_count=0。
+                      ⚠ 離脱すると UI からこのリストへ再到達できない（一覧導線は PR-F）。
+                         黙って孤児にしないため、離脱警告は必ず出す（省略しない）。*/}
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <div className="font-medium">
+                        リスト「{listName.trim() || '顧客名簿'}
+                        」は作成されましたが、CSV の取り込みが完了していません。
+                      </div>
+                      <div className="mt-1 text-xs text-amber-700">
+                        このページを離れると、このリストを再び開くことはできません。取り込みを完了するか、削除してください。
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="text-xs text-slate-500">
-                    リストを作成しました。取り込む CSV の形式を選び、ファイルを選択してください。
+                    取り込む CSV の形式を選び、ファイルを選択してください（何度でもやり直せます）。
                   </div>
                   <label className="text-xs font-medium text-slate-600">
                     CSV の形式
@@ -515,6 +565,22 @@ export default function CustomersClient() {
                       }}
                     />
                   </label>
+
+                  {/* 削除導線。既存 DELETE /api/customer-lists/[id]（二層封鎖・RLS 作成者限定）
+                      を呼ぶ。成功時のみ作成ステップへ戻す（handleDelete 内で state 初期化）。*/}
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting || uploading}
+                    className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg text-sm font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {deleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    {deleting ? '削除中…' : 'このリストを削除'}
+                  </button>
                 </div>
               )}
 
