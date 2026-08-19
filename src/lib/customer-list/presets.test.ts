@@ -107,6 +107,37 @@ test('resolveColumnMapping: 未知の presetId は例外（黙って heuristic �
   )
 })
 
+test('resolveHausudo: composite の必須列（住所）が欠けたら address は未解決（部分解決を握り潰さない）', () => {
+  // 「住所」列だけ無いハウスドゥ相当のヘッダ（署名列は保持）。
+  const header = [
+    '顧客番号',
+    'FC名',
+    '顧客種別',
+    '都道府県',
+    '市区', // ← 「住所」列が無い
+    'マッチング小学校',
+    'マッチング中学校',
+  ]
+  const { targets } = resolveHausudo(header, 'preset:hausudo')
+  // 都道府県/市区は在るが必須の「住所」が欠けるため address は未解決。
+  assert.equal(targets.address, undefined)
+})
+
+test('resolveColumnMapping: 住所が未解決なら route の必須チェックが働く（address 不成立）', () => {
+  const header = ['顧客番号', 'FC名', '顧客種別', '都道府県', '市区', 'マッチング小学校', 'マッチング中学校']
+  const resolved = resolveColumnMapping(header, 'hausudo')
+  // route.ts の必須チェック相当: mapping.address == null かつ addressColumns も空。
+  assert.equal(resolved.mapping.address, undefined)
+  assert.ok(!resolved.extract.addressColumns?.length)
+})
+
+test('resolveHausudo: 「マッチング市区」だけで「都道府県」が無いと desired_muni_code_5 は未解決', () => {
+  // 都道府県を欠いたヘッダ（PR-D の複合キー変換は両列必須のため片方だけは許さない）。
+  const header = ['顧客番号', 'FC名', '顧客種別', '住所', 'マッチング市区', 'マッチング小学校', 'マッチング中学校']
+  const { targets } = resolveHausudo(header, 'preset:hausudo')
+  assert.equal(targets.desired_muni_code_5, undefined)
+})
+
 test('resolveColumnMapping: 非ハウスドゥのヘッダは既存 heuristic にフォールバックする', () => {
   const header = ['反響日時', '顧客名', '反響媒体', '住所', '電話', '種別', '担当']
   assert.equal(matchesHausudoFingerprint(header), false)

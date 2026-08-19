@@ -68,7 +68,9 @@ export type PresetTarget =
 //   - firstPresent… 複数候補のうち最初に見つかった列を採る（status）。
 type Rule =
   | { kind: 'exact'; header: string; nth?: number }
-  | { kind: 'composite'; headers: string[] }
+  // required に挙げた列が1つでも欠けたら未解決（null）にする。部分解決で
+  //   住所が静かに壊れる（例: 「住所」列欠落で address_raw="愛知県"）のを防ぐ。
+  | { kind: 'composite'; headers: string[]; required?: string[] }
   | { kind: 'firstPresent'; headers: string[] }
 
 interface FieldSpec {
@@ -84,8 +86,9 @@ const HAUSUDO_FIELDS: readonly FieldSpec[] = [
   { target: 'category', rule: { kind: 'exact', header: '顧客種別' } }, // 売主/買主
   {
     // 都道府県+市区+住所 を結合 → normalizeJpAddress（突合エンジン側で正規化）。
+    //   「住所」本体が無いと突合が壊れるため required にする（部分解決を許さない）。
     target: 'address',
-    rule: { kind: 'composite', headers: ['都道府県', '市区', '住所'] },
+    rule: { kind: 'composite', headers: ['都道府県', '市区', '住所'], required: ['住所'] },
   },
   { target: 'inquiry_at', rule: { kind: 'exact', header: '受付日' } }, // 反響日
   // O43: 174 列に「最終接触日」列が無いため「更新日」を暫定ソートキーとして last_contact_at に入れる。
@@ -100,9 +103,14 @@ const HAUSUDO_FIELDS: readonly FieldSpec[] = [
   // --- ここから下は解決＋テストのみ（永続化は PR-D） ---
   { target: 'desired_junior_school', rule: { kind: 'exact', header: 'マッチング中学校' } },
   // 名前→コード変換は PR-D。prefecture_code との複合キーで引くため両列を記録する。
+  //   PR-D の変換は両列が揃っている前提のため、片方だけの解決を許さない（両方 required）。
   {
     target: 'desired_muni_code_5',
-    rule: { kind: 'composite', headers: ['都道府県', 'マッチング市区'] },
+    rule: {
+      kind: 'composite',
+      headers: ['都道府県', 'マッチング市区'],
+      required: ['都道府県', 'マッチング市区'],
+    },
   },
   { target: 'rank', rule: { kind: 'exact', header: '顧客ランク' } }, // CL-10
   { target: 'status', rule: { kind: 'firstPresent', headers: ['顧客ステータス', '新築請負ステータス'] } },
@@ -197,7 +205,11 @@ function resolveField(norm: string[], rule: Rule): number[] | null {
     }
     return null
   }
-  // composite: 見つかった列だけを順序どおりに集める（1 つも無ければ未解決）。
+  // composite: 必須列（required）が1つでも欠けたら未解決にする（部分解決の握り潰し防止）。
+  for (const h of rule.required ?? []) {
+    if (resolveExact(norm, h) == null) return null
+  }
+  // 見つかった列だけを順序どおりに集める（1 つも無ければ未解決）。
   const cols: number[] = []
   for (const h of rule.headers) {
     const idx = resolveExact(norm, h)
