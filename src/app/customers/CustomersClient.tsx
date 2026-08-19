@@ -13,6 +13,7 @@ import {
   Copy,
   Check,
   RefreshCw,
+  Trash2,
 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
@@ -212,6 +213,24 @@ function fmtAsOfMonth(iso: string): string {
   return `${m[1]}年${Number(m[2])}月時点`
 }
 
+// 取込形式の選択（案B'・D100 相当 d）。ユーザーに CSV 形式を明示的に選ばせ、
+//   ハウスドゥ形式は ?preset=hausudo を明示して送る（指紋頼みの静かな fallback を避ける）。
+//   '' = 未選択（アップロード不可）/ 'hausudo' = ?preset=hausudo / 'other' = クエリ省略（自動判定）。
+type PresetChoice = '' | 'hausudo' | 'other'
+
+// セレクタの初期値。⚠ 8/20 の打合せ結果次第で案A（既定=自動判定）へ戻す場合は
+//   ここを 'other' に変えるだけでよい（1 箇所で切替）。現状は案B'＝未選択スタート。
+const DEFAULT_PRESET_CHOICE: PresetChoice = ''
+
+// 取込ルートのクエリを組み立てる。'hausudo' のときだけ ?preset=hausudo を付ける。
+//   'other' はクエリ省略＝サーバー側の指紋→heuristic に委ねる既存挙動。
+//   ⛔ '' は呼び出し側で送信を禁止しているため、ここには来ない。
+//   ⛔ 未知の preset 値を作らない（サーバーは未知 preset を 400 で弾く・PR-C 不変）。
+function importPath(listId: string, preset: PresetChoice): string {
+  const base = `/api/customer-lists/${listId}/import`
+  return preset === 'hausudo' ? `${base}?preset=hausudo` : base
+}
+
 export default function CustomersClient() {
   const { plan, isLoading: planLoading } = useSubscription()
   const allowed = canUse(plan, 'townAcquisitionPriority')
@@ -220,6 +239,15 @@ export default function CustomersClient() {
   const [error, setError] = useState<ImportFailure | null>(null)
   const [data, setData] = useState<AttackList | null>(null)
   const [fileName, setFileName] = useState<string>('')
+
+  // ── 2段化（作成ステップ → アップロードステップ・PR-E）──
+  //   作成で得た空リストの id を保持し、取込が失敗しても id は捨てない
+  //   （row_count=0 の「取込未完了」として残す＝擬似原子性・作成途中で消さない）。
+  const [listName, setListName] = useState('') // 作成ステップで入力するリスト名
+  const [creating, setCreating] = useState(false)
+  const [createdListId, setCreatedListId] = useState<string | null>(null)
+  const [preset, setPreset] = useState<PresetChoice>(DEFAULT_PRESET_CHOICE)
+  const [deleting, setDeleting] = useState(false)
 
   // ── 表示上の絞り込み（フィルタチップ）の状態 ──
   // ⚠️ これは本人の自分のデータに対する表示上の絞り込みであり、プラン制御でも認可でもない。
@@ -230,26 +258,60 @@ export default function CustomersClient() {
   const [ambiguousOnly, setAmbiguousOnly] = useState(false) // 要確認（ambiguous）のみ
   const [assignee, setAssignee] = useState<string | null>(null) // 担当（null = 全員）
 
-  async function handleFile(file: File) {
+  // ① 作成ステップ: 空の名簿を1件だけ作る（POST /api/customer-lists）。
+  //    行はまだ入れない。返る id を保持してアップロードステップへ進む。
+  //    ⛔ 失敗しても既存 createdListId は捨てない（作成途中で消さない・擬似原子性）。
+  async function handleCreate() {
     setError(null)
-    setUploading(true)
-    setData(null)
-    setFileName(file.name)
+    setCreating(true)
     try {
-      const csv = await file.text()
-      const importRes = await fetch('/api/customer-lists/import', {
+      const res = await fetch('/api/customer-lists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ csv, name: file.name }),
+        body: JSON.stringify({ name: listName.trim() || '顧客名簿' }),
       })
-      if (!importRes.ok) {
-        const body = await importRes.json().catch(() => ({}))
-        setError(buildFailure(body, importRes.status))
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(buildFailure(body, res.status))
         return
       }
-      const imported = await importRes.json()
+      const created = await res.json()
+      setCreatedListId(created.id as string)
+    } catch {
+      setError({
+        message: 'リストの作成に失敗しました。時間をおいて再度お試しください。',
+      })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  // ② アップロードステップ: 作成済みの id へ CSV を「生バイト」で送る。
+  //    ⚠ file.text() を使わない: ブラウザのテキスト化は常に UTF-8 解釈のため、
+  //       cp932(Shift_JIS) の CSV はここでバイト列が失われて復元できなくなる（O44）。
+  //       生バイト（ArrayBuffer）のまま送り、エンコーディング判定・cp932 フォールバックは
+  //       サーバー（[id]/import → decodeCsvBytes）で行う。
+  //    ⛔ レガシー /import（プリセット未適用・UTF-8固定）は初回アップロードに使わない（O53）。
+  async function handleUpload(file: File) {
+    // preset 未選択（'')ではボタンを無効化しているが、二重の保険としてここでも弾く。
+    if (!createdListId || preset === '') return
+    setError(null)
+    setUploading(true)
+    setFileName(file.name)
+    try {
+      const bytes = await file.arrayBuffer()
+      const res = await fetch(importPath(createdListId, preset), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: bytes,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(buildFailure(body, res.status))
+        return
+      }
       const listRes = await fetch(
-        `/api/customer-lists/${imported.id}/attack-list`,
+        `/api/customer-lists/${createdListId}/attack-list`,
       )
       if (!listRes.ok) {
         setError({
@@ -268,6 +330,38 @@ export default function CustomersClient() {
     }
   }
 
+  // 取込未完了（row_count=0）のリストを削除する（案①・PR-E commit4）。
+  //   既存の DELETE /api/customer-lists/[id]（二層封鎖済み・RLS 作成者限定）を呼ぶ。
+  //   ⛔ 削除に成功したときだけ state を初期化して作成ステップへ戻す。失敗時は state を
+  //      消さない（消せていないのに消えたと見せない）。
+  async function handleDelete() {
+    if (!createdListId || deleting || uploading) return
+    setError(null)
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/customer-lists/${createdListId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(buildFailure(body, res.status))
+        return
+      }
+      // 削除成功 → 作成ステップへ戻す。
+      setCreatedListId(null)
+      setListName('')
+      setPreset(DEFAULT_PRESET_CHOICE)
+      setFileName('')
+      setError(null)
+    } catch {
+      setError({
+        message: 'リストの削除に失敗しました。時間をおいて再度お試しください。',
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   // 既存の名簿へ「毎回全件」で再取込する（CL-17）。
   //   ⚠ file.text() を使わない: ブラウザのテキスト化は常に UTF-8 解釈のため、
   //      cp932(Shift_JIS) の CSV はここでバイト列が失われて復元できなくなる（O44）。
@@ -280,7 +374,8 @@ export default function CustomersClient() {
     setFileName(file.name)
     try {
       const bytes = await file.arrayBuffer()
-      const res = await fetch(`/api/customer-lists/${listId}/import`, {
+      // 再取込も初回と同じ選択形式を引き継ぐ（同一リストの形式を一貫させる）。
+      const res = await fetch(importPath(listId, preset), {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },
         body: bytes,
@@ -376,25 +471,119 @@ export default function CustomersClient() {
               <p className="text-xs text-slate-400 mb-3 leading-relaxed">
                 住所を町域に突合し、仕入れ優先度の高い順に並べ替えます。電話番号は取り込みますが保存しません。
               </p>
-              <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium cursor-pointer transition-colors">
-                {uploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4" />
-                )}
-                {uploading ? '取り込み中…' : 'CSV を選択'}
-                <input
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  disabled={uploading}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0]
-                    if (f) handleFile(f)
-                    e.target.value = '' // 同一ファイル再選択を許可
-                  }}
-                />
-              </label>
+              {/* ステップ①：作成。名簿名を入力し、空のリストを1件作る（PR-E）。
+                  ここではまだ CSV を送らない（行の投入はステップ②）。*/}
+              {!data && !createdListId && (
+                <div className="flex flex-col gap-3 max-w-md">
+                  <label className="text-xs font-medium text-slate-600">
+                    リスト名
+                    <input
+                      type="text"
+                      value={listName}
+                      onChange={(e) => setListName(e.target.value)}
+                      placeholder="例：2026年8月 反響顧客"
+                      maxLength={200}
+                      disabled={creating}
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-slate-50"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleCreate}
+                    disabled={creating}
+                    className="inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {creating ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Users className="w-4 h-4" />
+                    )}
+                    {creating ? '作成中…' : 'リストを作成'}
+                  </button>
+                </div>
+              )}
+
+              {/* ステップ②：アップロード。CSV 形式を明示的に選ばせ（案B'・D100 相当 d）、
+                  ?preset= を明示して生バイトを送る。未選択（'')の間はファイル選択を無効化する。
+                  ⛔ 形式を選ばせず指紋任せにしない（fallback:heuristic で住所が静かに壊れるのを防ぐ）。*/}
+              {!data && createdListId && (
+                <div className="flex flex-col gap-3 max-w-md">
+                  {/* 取込未完了の明示＋離脱警告（案①・PR-E commit4）。作成済みだが row_count=0。
+                      ⚠ 離脱すると UI からこのリストへ再到達できない（一覧導線は PR-F）。
+                         黙って孤児にしないため、離脱警告は必ず出す（省略しない）。*/}
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <div className="font-medium">
+                        リスト「{listName.trim() || '顧客名簿'}
+                        」は作成されましたが、CSV の取り込みが完了していません。
+                      </div>
+                      <div className="mt-1 text-xs text-amber-700">
+                        このページを離れると、このリストを再び開くことはできません。取り込みを完了するか、削除してください。
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-slate-500">
+                    取り込む CSV の形式を選び、ファイルを選択してください（何度でもやり直せます）。
+                  </div>
+                  <label className="text-xs font-medium text-slate-600">
+                    CSV の形式
+                    <select
+                      value={preset}
+                      onChange={(e) => setPreset(e.target.value as PresetChoice)}
+                      disabled={uploading}
+                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-slate-50"
+                    >
+                      <option value="">形式を選択してください</option>
+                      <option value="hausudo">ハウスドゥ形式（CRM標準出力）</option>
+                      <option value="other">その他のCSV（自動判定）</option>
+                    </select>
+                  </label>
+                  <label
+                    className={`inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      preset === '' || uploading
+                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        : 'bg-brand-700 hover:bg-brand-500 text-white cursor-pointer'
+                    }`}
+                  >
+                    {uploading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4" />
+                    )}
+                    {uploading ? '取り込み中…' : 'CSV を選択'}
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      disabled={preset === '' || uploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) handleUpload(f)
+                        e.target.value = '' // 同一ファイル再選択を許可
+                      }}
+                    />
+                  </label>
+
+                  {/* 削除導線。既存 DELETE /api/customer-lists/[id]（二層封鎖・RLS 作成者限定）
+                      を呼ぶ。成功時のみ作成ステップへ戻す（handleDelete 内で state 初期化）。*/}
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting || uploading}
+                    className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg text-sm font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {deleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    {deleting ? '削除中…' : 'このリストを削除'}
+                  </button>
+                </div>
+              )}
+
               {/* 再取込（毎回全件・CL-17）。既に名簿を開いているときだけ出す。
                   顧客番号のある行は同じ行を上書きし、今回の CSV に無くなった行には
                   「消えた印」が付く。顧客番号の無い行は毎回入れ替わる。*/}
