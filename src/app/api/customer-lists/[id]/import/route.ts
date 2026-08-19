@@ -54,6 +54,7 @@ type ImportStage =
   | 'loadTownData'
   | 'upsert'
   | 'missing'
+  | 'finalize'
 
 // POST /api/customer-lists/[id]/import
 //   Body: CSV の **生バイト**（Content-Type: application/octet-stream）。
@@ -332,10 +333,26 @@ export async function POST(
     } = {
       row_count: plan.tracked.length + plan.untracked.length,
       imported_at: dbNow ?? new Date().toISOString(),
-      column_mapping: buildColumnMappingV2(rows[0], mapping, resolveRoute, presetId),
+      column_mapping: buildColumnMappingV2(
+        rows[0],
+        mapping,
+        extract.addressColumns,
+        resolveRoute,
+        presetId,
+      ),
     }
     if (dbNow) patch.updated_at = dbNow
-    await supabase.from('customer_lists').update(patch).eq('id', listId)
+    // 監査上重要な列（column_mapping/imported_at）を載せる UPDATE のため、失敗を握りつぶさない。
+    //   ⚠ 行本体（⑦〜⑨）は既にコミット済みで取込自体は成功しているため、ここで 500 にすると
+    //      「行は入ったのに失敗」の誤報になる。よって HTTP は成功のまま返し、失敗は Sentry に
+    //      必ず送って可観測にする（200 なのにメタデータだけ静かに未保存、を作らない・確認A(3)）。
+    const { error: patchErr } = await supabase
+      .from('customer_lists')
+      .update(patch)
+      .eq('id', listId)
+    if (patchErr) {
+      reportImportError(patchErr, { requestId, stage: 'finalize', timings })
+    }
   } catch (error) {
     const stage: ImportStage = timings.upsert == null ? 'upsert' : 'missing'
     if (stage === 'upsert') timings.upsert = elapsedMsSince(uStart)
@@ -376,16 +393,22 @@ export async function POST(
   )
 }
 
-// column_mapping を v:2 の nested 形で組み立てる（決定1）。
-//   { v: 2, columns: {論理列→実ヘッダ名}, resolve_route, preset_id? }
+// column_mapping を v:2 の nested 形で組み立てる（決定1・確認B）。
+//   { v: 2, columns: {論理列→実ヘッダ名}, address_columns?, resolve_route, preset_id? }
 //   - "v" は数値リテラル 2（読取り側が `m.v === 2 ? m.columns : m` で flat と分岐できる）。
-//   - "columns" は単一 index マッピング（heuristic / preset 双方が持つ。preset の複合住所は
-//       結合末尾列が address に入る）を header 名へ解決したもの。
+//   - "columns" は単一 index マッピングを header 名へ解決したもの。
+//       ⚠ 複合住所（composite）のとき columns.address には結合末尾の1列名しか残らない
+//         （mapping.address = addrCols の末尾列・presets.ts buildFromPreset）。監査では
+//         「実際にどの列を結合して住所にしたか」の全体が要るため、下記 address_columns で補う。
+//   - "address_columns" は複合住所のとき **だけ** 入れる。値は extract.addressColumns（列 index）
+//       を header 名へ解決した配列（例: ["都道府県","市区","住所"]）。単一列住所や未解決のときは
+//       キーごと省略（null や空配列を入れない）。⛔ presets.ts のロジックは変更しない。
 //   - "preset_id" は ?preset= があるときだけ入れる。無ければキーごと省略（null を入れない）。
 //   ⛔ resolve_route の型は presets.ts の ResolveRoute をそのまま使う（新設しない）。
 function buildColumnMappingV2(
   header: string[],
   mapping: ColumnMapping,
+  addressColumns: number[] | undefined,
   route: ResolveRoute,
   presetId: string | null,
 ): Record<string, unknown> {
@@ -395,6 +418,10 @@ function buildColumnMappingV2(
     if (idx != null) columns[key] = header[idx] ?? ''
   }
   const out: Record<string, unknown> = { v: 2, columns, resolve_route: route }
+  // 複合住所のときだけ、結合に使った全列名を監査用に残す（末尾1列問題の回避）。
+  if (addressColumns && addressColumns.length > 0) {
+    out.address_columns = addressColumns.map((idx) => header[idx] ?? '')
+  }
   if (presetId != null && presetId !== '') out.preset_id = presetId
   return out
 }
