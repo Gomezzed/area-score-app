@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Copy,
   Check,
+  RefreshCw,
 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
@@ -267,6 +268,46 @@ export default function CustomersClient() {
     }
   }
 
+  // 既存の名簿へ「毎回全件」で再取込する（CL-17）。
+  //   ⚠ file.text() を使わない: ブラウザのテキスト化は常に UTF-8 解釈のため、
+  //      cp932(Shift_JIS) の CSV はここでバイト列が失われて復元できなくなる（O44）。
+  //      生バイト（ArrayBuffer）のまま送り、エンコーディング判定はサーバーで行う。
+  async function handleReimport(file: File) {
+    if (!data) return
+    const listId = data.id
+    setError(null)
+    setUploading(true)
+    setFileName(file.name)
+    try {
+      const bytes = await file.arrayBuffer()
+      const res = await fetch(`/api/customer-lists/${listId}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: bytes,
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(buildFailure(body, res.status))
+        return
+      }
+      const listRes = await fetch(`/api/customer-lists/${listId}/attack-list`)
+      if (!listRes.ok) {
+        setError({
+          message: 'アタックリストの取得に失敗しました。',
+          http: listRes.status,
+        })
+        return
+      }
+      setData((await listRes.json()) as AttackList)
+    } catch {
+      setError({
+        message: 'ファイルの読み込みに失敗しました。CSV 形式をご確認ください。',
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
+
   // 担当の候補（充足している行のみ）。全行 null の名簿では担当チップを出さない。
   const assignees = Array.from(
     new Set((data?.rows ?? []).map((r) => r.assignee).filter((a): a is string => !!a)),
@@ -354,6 +395,26 @@ export default function CustomersClient() {
                   }}
                 />
               </label>
+              {/* 再取込（毎回全件・CL-17）。既に名簿を開いているときだけ出す。
+                  顧客番号のある行は同じ行を上書きし、今回の CSV に無くなった行には
+                  「消えた印」が付く。顧客番号の無い行は毎回入れ替わる。*/}
+              {data && (
+                <label className="ml-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white ring-1 ring-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium cursor-pointer transition-colors">
+                  <RefreshCw className="w-4 h-4" />
+                  最新の名簿で再取込
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) handleReimport(f)
+                      e.target.value = '' // 同一ファイル再選択を許可
+                    }}
+                  />
+                </label>
+              )}
               {fileName && (
                 <span className="ml-3 text-xs text-slate-500">{fileName}</span>
               )}

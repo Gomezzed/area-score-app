@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeTownName } from './normalize.ts'
 import { latestPerMunicipality } from './latest.ts'
 import type { TownRecord, MatchStatus } from './types.ts'
+import type { UpsertRow } from './upsert-plan.ts'
 
 // サーバー側フィーチャーフラグ（H9 の教訓: UI と二層で封鎖する）。
 //   off のとき Route Handler は 404 を返す（機能の存在自体を隠す）。
@@ -148,6 +149,114 @@ export async function loadTownData(
     office_name: r.office_name,
   }))
   return { records, muniAsOf: collectMuniAsOf(rows) }
+}
+
+// ============================================================
+// 再取込（毎回全件 UPSERT・CL-17）の DB I/O。
+//   いずれもユーザースコープのクライアント（RLS 準拠）で実行する。
+//   RLS: clr_insert_org / clr_update_org は「作成者本人 AND org 一致」。
+//        ＝ 取込者本人以外は UPDATE できない（API 側でも 403 で二重に締める）。
+// ============================================================
+
+// 行 UPSERT のバッチ分割サイズ（v0 の INSERT_CHUNK と揃える）。
+export const UPSERT_CHUNK = 500
+
+// 当該 list の「external_id を持つ既存行」の external_id → 行 id を読み戻す。
+//   主キー UPSERT 方式の要（upsert-plan.ts の冒頭コメント参照）。
+export async function loadExistingExternalIds(
+  supabase: SupabaseClient,
+  listId: string,
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE
+    const { data, error } = await supabase
+      .from('customer_list_rows')
+      .select('id, external_id')
+      .eq('list_id', listId)
+      .not('external_id', 'is', null)
+      .range(from, from + PAGE - 1)
+    if (error) throw new CustomerListDbError('customer_list_rows.external_id', error)
+    if (!data || data.length === 0) break
+    for (const r of data as Array<{ id: string; external_id: string | null }>) {
+      if (r.external_id != null) map.set(r.external_id, r.id)
+    }
+    if (data.length < PAGE) break
+  }
+  return map
+}
+
+// 主キー（id）を conflict target とする UPSERT。既存 id は UPDATE・新規 uuid は INSERT。
+//   戻り値は「今回触った行の updated_at の最小値」＝ missing_since 判定の基準時刻 t。
+//   ⚠ t をクライアント時計から作らない（論点F）: updated_at は INSERT の DEFAULT now()
+//      と BEFORE UPDATE トリガー（trg_touch_customer_list_rows_updated_at）が付ける
+//      **DB 由来**の値なので、その最小値を使えば時計ズレの影響を受けない。
+//      今回触った行は必ず updated_at >= t、触っていない行は前回取込時刻なので
+//      updated_at < t が厳密に成り立つ。
+export async function upsertCustomerListRows(
+  supabase: SupabaseClient,
+  rows: readonly UpsertRow[],
+  chunkSize: number = UPSERT_CHUNK,
+): Promise<string | null> {
+  let min: string | null = null
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize)
+    const { data, error } = await supabase
+      .from('customer_list_rows')
+      .upsert(chunk) // conflict target 省略＝主キー(id)
+      .select('updated_at')
+    if (error) throw new CustomerListDbError('customer_list_rows.upsert', error)
+    for (const r of (data ?? []) as Array<{ updated_at: string }>) {
+      if (min === null || r.updated_at < min) min = r.updated_at
+    }
+  }
+  return min
+}
+
+// 論点B ③: external_id を持たない行は「当該 list の NULL 行を全置換」する。
+//   ⛔ この DELETE は **当該 list_id かつ external_id IS NULL の行に限定** される
+//      （他の名簿・追跡可能な行には一切到達しない）。追跡不能な行に missing_since を
+//      付けられないのは「追跡できない行の消失は追跡できない」という当然の帰結。
+export async function replaceUntrackedRows(
+  supabase: SupabaseClient,
+  listId: string,
+  rows: readonly UpsertRow[],
+  chunkSize: number = UPSERT_CHUNK,
+): Promise<void> {
+  const { error: delErr } = await supabase
+    .from('customer_list_rows')
+    .delete()
+    .eq('list_id', listId)
+    .is('external_id', null)
+  if (delErr) throw new CustomerListDbError('customer_list_rows.delete_untracked', delErr)
+
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const { error } = await supabase
+      .from('customer_list_rows')
+      .insert(rows.slice(i, i + chunkSize))
+    if (error) throw new CustomerListDbError('customer_list_rows.insert_untracked', error)
+  }
+}
+
+// PR-A 申し送り③: 今回触られなかった行にだけ missing_since を付ける。
+//   WHERE list_id = :list AND updated_at < :t AND missing_since IS NULL
+//   ⚠ missing_since IS NULL の条件により、既に印が付いた行の日付は動かない
+//     （この UPDATE 自体もトリガーで updated_at を動かすが、再判定の対象外になる）。
+//   ⚠ 付与する値も DB 由来の t を使う（クライアント時計を持ち込まない・論点F）。
+export async function markMissingRows(
+  supabase: SupabaseClient,
+  listId: string,
+  since: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('customer_list_rows')
+    .update({ missing_since: since })
+    .eq('list_id', listId)
+    .lt('updated_at', since)
+    .is('missing_since', null)
+    .select('id')
+  if (error) throw new CustomerListDbError('customer_list_rows.mark_missing', error)
+  return (data ?? []).length
 }
 
 export interface RankInfo {

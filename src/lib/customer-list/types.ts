@@ -48,8 +48,11 @@ export interface MatchResult {
   address_normalized: string
 }
 
-// CSV の論理列（内部キー）。電話は取り込むが保存しない（category に含めない）。
+// CSV の論理列（内部キー）。
+//   CL-32: 氏名(customer_name)のみ保持。phone は検出はするが値を読まない
+//          （row-extract.ts の許可リストに含めない＝ExtractedRow のキーにも存在しない）。
 export type CustomerColumnKey =
+  | 'external_id' // 顧客番号（UPSERT キー・CL-09。常に文字列として扱う）
   | 'inquiry_at' // 反響日時
   | 'customer_name' // 顧客名
   | 'media' // 反響媒体
