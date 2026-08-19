@@ -70,7 +70,7 @@ const PLANS: PricingPlan[] = [
     features: [
       { label: 'エリア比較' },
       { label: '商圏レポート' },
-      { label: 'アラート機能' },
+      { label: 'アラート機能（近日提供）' },
       { label: 'Slack / Zoom サポート' },
       { label: 'PDFロゴ対応' },
     ],
