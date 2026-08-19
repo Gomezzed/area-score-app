@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
+import { Lock } from 'lucide-react'
 import type { LayerGroup } from 'leaflet'
 import type { GeoJsonObject } from 'geojson'
 import { Prefecture, MunicipalityWithStats } from '@/types'
@@ -384,6 +386,25 @@ export function MunicipalityMap({ prefecture, municipalities, selectedId, onSele
               <span className="text-xs text-slate-700">{b.label}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ヒートマップ配色は Standard 以上（Free/Starter へのアップセル導線・D102/D75）。
+          独立ブロックとして追加。既存の凡例条件式（canUseHeatmap && ...）は書き換えず、
+          canUseHeatmap の算出元・型・受け渡しにも一切手を入れない（表示の追加のみ）。
+          クラス構成は凡例コンテナ＋MunicipalityList の錠パターンを踏襲。 */}
+      {!canUseHeatmap && (
+        <div className="absolute bottom-6 left-3 sm:left-4 bg-white/95 backdrop-blur-sm border border-slate-200 rounded-lg px-3 py-2 z-[1000]">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+            <Lock className="w-3.5 h-3.5 text-brand-700" />
+            ヒートマップ配色は Standard 以上
+          </div>
+          <Link
+            href="/pricing"
+            className="mt-1 inline-block text-xs font-semibold text-brand-700 hover:text-brand-500 transition-colors"
+          >
+            プランを見る
+          </Link>
         </div>
       )}
     </div>
