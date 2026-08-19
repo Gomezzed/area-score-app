@@ -68,6 +68,7 @@ const PLANS: PricingPlan[] = [
     monthly: '月額100,000円（税抜）',
     regular: '¥300,000',
     features: [
+      { label: '町域 仕入れ優先度（注目TOP20）' },
       { label: 'エリア比較' },
       { label: '商圏レポート' },
       { label: 'アラート機能（近日提供）' },
