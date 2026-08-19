@@ -32,7 +32,10 @@ const PLANS: PricingPlan[] = [
     name: 'Free',
     monthly: '0円',
     regular: null,
-    features: [{ label: '上位3エリアの閲覧のみ' }],
+    features: [
+      { label: '上位3エリアの閲覧のみ' },
+      { label: '人口推移グラフ' },
+    ],
     cta: { label: '無料で始める', href: '/register?plan=free' },
   },
   {
