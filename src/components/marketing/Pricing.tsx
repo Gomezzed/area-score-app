@@ -32,7 +32,10 @@ const PLANS: PricingPlan[] = [
     name: 'Free',
     monthly: '0円',
     regular: null,
-    features: [{ label: '上位3エリアの閲覧のみ' }],
+    features: [
+      { label: '上位3エリアの閲覧のみ' },
+      { label: '人口推移グラフ' },
+    ],
     cta: { label: '無料で始める', href: '/register?plan=free' },
   },
   {
@@ -68,6 +71,7 @@ const PLANS: PricingPlan[] = [
     monthly: '月額100,000円（税抜）',
     regular: '¥300,000',
     features: [
+      { label: '町域 仕入れ優先度（注目TOP20）' },
       { label: 'エリア比較' },
       { label: '商圏レポート' },
       { label: 'アラート機能（近日提供）' },
