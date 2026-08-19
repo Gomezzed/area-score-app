@@ -39,6 +39,10 @@ export interface UpsertRow {
   media: string | null
   category: string | null
   assignee: string | null
+  // desired_school は **プリセット経路でのみ** 含める（persistDesiredSchool=true）。
+  //   キーを含めなければ UPSERT の SET 句に載らず、既存値を上書きしない
+  //   （汎用取込で毎回 null 上書きする事故を防ぐ・PR-B の申し送りどおり）。
+  desired_school?: string | null
   // 再出現した行は必ず missing_since を消す（PR-A 申し送り②）。
   missing_since: null
 }
@@ -62,6 +66,9 @@ export interface PlanUpsertParams {
   existingByExternalId: Map<string, string>
   // 新規行の主キー採番。テストから決定的な値を注入できるよう引数にする。
   newId: () => string
+  // desired_school をペイロードに含めるか（プリセット経路でのみ true）。
+  //   既定 false: 汎用取込は列を含めず、既存の desired_school を保全する。
+  persistDesiredSchool?: boolean
 }
 
 // ExtractedRow + MatchResult → UpsertRow。
@@ -71,6 +78,7 @@ function buildRow(
   id: string,
   e: ExtractedRow,
   m: MatchResult,
+  persistDesiredSchool: boolean,
 ): UpsertRow {
   return {
     id,
@@ -91,6 +99,8 @@ function buildRow(
     media: e.media,
     category: e.category,
     assignee: e.assignee,
+    // プリセット経路のみ desired_school を載せる（未指定なら列ごと省略＝既存値を保全）。
+    ...(persistDesiredSchool ? { desired_school: e.desired_school } : {}),
     missing_since: null,
   }
 }
@@ -99,7 +109,15 @@ function buildRow(
 //   - external_id 有り  → 既存 id を引き当て（無ければ採番）。CSV 内重複は **後勝ち**。
 //   - external_id 無し  → untracked。追跡できないため missing_since は付けられない。
 export function planUpsert(params: PlanUpsertParams): UpsertPlan {
-  const { listId, userId, extracted, matches, existingByExternalId, newId } = params
+  const {
+    listId,
+    userId,
+    extracted,
+    matches,
+    existingByExternalId,
+    newId,
+    persistDesiredSchool = false,
+  } = params
   if (extracted.length !== matches.length) {
     throw new Error('planUpsert: extracted と matches の長さが一致しません')
   }
@@ -112,7 +130,7 @@ export function planUpsert(params: PlanUpsertParams): UpsertPlan {
   extracted.forEach((e, i) => {
     const m = matches[i]
     if (e.external_id == null) {
-      untracked.push(buildRow(listId, userId, newId(), e, m))
+      untracked.push(buildRow(listId, userId, newId(), e, m, persistDesiredSchool))
       return
     }
     const existing = trackedByExternalId.get(e.external_id)
@@ -120,7 +138,10 @@ export function planUpsert(params: PlanUpsertParams): UpsertPlan {
     const id =
       existing?.id ?? existingByExternalId.get(e.external_id) ?? newId()
     if (existing) dedupedExternalIds.push(e.external_id)
-    trackedByExternalId.set(e.external_id, buildRow(listId, userId, id, e, m))
+    trackedByExternalId.set(
+      e.external_id,
+      buildRow(listId, userId, id, e, m, persistDesiredSchool),
+    )
   })
 
   return {

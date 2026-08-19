@@ -2,7 +2,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { guardFeature } from '@/lib/subscription'
 import { decodeCsvBytes, CsvDecodeError } from '@/lib/customer-list/decode'
-import { parseCsv, detectColumnMapping } from '@/lib/customer-list/csv-import'
+import { parseCsv } from '@/lib/customer-list/csv-import'
+import {
+  resolveColumnMapping,
+  UnknownPresetError,
+} from '@/lib/customer-list/presets'
 import { extractRows } from '@/lib/customer-list/row-extract'
 import { planUpsert } from '@/lib/customer-list/upsert-plan'
 import {
@@ -183,8 +187,24 @@ export async function POST(
     timings.parse = elapsedMsSince(pStart)
     return failEnvelope(400, 'parse', 'too_many_rows', requestId, timings, startedAt)
   }
-  const mapping = detectColumnMapping(rows[0])
-  if (mapping.address == null) {
+  // 列マッピング解決（ハイブリッド: 明示 ?preset → ヘッダ指紋 → 既存 heuristic）。
+  //   ⛔ preset の読み取り/検証は必ず guardFeature 通過後（403 が 400 より先に返る順序を保つ）。
+  //   ⛔ 未知の presetId は 400 で停止し、黙って heuristic にフォールバックしない（O49 回避）。
+  const presetId = request.nextUrl.searchParams.get('preset')
+  let resolved: ReturnType<typeof resolveColumnMapping>
+  try {
+    resolved = resolveColumnMapping(rows[0], presetId)
+  } catch (error) {
+    timings.parse = elapsedMsSince(pStart)
+    if (error instanceof UnknownPresetError) {
+      return failEnvelope(400, 'parse', 'unknown_preset', requestId, timings, startedAt)
+    }
+    reportImportError(error, { requestId, stage: 'parse', timings })
+    return failEnvelope(500, 'parse', 'mapping_failed', requestId, timings, startedAt)
+  }
+  const { mapping, extract, route: resolveRoute } = resolved
+  // 住所は複合列（都道府県+市区+住所）でも単一列でもよいが、どちらも無ければ突合できない。
+  if (mapping.address == null && !(extract.addressColumns?.length)) {
     timings.parse = elapsedMsSince(pStart)
     return failEnvelope(
       400,
@@ -195,7 +215,7 @@ export async function POST(
       startedAt,
     )
   }
-  const extracted = extractRows(dataRows, mapping)
+  const extracted = extractRows(dataRows, mapping, extract)
   timings.parse = elapsedMsSince(pStart)
 
   // ⑥ 突合（v0 と同じ手順: 自治体母集合 → 候補解決 → 町域取得 → 行ごと突合）。
@@ -274,6 +294,9 @@ export async function POST(
       matches,
       existingByExternalId,
       newId: () => crypto.randomUUID(),
+      // プリセットが小学校区列を解決したときだけ desired_school を永続化する
+      //   （汎用取込では列を含めず既存値を保全する）。
+      persistDesiredSchool: extract.schoolColumn != null,
     })
 
     // ⑦ 追跡可能な行（external_id 有り）を毎回全件 UPSERT。
@@ -319,6 +342,8 @@ export async function POST(
       ok: true,
       id: listId,
       encoding,
+      // 解決経路（fallback:heuristic は O49 の誤検出リスクが残るため後続 UI で警告表示に使う）。
+      resolve_route: resolveRoute,
       row_count: plan.tracked.length + plan.untracked.length,
       tracked: plan.tracked.length,
       untracked: plan.untracked.length,

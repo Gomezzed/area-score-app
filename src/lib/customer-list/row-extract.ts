@@ -57,12 +57,32 @@ function emptyToNull(s: string): string | null {
   return t ? t : null
 }
 
+// プリセット経路でのみ渡す抽出補助（presets.ts の ResolvedMapping.extract）。
+//   ⚠ ここで参照する列（住所を構成する都道府県/市区/住所・小学校区）は
+//      いずれも PII ではない構造的な列で、プリセットが完全一致で確定させたもの。
+//      EXTRACT_KEYS の許可リスト（CL-32）は PII の読み出し防止が目的であり、
+//      これらの非 PII 列を index 指定で読むことは方針に反しない。
+export interface ExtractOptions {
+  // 複合住所（都道府県+市区+住所）。指定時は mapping.address より優先して結合する。
+  addressColumns?: number[]
+  // desired_school（マッチング小学校）の列。指定時のみ値を保持する。
+  schoolColumn?: number
+}
+
+// index 指定でセル値を読む（範囲外は空文字）。
+function cellAt(row: string[], idx: number | undefined): string {
+  if (idx == null) return ''
+  return (row[idx] ?? '').trim()
+}
+
 // データ行（ヘッダ除く）を ExtractedRow[] へ変換する。
 //   - row_no は 1 始まり（CSV 上のデータ行番号）。
 //   - 日付は parseDateWithReason で複数書式を試し、不一致なら null + reason。
+//   - opts はプリセット経路でのみ渡す（未指定なら従来どおりの単一列抽出）。
 export function extractRows(
   dataRows: string[][],
   mapping: ColumnMapping,
+  opts: ExtractOptions = {},
 ): ExtractedRow[] {
   return dataRows.map((row, i) => {
     const reasons: string[] = []
@@ -75,17 +95,31 @@ export function extractRows(
     // ⚠ external_id は cellOf（string 返却）→ trim のみ。数値変換を一切挟まない。
     const externalId = emptyToNull(cellOf(row, mapping, 'external_id'))
 
+    // 住所: プリセットの複合列（都道府県+市区+住所）があればそれを順に結合する。
+    //   正規化（normalizeJpAddress）は突合エンジン側で行うため、ここでは生結合のみ。
+    const addressRaw =
+      opts.addressColumns && opts.addressColumns.length
+        ? emptyToNull(opts.addressColumns.map((c) => cellAt(row, c)).join(''))
+        : emptyToNull(cellOf(row, mapping, 'address'))
+
+    // desired_school: プリセットの小学校区列（マッチング小学校）があれば保持する。
+    //   ⛔ 中学校区は school_type 列が無いため本 PR では保持しない（PR-D で対応）。
+    const desiredSchool =
+      opts.schoolColumn != null ? emptyToNull(cellAt(row, opts.schoolColumn)) : null
+
     return {
       row_no: i + 1,
       external_id: externalId,
       customer_name: emptyToNull(cellOf(row, mapping, 'customer_name')),
-      address_raw: emptyToNull(cellOf(row, mapping, 'address')),
+      address_raw: addressRaw,
       inquiry_at: inquiry.value,
       last_contact_at: lastContact.value,
       media: emptyToNull(cellOf(row, mapping, 'media')),
       category: emptyToNull(cellOf(row, mapping, 'category')),
       assignee: emptyToNull(cellOf(row, mapping, 'assignee')),
-      desired_school: null,
+      desired_school: desiredSchool,
+      // desired_muni_code_5: 「マッチング市区」は市区名でありコードではない。
+      //   名前→5桁コード変換（prefecture_code+name 複合キー）は PR-D で行う（原則2）。
       desired_muni_code_5: null,
       reasons,
     }
