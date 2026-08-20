@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
+import Customers from '@/components/marketing/Customers'
 
 export function Hero() {
   return (
@@ -24,6 +25,7 @@ export function Hero() {
           <span className="hidden sm:inline text-slate-300">／</span>
           <span>先行申込受付中（2026年9月30日まで）</span>
         </div>
+        <Customers className="mt-14" />
         <div className="mt-14 max-w-4xl mx-auto">
           <div className="relative rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-lg">
             <div className="aspect-[16/9] relative">
