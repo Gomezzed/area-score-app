@@ -1,5 +1,5 @@
 import { Users, TrainFront, Building2, Plus, Equal } from 'lucide-react'
-import { Br } from '@/components/marketing/LineBreak'
+import { Br, NoBreak } from '@/components/marketing/LineBreak'
 
 // ④ Solution（ライト）— 3つの公的データを1つのスコアに統合する図解的説明
 const SOURCES = [
@@ -19,7 +19,7 @@ const SOURCES = [
     icon: Building2,
     label: '不動産取引',
     sub: '成約件数・価格水準',
-    source: '国土交通省 不動産情報ライブラリ',
+    source: <>国土交通省 <NoBreak>不動産情報ライブラリ</NoBreak></>,
   },
 ]
 
