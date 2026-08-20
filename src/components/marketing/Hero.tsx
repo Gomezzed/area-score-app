@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import Customers from '@/components/marketing/Customers'
+import { Br } from '@/components/marketing/LineBreak'
 
 export function Hero() {
   return (
@@ -11,10 +12,10 @@ export function Hero() {
           先行申込受付中（2026年9月30日まで）
         </div>
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.25]">
-          「どのエリアで媒介を取るか」を、<br className="hidden sm:block" /><span className="text-brand-700">勘ではなく数字で決める。</span>
+          「どのエリアで媒介を取るか」<Br />を、<span className="text-brand-700">勘ではなく数字で決める。</span>
         </h1>
         <p className="text-slate-500 text-base sm:text-xl mt-6 max-w-2xl mx-auto leading-relaxed">
-          人口動態 × 駅乗降客数 × 不動産取引データをエリアスコアで可視化。営業エリアの意思決定を、<span className="text-brand-700 font-semibold">30分 → 5分</span>に短縮します。
+          人口動態 × 駅乗降客数 × 不動産取引データをエリアスコアで可視化。<Br />営業エリアの意思決定を、<span className="text-brand-700 font-semibold">30分 → 5分</span>に短縮します。
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-10">
           <a href="#contact" className="w-full sm:w-auto bg-brand-700 hover:bg-brand-500 text-white font-semibold rounded-lg px-8 py-4 flex items-center justify-center gap-2 transition-colors">無料でデモを見る<ArrowRight className="w-5 h-5" /></a>

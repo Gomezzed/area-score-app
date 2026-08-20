@@ -1,4 +1,5 @@
 import { Users, TrainFront, Building2, Plus, Equal } from 'lucide-react'
+import { Br } from '@/components/marketing/LineBreak'
 
 // ④ Solution（ライト）— 3つの公的データを1つのスコアに統合する図解的説明
 const SOURCES = [
@@ -32,7 +33,7 @@ export function Solution() {
             3つの公的データを、1つの「エリアスコア」に。
           </h2>
           <p className="text-slate-600 mt-4 leading-relaxed">
-            バラバラに存在する公的データを独自指標で統合し、エリアの集客ポテンシャルを
+            バラバラに存在する公的データを独自指標で統合し、<Br />エリアの集客ポテンシャルを
             <span className="font-semibold text-slate-900">100点満点</span>で可視化します。
           </p>
         </div>
