@@ -39,12 +39,12 @@ export function Features() {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className="rounded-2xl border border-slate-200 bg-white p-7 hover:border-brand-300 hover:shadow-lg transition-all"
+              className="rounded-2xl border border-slate-200 bg-white p-6 hover:border-brand-300 hover:shadow-lg transition-all"
             >
               <div className="w-12 h-12 rounded-xl bg-brand-100 flex items-center justify-center mb-5">
                 <f.icon className="w-6 h-6 text-brand-700" />
               </div>
-              <h3 className="text-base font-bold mb-2">{f.title}</h3>
+              <h3 className="text-base font-bold tracking-tight mb-2">{f.title}</h3>
               <p className="text-slate-600 text-sm leading-relaxed">{f.body}</p>
             </div>
           ))}

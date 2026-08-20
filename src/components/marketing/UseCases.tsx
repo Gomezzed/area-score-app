@@ -1,4 +1,5 @@
 import { Home, Megaphone, Store } from 'lucide-react'
+import { Br } from '@/components/marketing/LineBreak'
 
 // ⑦ Use cases（ライト）— 3ペルソナ
 const CASES = [
@@ -6,7 +7,7 @@ const CASES = [
     icon: Home,
     persona: '不動産売買仲介',
     title: '媒介を取りに行くエリアを、数字で選ぶ',
-    body: '人口が伸び、取引が活発なエリアを特定。反響の見込める地域に営業リソースを集中し、媒介取得の打率を上げる。',
+    body: <>人口が伸び、取引が活発なエリアを特定。<Br />反響の見込める地域に営業リソースを集中し、媒介取得の打率を上げる。</>,
   },
   {
     icon: Megaphone,

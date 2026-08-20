@@ -1,11 +1,12 @@
 import { LogIn, Search, MapPinned, FileText } from 'lucide-react'
+import { Br } from '@/components/marketing/LineBreak'
 
 // ⑥ How it works（ライト）
 //   ログイン → エリア検索 → スコア・地図確認 → レポート出力
 const STEPS = [
   { icon: LogIn, title: 'ログイン', body: 'メールまたはGoogleアカウントで数秒で開始。' },
   { icon: Search, title: 'エリア検索', body: '地方・都道府県・市区町村を選んで対象エリアを絞り込み。' },
-  { icon: MapPinned, title: 'スコア・地図確認', body: 'エリアスコアとヒートマップ、各種データを確認。' },
+  { icon: MapPinned, title: 'スコア・地図確認', body: <>エリアスコアとヒートマップ、<Br />各種データを確認。</> },
   { icon: FileText, title: 'レポート出力', body: 'PDF・CSVで出力し、提案や社内共有にそのまま活用。' },
 ]
 
