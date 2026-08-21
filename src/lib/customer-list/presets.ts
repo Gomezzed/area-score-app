@@ -38,6 +38,13 @@ export type PresetTarget =
   | 'media'
   | 'assignee'
   | 'desired_school'
+  // --- オプトアウト/削除フラグ（O54/O55・PR-D改 c3）。値は空=OFF/非空=ON で解釈する ---
+  //   opt_out_* は customer_list_rows の boolean 列へ保存し、attack-list 表示で除外する。
+  //   deleted は customer_list_rows.deleted_at の設定/解除に使う（行本体は作らない/更新しない）。
+  | 'opt_out_dm' // 72列: DM郵送希望
+  | 'opt_out_mail_magazine' // 89列: メルマガフラグ（メール営業対象者フラグ）
+  | 'opt_out_mail' // 90列: メール禁止フラグ
+  | 'deleted' // 123列: 削除フラグ
   // --- 解決＋テストのみ・永続化は PR-D ---
   //   desired_muni_code_5: 「マッチング市区」は 5 桁コードではなく **市区名**（実測: 岡崎市）。
   //     名前をコード列に入れない（原則2）。PR-D で prefecture_code + name の複合キーで
@@ -99,6 +106,16 @@ const HAUSUDO_FIELDS: readonly FieldSpec[] = [
   { target: 'assignee', rule: { kind: 'exact', header: '店舗営業担当者' } },
   // SD-25: 小学校区のみ永続化（school_type 列が無いため）。中学校区は下の desired_junior_school。
   { target: 'desired_school', rule: { kind: 'exact', header: 'マッチング小学校' } },
+
+  // オプトアウト3列＋削除フラグ（O54/O55・c3）。ヘッダ名の完全一致で解決する
+  //   （NFKC 正規化後に比較するため全角括弧 '（）' の揺れは吸収される）。列位置は使わない。
+  { target: 'opt_out_dm', rule: { kind: 'exact', header: 'DM郵送希望' } },
+  {
+    target: 'opt_out_mail_magazine',
+    rule: { kind: 'exact', header: 'メルマガフラグ（メール営業対象者フラグ）' },
+  },
+  { target: 'opt_out_mail', rule: { kind: 'exact', header: 'メール禁止フラグ' } },
+  { target: 'deleted', rule: { kind: 'exact', header: '削除フラグ' } },
 
   // --- ここから下は解決＋テストのみ（永続化は PR-D） ---
   { target: 'desired_junior_school', rule: { kind: 'exact', header: 'マッチング中学校' } },
@@ -168,6 +185,12 @@ export interface ResolvedMapping {
     addressColumns?: number[]
     // desired_school（マッチング小学校）の列。
     schoolColumn?: number
+    // オプトアウト/削除フラグの列（プリセット経路でのみ埋まる・O54/O55）。
+    //   ⛔ heuristic 経路では埋めない＝該当列が無ければ全行 OFF 扱い（列位置決め打ちをしない）。
+    optOutDmColumn?: number
+    optOutMailMagazineColumn?: number
+    optOutMailColumn?: number
+    deletedColumn?: number
   }
   // フルの解決結果（テスト・将来の永続化/警告用）。fallback 時は null。
   preset: ResolvedPreset | null
@@ -268,6 +291,10 @@ function buildFromPreset(header: string[], route: ResolveRoute): ResolvedMapping
     extract: {
       addressColumns: addrCols.length ? addrCols : undefined,
       schoolColumn: first('desired_school'),
+      optOutDmColumn: first('opt_out_dm'),
+      optOutMailMagazineColumn: first('opt_out_mail_magazine'),
+      optOutMailColumn: first('opt_out_mail'),
+      deletedColumn: first('deleted'),
     },
     preset: resolved,
   }

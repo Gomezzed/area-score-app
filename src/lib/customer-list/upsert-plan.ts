@@ -43,6 +43,14 @@ export interface UpsertRow {
   //   キーを含めなければ UPSERT の SET 句に載らず、既存値を上書きしない
   //   （汎用取込で毎回 null 上書きする事故を防ぐ・PR-B の申し送りどおり）。
   desired_school?: string | null
+  // オプトアウト3列（O55）。空=OFF/非空=ON をパーサが解釈した真偽値をそのまま保存する。
+  //   heuristic 経路・該当列を持たない CSV では常に false。
+  opt_out_dm: boolean
+  opt_out_mail_magazine: boolean
+  opt_out_mail: boolean
+  // 削除フラグ OFF の行を UPSERT するときは deleted_at を必ず NULL に戻す（CRM を正とする・
+  //   裁定A）。SET 句に載せることで、以前 deleted_at が立っていた行の復活を表現する。
+  deleted_at: null
   // 再出現した行は必ず missing_since を消す（PR-A 申し送り②）。
   missing_since: null
 }
@@ -54,6 +62,10 @@ export interface UpsertPlan {
   untracked: UpsertRow[]
   // CSV 内で external_id が重複し、後勝ちで畳んだ external_id 一覧（サマリ用）。
   dedupedExternalIds: string[]
+  // 裁定A(a): 削除フラグ ON かつ external_id が DB 既存だった行の id（deleted_at を立てる対象）。
+  //   ⛔ これらの行は tracked/untracked に含めない（内容を更新せず deleted_at のみ設定するため）。
+  //   裁定A(b)（削除 ON かつ DB 未存在）は行を作らないので、ここにも含めない。
+  deletedRowIds: string[]
 }
 
 export interface PlanUpsertParams {
@@ -101,6 +113,10 @@ function buildRow(
     assignee: e.assignee,
     // プリセット経路のみ desired_school を載せる（未指定なら列ごと省略＝既存値を保全）。
     ...(persistDesiredSchool ? { desired_school: e.desired_school } : {}),
+    opt_out_dm: e.opt_out_dm,
+    opt_out_mail_magazine: e.opt_out_mail_magazine,
+    opt_out_mail: e.opt_out_mail,
+    deleted_at: null,
     missing_since: null,
   }
 }
@@ -126,9 +142,20 @@ export function planUpsert(params: PlanUpsertParams): UpsertPlan {
   const trackedByExternalId = new Map<string, UpsertRow>()
   const dedupedExternalIds: string[] = []
   const untracked: UpsertRow[] = []
+  const deletedRowIdSet = new Set<string>()
 
   extracted.forEach((e, i) => {
     const m = matches[i]
+    // 裁定A: 削除フラグ ON の行は取り込み方が変わる（内容 UPSERT の対象にしない）。
+    //   (a) external_id が DB 既存 → その行 id に deleted_at を立てる（deletedRowIds へ）。
+    //   (b) external_id 無し / DB 未存在 → 行を作らない（O54 の原義・ここでは何もしない）。
+    if (e.is_deleted) {
+      if (e.external_id != null) {
+        const existingId = existingByExternalId.get(e.external_id)
+        if (existingId != null) deletedRowIdSet.add(existingId)
+      }
+      return
+    }
     if (e.external_id == null) {
       untracked.push(buildRow(listId, userId, newId(), e, m, persistDesiredSchool))
       return
@@ -148,5 +175,6 @@ export function planUpsert(params: PlanUpsertParams): UpsertPlan {
     tracked: Array.from(trackedByExternalId.values()),
     untracked,
     dedupedExternalIds,
+    deletedRowIds: Array.from(deletedRowIdSet),
   }
 }

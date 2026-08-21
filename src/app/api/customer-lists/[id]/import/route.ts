@@ -25,6 +25,7 @@ import {
   upsertCustomerListRows,
   replaceUntrackedRows,
   markMissingRows,
+  markDeletedRows,
   type MuniAsOf,
 } from '@/lib/customer-list/server'
 import {
@@ -289,6 +290,7 @@ export async function POST(
   // ⑦〜⑨ 書き込み。段階は 'upsert' / 'missing' の 2 つで計測する。
   const uStart = performance.now()
   let missingMarked = 0
+  let deletedMarked = 0
   let plan: ReturnType<typeof planUpsert>
   try {
     const existingByExternalId = await loadExistingExternalIds(supabase, listId)
@@ -310,6 +312,16 @@ export async function POST(
     // ⑧ 追跡不能な行（external_id 無し）は当該 list の NULL 行だけを全置換（論点B ③）。
     await replaceUntrackedRows(supabase, listId, plan.untracked)
     timings.upsert = elapsedMsSince(uStart)
+
+    // ⑧-b 裁定A(a): 削除フラグ ON かつ DB 既存の行に deleted_at を立てる（内容は更新しない）。
+    //    ⚠ missing 判定より前に実行する。deleted_at の UPDATE はトリガーで updated_at を
+    //       進めるため、この後の markMissingRows（updated_at < t 条件）が削除行を対象外にでき、
+    //       削除行へ missing_since が二重に付くのを防げる。基準時刻は DB 由来 dbNow を使い、
+    //       tracked が無く dbNow が取れない CSV では実行時刻で補う（missing と同じ流儀）。
+    const deletedAt = dbNow ?? new Date().toISOString()
+    if (plan.deletedRowIds.length > 0) {
+      deletedMarked = await markDeletedRows(supabase, listId, plan.deletedRowIds, deletedAt)
+    }
 
     // ⑨ 今回触られなかった行にだけ missing_since を付ける。基準時刻は DB 由来（論点F）。
     //    追跡可能な行が 1 件も無い CSV では基準時刻を作れないため、判定自体を行わない。
@@ -433,6 +445,7 @@ export async function POST(
       deduped: plan.dedupedExternalIds.length,
       date_null_rows: dateNullRows,
       missing_marked: missingMarked,
+      deleted_marked: deletedMarked,
       summary,
       // 突合バッチの集計（RPC の jsonb サマリ。未実行/失敗時は null）。
       match: matchSummary,

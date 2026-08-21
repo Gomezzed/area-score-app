@@ -62,12 +62,20 @@ export async function GET(
   }
 
   // 名簿の全行を取得（RLS で自分の行のみ）。
+  //   ⛔ アタックリストから除外する 2 条件のみを適用する（O54/O55・PR-D改 c3）:
+  //     ① deleted_at IS NOT NULL（CRM で削除された顧客・裁定A）
+  //     ② オプトアウト 3 列のいずれかが ON（opt_out_dm / _mail_magazine / _mail・O55）
+  //   ⚠ missing_since の表示是正は本セッションのスコープ外（残件）。ここでは触らない。
   const { data: rows, error } = await supabase
     .from('customer_list_rows')
     .select(
       'id, row_no, customer_name, address_raw, match_status, municipality_id, town_name_normalized, last_contact_at, inquiry_at, media, assignee, match_candidates',
     )
     .eq('list_id', listId)
+    .is('deleted_at', null)
+    .eq('opt_out_dm', false)
+    .eq('opt_out_mail_magazine', false)
+    .eq('opt_out_mail', false)
   if (error) {
     return NextResponse.json({ error: 'fetch_failed' }, { status: 500 })
   }
