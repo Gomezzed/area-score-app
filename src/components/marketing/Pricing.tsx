@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Check } from 'lucide-react'
 import { CheckoutButton } from '@/components/ui/CheckoutButton'
+import { Br } from '@/components/marketing/LineBreak'
 import type { PaidPlanId } from '@/lib/plans'
 
 // ⑧ Pricing（ライト）— 正式リリース向け 4プラン構成
@@ -18,7 +20,7 @@ interface Feature {
 interface PricingPlan {
   id: string
   name: string
-  monthly: string // 月額表示（先行申込価格）
+  monthly: ReactNode // 月額表示（先行申込価格）
   regular: string | null // 通常価格（打ち消し表示）。Free は割引対象外のため null。
   features: Feature[]
   // checkoutPlan があれば Stripe Checkout（CheckoutButton）、なければ href リンク。
@@ -41,7 +43,7 @@ const PLANS: PricingPlan[] = [
   {
     id: 'starter',
     name: 'Starter',
-    monthly: '月額30,000円（税抜）',
+    monthly: <>月額30,000円<Br />（税抜）</>,
     regular: '¥50,000',
     features: [
       { label: '都道府県・市区町村レベルのエリアスコア' },
@@ -54,7 +56,7 @@ const PLANS: PricingPlan[] = [
   {
     id: 'standard',
     name: 'Standard',
-    monthly: '月額50,000円（税抜）',
+    monthly: <>月額50,000円<Br />（税抜）</>,
     regular: '¥100,000',
     features: [
       { label: '駅単位データ' },
@@ -68,7 +70,7 @@ const PLANS: PricingPlan[] = [
   {
     id: 'platinum',
     name: 'Platinum',
-    monthly: '月額100,000円（税抜）',
+    monthly: <>月額100,000円<Br />（税抜）</>,
     regular: '¥300,000',
     features: [
       { label: '町域 仕入れ優先度（注目TOP20）' },
@@ -92,7 +94,7 @@ export function Pricing() {
             事業規模に合わせて選べる4プラン。
           </h2>
           <p className="text-brand-700 text-sm mt-4">
-            2026年9月30日までにご契約いただいた価格は、契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
+            2026年9月30日までにご契約いただいた価格は、<Br />契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
           </p>
         </div>
 
