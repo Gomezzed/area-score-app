@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -14,10 +14,14 @@ import {
   Check,
   RefreshCw,
   Trash2,
+  Plus,
+  FolderOpen,
+  ChevronRight,
 } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
+import type { PresetChoice } from '@/lib/customer-list/preset-choice'
 
 // ── /api/customer-lists/[id]/attack-list のレスポンス型（サーバーと対応）──
 type MatchStatus = 'confirmed' | 'ambiguous' | 'out_of_scope'
@@ -48,6 +52,17 @@ interface AttackList {
   summary: { confirmed: number; ambiguous: number; out_of_scope: number }
   as_of_by_municipality: MuniAsOf[]
   rows: AttackRow[]
+}
+
+// ── GET /api/customer-lists（一覧・PR-F）の1要素。org 共有の名簿メタ ──
+//   preset は前回の CSV 形式選択（サーバーが column_mapping v:2 から導出）。
+interface ListSummary {
+  id: string
+  name: string
+  row_count: number
+  imported_at: string
+  is_owner: boolean
+  preset: PresetChoice
 }
 
 // 取り込み失敗の表示情報。サーバーが返した観測性エンベロープ
@@ -213,10 +228,22 @@ function fmtAsOfMonth(iso: string): string {
   return `${m[1]}年${Number(m[2])}月時点`
 }
 
+// 「最終取込」の表示（一覧・PR-F）。imported_at(TIMESTAMPTZ) を「YYYY/M/D HH:mm」に。
+//   ⚠ これは取込成功のたびに更新される値であり初回作成日ではない（ラベルは「最終取込」・原則1）。
+//   未取込（row_count=0）の分岐は呼び出し側で行う（この関数には有効な時刻だけ渡す）。
+function fmtImportedAt(iso: string): string {
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return '—'
+  const d = new Date(t)
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${hh}:${mi}`
+}
+
 // 取込形式の選択（案B'・D100 相当 d）。ユーザーに CSV 形式を明示的に選ばせ、
 //   ハウスドゥ形式は ?preset=hausudo を明示して送る（指紋頼みの静かな fallback を避ける）。
 //   '' = 未選択（アップロード不可）/ 'hausudo' = ?preset=hausudo / 'other' = クエリ省略（自動判定）。
-type PresetChoice = '' | 'hausudo' | 'other'
+//   ⚠ 型は lib/customer-list/preset-choice.ts の PresetChoice を単一源として import（重複定義しない）。
 
 // セレクタの初期値。⚠ 8/20 の打合せ結果次第で案A（既定=自動判定）へ戻す場合は
 //   ここを 'other' に変えるだけでよい（1 箇所で切替）。現状は案B'＝未選択スタート。
@@ -240,6 +267,19 @@ export default function CustomersClient() {
   const [data, setData] = useState<AttackList | null>(null)
   const [fileName, setFileName] = useState<string>('')
 
+  // ── 一覧（PR-F）──
+  //   org 共有の名簿一覧。既定ビューはこの一覧（リスト名・件数・最終取込）。
+  //   lists=null は未取得（読み込み中）を表す。showCreate=true で作成ステップを開く。
+  const [lists, setLists] = useState<ListSummary[] | null>(null)
+  const [listsError, setListsError] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [opening, setOpening] = useState(false) // 一覧から名簿を開く際のフェッチ中フラグ
+  // 現在開いている名簿の作成者判定（D108 の表示上の操作可否）。
+  //   ⚠ これは UI ヒントであって認可ではない。取込/削除の認可は API 403(not_list_owner) と
+  //      RLS(cl_update_org / cl_delete_own) が別に担保する（原則12）。⛔ 判定ロジックには触れない。
+  //   既定 true（新規作成した名簿は本人が作成者）。一覧から開くときに list.is_owner を反映する。
+  const [currentIsOwner, setCurrentIsOwner] = useState(true)
+
   // ── 2段化（作成ステップ → アップロードステップ・PR-E）──
   //   作成で得た空リストの id を保持し、取込が失敗しても id は捨てない
   //   （row_count=0 の「取込未完了」として残す＝擬似原子性・作成途中で消さない）。
@@ -257,6 +297,109 @@ export default function CustomersClient() {
   const [staleOnly, setStaleOnly] = useState(false) // 30日以上未接触（null 含む）
   const [ambiguousOnly, setAmbiguousOnly] = useState(false) // 要確認（ambiguous）のみ
   const [assignee, setAssignee] = useState<string | null>(null) // 担当（null = 全員）
+
+  // 一覧の取得（GET /api/customer-lists）。org 共有の名簿を最終取込の降順で受け取る。
+  //   ⚠ setState は非同期の fetch 完了後（await 後）にのみ呼ぶ。effect 本体では同期 setState を
+  //      しない（react-hooks/set-state-in-effect を新規に増やさない・O34）。
+  const loadLists = useCallback(async () => {
+    // ⚠ 最初の文を await にする（同期 setState を effect から呼ばない・O34 の lint 回帰防止）。
+    //   状態更新はすべて await 後に行う。エラーの解除も成功パスで行う。
+    try {
+      const res = await fetch('/api/customer-lists')
+      if (!res.ok) {
+        setLists([])
+        setListsError('リスト一覧の取得に失敗しました。時間をおいて再度お試しください。')
+        return
+      }
+      const body = await res.json().catch(() => ({}))
+      setLists((body.lists ?? []) as ListSummary[])
+      setListsError(null)
+    } catch {
+      setLists([])
+      setListsError('リスト一覧の取得に失敗しました。時間をおいて再度お試しください。')
+    }
+  }, [])
+
+  // Platinum 認可が通ってから一覧を取得する。setState は await 後に mounted ガード付きで
+  //   のみ行う（既存 TownPrioritySection と同じ idiom。effect 本体での同期 setState を避け、
+  //   react-hooks/set-state-in-effect の回帰を出さない・O34）。
+  useEffect(() => {
+    if (!allowed) return
+    let mounted = true
+    async function load() {
+      try {
+        const res = await fetch('/api/customer-lists')
+        if (!res.ok) {
+          if (mounted) {
+            setLists([])
+            setListsError('リスト一覧の取得に失敗しました。時間をおいて再度お試しください。')
+          }
+          return
+        }
+        const body = await res.json().catch(() => ({}))
+        if (mounted) {
+          setLists((body.lists ?? []) as ListSummary[])
+          setListsError(null)
+        }
+      } catch {
+        if (mounted) {
+          setLists([])
+          setListsError('リスト一覧の取得に失敗しました。時間をおいて再度お試しください。')
+        }
+      }
+    }
+    load()
+    return () => {
+      mounted = false
+    }
+  }, [allowed])
+
+  // 一覧から名簿を開く。取込済みは詳細（アタックリスト）を、未取込（row_count=0）は
+  //   取込を完了させるためアップロードステップを開く。
+  //   preset 復元（PR-F c3）: 前回取り込んだ形式を初期選択に反映する。値はサーバーが
+  //   column_mapping(v:2) から導出済み（list.preset）。未取込/レガシー保存は '' となり再選択。
+  async function openList(list: ListSummary) {
+    setError(null)
+    setFileName('')
+    setPreset(list.preset)
+    setCurrentIsOwner(list.is_owner) // D108: 作成者以外は操作ボタンを無効化する（表示のみ）
+
+    if (list.row_count === 0) {
+      // 未取込リスト → アップロードステップで取込を完了させる（既存の2段化 UI を再利用）。
+      setListName(list.name)
+      setCreatedListId(list.id)
+      return
+    }
+    // 取込済み → 詳細（アタックリスト）を開く。
+    setOpening(true)
+    try {
+      const res = await fetch(`/api/customer-lists/${list.id}/attack-list`)
+      if (!res.ok) {
+        setError({ message: 'アタックリストの取得に失敗しました。', http: res.status })
+        return
+      }
+      setData((await res.json()) as AttackList)
+    } catch {
+      setError({ message: 'アタックリストの取得に失敗しました。' })
+    } finally {
+      setOpening(false)
+    }
+  }
+
+  // 一覧へ戻る。開いていた名簿・作成/アップロードの途中状態・絞り込みを畳んで一覧を再取得する
+  //   （件数・最終取込を最新化する）。
+  function backToIndex() {
+    setData(null)
+    setCreatedListId(null)
+    setShowCreate(false)
+    setListName('')
+    setPreset(DEFAULT_PRESET_CHOICE)
+    setFileName('')
+    setError(null)
+    setCurrentIsOwner(true) // 一覧へ戻る＝開いている名簿なし。既定（本人）へ戻す
+    resetFilters()
+    loadLists()
+  }
 
   // ① 作成ステップ: 空の名簿を1件だけ作る（POST /api/customer-lists）。
   //    行はまだ入れない。返る id を保持してアップロードステップへ進む。
@@ -276,6 +419,7 @@ export default function CustomersClient() {
         return
       }
       const created = await res.json()
+      setCurrentIsOwner(true) // 新規作成＝本人が作成者（D108: 操作可）
       setCreatedListId(created.id as string)
     } catch {
       setError({
@@ -347,12 +491,8 @@ export default function CustomersClient() {
         setError(buildFailure(body, res.status))
         return
       }
-      // 削除成功 → 作成ステップへ戻す。
-      setCreatedListId(null)
-      setListName('')
-      setPreset(DEFAULT_PRESET_CHOICE)
-      setFileName('')
-      setError(null)
+      // 削除成功 → 一覧へ戻す（一覧を再取得して件数・最終取込を最新化する）。
+      backToIndex()
     } catch {
       setError({
         message: 'リストの削除に失敗しました。時間をおいて再度お試しください。',
@@ -461,8 +601,32 @@ export default function CustomersClient() {
           </div>
         ) : !allowed ? (
           <GatedFallback />
+        ) : !data && !createdListId && !showCreate ? (
+          /* 既定ビュー＝一覧（PR-F）。org 共有の名簿を最終取込の降順で表示する。 */
+          <ListIndex
+            lists={lists}
+            error={listsError}
+            opening={opening}
+            onNew={() => {
+              setError(null)
+              setListName('')
+              setPreset(DEFAULT_PRESET_CHOICE)
+              setShowCreate(true)
+            }}
+            onOpen={openList}
+            onReload={loadLists}
+          />
         ) : (
           <>
+            {/* 一覧へ戻る導線（作成/アップロード/詳細のいずれからでも一覧に戻れる）。*/}
+            <button
+              type="button"
+              onClick={backToIndex}
+              className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-700 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              リスト一覧へ戻る
+            </button>
             {/* 取り込み */}
             <div className="bg-white border border-slate-200 rounded-xl p-4 mb-6">
               <div className="text-xs font-bold text-slate-500 mb-2">
@@ -508,9 +672,9 @@ export default function CustomersClient() {
                   ⛔ 形式を選ばせず指紋任せにしない（fallback:heuristic で住所が静かに壊れるのを防ぐ）。*/}
               {!data && createdListId && (
                 <div className="flex flex-col gap-3 max-w-md">
-                  {/* 取込未完了の明示＋離脱警告（案①・PR-E commit4）。作成済みだが row_count=0。
-                      ⚠ 離脱すると UI からこのリストへ再到達できない（一覧導線は PR-F）。
-                         黙って孤児にしないため、離脱警告は必ず出す（省略しない）。*/}
+                  {/* 取込未完了の明示（案①・PR-E commit4／PR-F で一覧導線が入り再到達可能に）。
+                      作成済みだが row_count=0。一覧では「未取込」として表示され、ここへ戻って
+                      取り込みを完了できる（もう孤児にはならない）。*/}
                   <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div>
@@ -519,91 +683,103 @@ export default function CustomersClient() {
                         」は作成されましたが、CSV の取り込みが完了していません。
                       </div>
                       <div className="mt-1 text-xs text-amber-700">
-                        このページを離れると、このリストを再び開くことはできません。取り込みを完了するか、削除してください。
+                        取り込みが完了するまで、このリストは一覧で「未取込」と表示されます。取り込みを完了するか、不要なら削除してください。
                       </div>
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-500">
-                    取り込む CSV の形式を選び、ファイルを選択してください（何度でもやり直せます）。
-                  </div>
-                  <label className="text-xs font-medium text-slate-600">
-                    CSV の形式
-                    <select
-                      value={preset}
-                      onChange={(e) => setPreset(e.target.value as PresetChoice)}
-                      disabled={uploading}
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-slate-50"
-                    >
-                      <option value="">形式を選択してください</option>
-                      <option value="hausudo">ハウスドゥ形式（CRM標準出力）</option>
-                      <option value="other">その他のCSV（自動判定）</option>
-                    </select>
-                  </label>
-                  <label
-                    className={`inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      preset === '' || uploading
-                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                        : 'bg-brand-700 hover:bg-brand-500 text-white cursor-pointer'
-                    }`}
-                  >
-                    {uploading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    {uploading ? '取り込み中…' : 'CSV を選択'}
-                    <input
-                      type="file"
-                      accept=".csv,text/csv"
-                      className="hidden"
-                      disabled={preset === '' || uploading}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) handleUpload(f)
-                        e.target.value = '' // 同一ファイル再選択を許可
-                      }}
-                    />
-                  </label>
+                  {/* D108: 取込・削除は作成者のみ。作成者以外には操作ボタンを出さず注記だけ表示する
+                      （認可は API 403/RLS が別に担保・原則12。⛔ その判定には触れない）。*/}
+                  {currentIsOwner ? (
+                    <>
+                      <div className="text-xs text-slate-500">
+                        取り込む CSV の形式を選び、ファイルを選択してください（何度でもやり直せます）。
+                      </div>
+                      <label className="text-xs font-medium text-slate-600">
+                        CSV の形式
+                        <select
+                          value={preset}
+                          onChange={(e) => setPreset(e.target.value as PresetChoice)}
+                          disabled={uploading}
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-slate-50"
+                        >
+                          <option value="">形式を選択してください</option>
+                          <option value="hausudo">ハウスドゥ形式（CRM標準出力）</option>
+                          <option value="other">その他のCSV（自動判定）</option>
+                        </select>
+                      </label>
+                      <label
+                        className={`inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          preset === '' || uploading
+                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            : 'bg-brand-700 hover:bg-brand-500 text-white cursor-pointer'
+                        }`}
+                      >
+                        {uploading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                        {uploading ? '取り込み中…' : 'CSV を選択'}
+                        <input
+                          type="file"
+                          accept=".csv,text/csv"
+                          className="hidden"
+                          disabled={preset === '' || uploading}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (f) handleUpload(f)
+                            e.target.value = '' // 同一ファイル再選択を許可
+                          }}
+                        />
+                      </label>
 
-                  {/* 削除導線。既存 DELETE /api/customer-lists/[id]（二層封鎖・RLS 作成者限定）
-                      を呼ぶ。成功時のみ作成ステップへ戻す（handleDelete 内で state 初期化）。*/}
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={deleting || uploading}
-                    className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg text-sm font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {deleting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                    {deleting ? '削除中…' : 'このリストを削除'}
-                  </button>
+                      {/* 削除導線。既存 DELETE /api/customer-lists/[id]（二層封鎖・RLS 作成者限定）
+                          を呼ぶ。成功時のみ一覧へ戻す（handleDelete → backToIndex）。*/}
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleting || uploading}
+                        className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg text-sm font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {deleting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                        {deleting ? '削除中…' : 'このリストを削除'}
+                      </button>
+                    </>
+                  ) : (
+                    <OwnerOnlyNotice />
+                  )}
                 </div>
               )}
 
               {/* 再取込（毎回全件・CL-17）。既に名簿を開いているときだけ出す。
                   顧客番号のある行は同じ行を上書きし、今回の CSV に無くなった行には
-                  「消えた印」が付く。顧客番号の無い行は毎回入れ替わる。*/}
-              {data && (
-                <label className="ml-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white ring-1 ring-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium cursor-pointer transition-colors">
-                  <RefreshCw className="w-4 h-4" />
-                  最新の名簿で再取込
-                  <input
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="hidden"
-                    disabled={uploading}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) handleReimport(f)
-                      e.target.value = '' // 同一ファイル再選択を許可
-                    }}
-                  />
-                </label>
-              )}
+                  「消えた印」が付く。顧客番号の無い行は毎回入れ替わる。
+                  D108: 再取込は作成者のみ。作成者以外は注記だけ表示する（認可は API 403 が別に担保）。*/}
+              {data &&
+                (currentIsOwner ? (
+                  <label className="ml-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white ring-1 ring-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium cursor-pointer transition-colors">
+                    <RefreshCw className="w-4 h-4" />
+                    最新の名簿で再取込
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      disabled={uploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) handleReimport(f)
+                        e.target.value = '' // 同一ファイル再選択を許可
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <OwnerOnlyNotice className="ml-2" />
+                ))}
               {fileName && (
                 <span className="ml-3 text-xs text-slate-500">{fileName}</span>
               )}
@@ -763,6 +939,154 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
   )
 }
 
+// 一覧（PR-F）。org 共有の顧客名簿を「リスト名・件数・最終取込」で並べ、
+//   行を選ぶと開く（取込済み→詳細／未取込→取込を完了させるアップロード）。
+//   lists=null は読み込み中。並び順（最終取込の降順）はサーバー（GET）に委ねる。
+function ListIndex({
+  lists,
+  error,
+  opening,
+  onNew,
+  onOpen,
+  onReload,
+}: {
+  lists: ListSummary[] | null
+  error: string | null
+  opening: boolean
+  onNew: () => void
+  onOpen: (list: ListSummary) => void
+  onReload: () => void
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold flex items-center gap-1.5">
+            <FolderOpen className="w-4 h-4 text-brand-700" />
+            リスト一覧
+          </h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            組織で共有されている顧客名簿です。行を選ぶと開けます。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onNew}
+          className="inline-flex items-center gap-1.5 self-start shrink-0 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          新規リスト作成
+        </button>
+      </div>
+
+      {/* 開く処理中の薄いインジケータ（詳細フェッチ中）。*/}
+      {opening && (
+        <div className="mb-3 flex items-center gap-2 text-xs text-slate-400">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          開いています…
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {error}
+          </span>
+          <button
+            type="button"
+            onClick={onReload}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded border border-rose-300 hover:bg-rose-100 text-xs transition-colors shrink-0"
+          >
+            <RefreshCw className="w-3 h-3" />
+            再読み込み
+          </button>
+        </div>
+      )}
+
+      {lists === null ? (
+        <div className="flex items-center justify-center py-16 text-slate-400">
+          <Loader2 className="w-6 h-6 animate-spin" />
+        </div>
+      ) : lists.length === 0 && !error ? (
+        <div className="bg-white border border-slate-200 rounded-xl py-12 px-6 text-center">
+          <FolderOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm text-slate-500 mb-4">
+            まだ顧客名簿がありません。CSV を取り込んで最初のリストを作りましょう。
+          </p>
+          <button
+            type="button"
+            onClick={onNew}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            新規リスト作成
+          </button>
+        </div>
+      ) : lists.length > 0 ? (
+        <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                <th className="px-3 py-2 font-medium">リスト名</th>
+                <th className="px-3 py-2 font-medium">件数</th>
+                <th className="px-3 py-2 font-medium">最終取込</th>
+                <th className="px-3 py-2 font-medium sr-only">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lists.map((l) => (
+                <tr
+                  key={l.id}
+                  onClick={() => !opening && onOpen(l)}
+                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <td className="px-3 py-2.5">
+                    <span className="font-medium text-slate-900">{l.name}</span>
+                    {l.row_count === 0 && (
+                      <span className="ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200 align-middle">
+                        未取込
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 tabular-nums text-slate-700">
+                    {l.row_count === 0 ? (
+                      <span className="text-slate-400">—</span>
+                    ) : (
+                      <>{l.row_count.toLocaleString()} 件</>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap text-slate-600">
+                    {l.row_count === 0 ? (
+                      <span className="text-slate-400">未取込</span>
+                    ) : (
+                      fmtImportedAt(l.imported_at)
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (!opening) onOpen(l)
+                      }}
+                      disabled={opening}
+                      className="inline-flex items-center gap-1 text-brand-700 hover:text-brand-500 disabled:opacity-50 text-sm font-medium transition-colors"
+                    >
+                      {l.row_count === 0 ? '取込へ' : '開く'}
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 // フィルタチップ（クリック可能な表示絞り込み）。active=選択状態。
 //   ⚠️ 表示上の絞り込みであり認可ではない（認可は guardFeature/API 403/RLS の3層・原則12）。
 function FilterChip({
@@ -787,6 +1111,20 @@ function FilterChip({
     >
       {children}
     </button>
+  )
+}
+
+// D108 表示: 作成者以外は操作できないことを明示する（表示のみ）。
+//   ⚠ これは UI の無効化・注記であって認可ではない。取込は API 403(not_list_owner)、
+//      削除は RLS(cl_delete_own) が別に拒否する（原則12）。⛔ その判定には触れない。
+function OwnerOnlyNotice({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 ${className}`}
+    >
+      <Lock className="w-4 h-4 shrink-0" />
+      作成者のみ操作できます
+    </div>
   )
 }
 

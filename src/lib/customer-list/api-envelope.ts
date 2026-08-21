@@ -4,9 +4,8 @@
 //   ⛔ detail / Supabase 生メッセージ / SQL / スキーマ名は一切返さない。
 //      それらは Sentry にだけ送る。
 //
-//   ※ v0（POST /api/customer-lists/import）は同等の実装を自前で持っている。
-//     本 PR では v0 を触らず（回帰リスク回避）、新ルートのみがこの共有版を使う。
-//     v0 の移行は PR-D で行う。
+//   ※ v0（POST /api/customer-lists/import）は PR-F c5 で撤去済み（410 Gone スタブ）。
+//     現行の取込は [id]/import のみで、こちらの共有版を使う。
 // ============================================================
 
 import { NextResponse } from 'next/server'
