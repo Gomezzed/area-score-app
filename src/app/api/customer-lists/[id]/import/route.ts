@@ -15,6 +15,8 @@ import {
   buildTownIndex,
   resolveMunicipalityIds,
 } from '@/lib/customer-list/match'
+import { normalizeJpAddress } from '@/lib/address/normalize-jp'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import {
   isCustomerListEnabled,
   loadMunicipalities,
@@ -54,6 +56,7 @@ type ImportStage =
   | 'loadTownData'
   | 'upsert'
   | 'missing'
+  | 'match'
   | 'finalize'
 
 // POST /api/customer-lists/[id]/import
@@ -367,6 +370,52 @@ export async function POST(
     )
   }
 
+  // ⑩ 突合結線（PR-D改 c2）: 取り込んだ全行を住所→代表点→校区に突合し、
+  //    customer_list_row_geocodes / customer_list_row_school_districts へ書く。
+  //    ⚠ 既存 2 関数は SECURITY INVOKER かつ参照表 deny-by-default のため、突合は
+  //      service_role 実行の DEFINER バッチ RPC match_customer_list_rows で回す（裁定B）。
+  //    ⚠ 住所の (muni_code_5, town, chome, ban, go) 分解は SQL 側に無いので TS で行い渡す。
+  //    ⚠ fail-soft: 突合は取込成功後の派生処理。行本体は既にコミット済みのため、ここで
+  //      失敗しても HTTP は成功のまま返し、失敗は Sentry に送って可観測にする（誤報を作らない）。
+  //      削除済み行の除外は RPC 側（deleted_at IS NULL）で担保する。
+  let matchSummary: unknown = null
+  const matchStart = performance.now()
+  try {
+    const admin = getSupabaseAdmin()
+    if (!admin) {
+      // service_role 未設定（環境差）。突合はスキップし可観測にする（取込は成功）。
+      reportImportError(new Error('supabase admin client unavailable'), {
+        requestId,
+        stage: 'match',
+        timings,
+      })
+    } else {
+      const pRows = [...plan.tracked, ...plan.untracked].map((r) => {
+        const norm = normalizeJpAddress(r.address_raw ?? '')
+        return {
+          row_id: r.id,
+          muni_code_5: norm.muniCode5,
+          town: norm.town,
+          chome: norm.chome,
+          ban: norm.ban,
+          go: norm.go,
+        }
+      })
+      const { data, error: matchErr } = await admin.rpc('match_customer_list_rows', {
+        p_list_id: listId,
+        p_rows: pRows,
+      })
+      if (matchErr) {
+        reportImportError(matchErr, { requestId, stage: 'match', timings })
+      } else {
+        matchSummary = data
+      }
+    }
+  } catch (error) {
+    reportImportError(error, { requestId, stage: 'match', timings })
+  }
+  timings.match = elapsedMsSince(matchStart)
+
   // 日付を NULL にした根拠の集計（原則1: 件数だけでも運用で気づけるようにする）。
   const dateNullRows = extracted.filter((e) => e.reasons.length > 0).length
 
@@ -385,6 +434,8 @@ export async function POST(
       date_null_rows: dateNullRows,
       missing_marked: missingMarked,
       summary,
+      // 突合バッチの集計（RPC の jsonb サマリ。未実行/失敗時は null）。
+      match: matchSummary,
       as_of_by_municipality: muniAsOf,
       requestId,
       timings,
