@@ -2,6 +2,12 @@
 //   ユニットテスト。依存ゼロ。
 //   ⛔ 顧客の生データは使わない。架空フィクスチャ（docs/specs 配下）のヘッダのみを使い、
 //      データ行はテスト内で合成する（実在の個人情報を書かない）。
+//
+//   ⚠ 方針（裁定C=案1・c6）: 72列「DM郵送希望」/ 89列「メルマガフラグ（メール営業対象者フラグ）」は
+//      CRM 実ヘッダの語義がオプトイン（希望・営業対象）のため attack-list の除外条件から外す。
+//      名実ともに禁止＝除外に使うのは 90列「メール禁止フラグ」(opt_out_mail) のみ。
+//      ただし 3 列とも「CRM フラグの ON/OFF を保持する」保存仕様は変更しない（本ファイルが検証するのは
+//      この保存＝空=OFF/非空=ON の抽出であり、除外述語は attack-list ルートの責務・DB クエリ）。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
