@@ -351,11 +351,12 @@ export default function CustomersClient() {
 
   // 一覧から名簿を開く。取込済みは詳細（アタックリスト）を、未取込（row_count=0）は
   //   取込を完了させるためアップロードステップを開く。
-  //   ⛔ preset の復元（list.preset の反映）は c3 で行う。ここでは既定にリセットする。
+  //   preset 復元（PR-F c3）: 前回取り込んだ形式を初期選択に反映する。値はサーバーが
+  //   column_mapping(v:2) から導出済み（list.preset）。未取込/レガシー保存は '' となり再選択。
   async function openList(list: ListSummary) {
     setError(null)
     setFileName('')
-    setPreset(DEFAULT_PRESET_CHOICE)
+    setPreset(list.preset)
     if (list.row_count === 0) {
       // 未取込リスト → アップロードステップで取込を完了させる（既存の2段化 UI を再利用）。
       setListName(list.name)
