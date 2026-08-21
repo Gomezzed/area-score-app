@@ -259,6 +259,36 @@ export async function markMissingRows(
   return (data ?? []).length
 }
 
+// 裁定A(a): 削除フラグ ON かつ external_id が DB 既存だった行に deleted_at を立てる。
+//   ⚠ 内容は更新しない（deleted_at 列だけを触る）。既に deleted_at が立っている行は
+//     時刻を動かさない（.is('deleted_at', null) 条件で「既設なら維持」を担保）。
+//   ⚠ 値は DB 由来の since（upsert の updated_at 最小値）を使う。tracked が無く since を
+//     作れなかった呼び出しでは呼び出し側がクライアント時刻で補う（missing と同じ流儀）。
+//   RLS（clr_update_org = 作成者本人 AND org 一致）下で実行する。list_id 一致も明示して二重に締める。
+export async function markDeletedRows(
+  supabase: SupabaseClient,
+  listId: string,
+  rowIds: readonly string[],
+  since: string,
+  chunkSize: number = UPSERT_CHUNK,
+): Promise<number> {
+  let count = 0
+  for (let i = 0; i < rowIds.length; i += chunkSize) {
+    const chunk = rowIds.slice(i, i + chunkSize)
+    if (chunk.length === 0) continue
+    const { data, error } = await supabase
+      .from('customer_list_rows')
+      .update({ deleted_at: since })
+      .eq('list_id', listId)
+      .in('id', chunk)
+      .is('deleted_at', null)
+      .select('id')
+    if (error) throw new CustomerListDbError('customer_list_rows.mark_deleted', error)
+    count += (data ?? []).length
+  }
+  return count
+}
+
 export interface RankInfo {
   rank: string | null
   // 取得優先スコア（推定・小さいほど低優先。降順ソートのタイブレークに使う）。

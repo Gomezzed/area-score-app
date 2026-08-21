@@ -47,6 +47,13 @@ export interface ExtractedRow {
   // UPSERT ペイロードには含めない（含めると PR-C の値を毎回消してしまう）。
   desired_school: string | null
   desired_muni_code_5: string | null
+  // オプトアウト3列（O55）と削除フラグ（O54）。値は「空=OFF/非空=ON」で解釈する。
+  //   プリセットが該当列を解決したときのみ true になりうる。列が無ければ常に false
+  //   （heuristic 経路・該当列を持たない CSV では全行 OFF＝列位置決め打ちをしない）。
+  opt_out_dm: boolean
+  opt_out_mail_magazine: boolean
+  opt_out_mail: boolean
+  is_deleted: boolean
   // 値を NULL にした根拠（原則1: 推定・欠損の理由を必ず残す）。
   reasons: string[]
 }
@@ -67,6 +74,19 @@ export interface ExtractOptions {
   addressColumns?: number[]
   // desired_school（マッチング小学校）の列。指定時のみ値を保持する。
   schoolColumn?: number
+  // オプトアウト/削除フラグの列（プリセット経路でのみ渡す・O54/O55）。
+  //   ⛔ 未指定なら該当フラグは全行 false（列位置決め打ちをしない）。
+  optOutDmColumn?: number
+  optOutMailMagazineColumn?: number
+  optOutMailColumn?: number
+  deletedColumn?: number
+}
+
+// フラグ列の値を ON/OFF に解釈する（空=OFF / 非空=ON）。列未指定なら常に false。
+//   ⛔ 列位置の決め打ちはしない: 呼び出し側（プリセット）が解決した index のみを見る。
+function flagOn(row: string[], idx: number | undefined): boolean {
+  if (idx == null) return false
+  return cellAt(row, idx) !== ''
 }
 
 // index 指定でセル値を読む（範囲外は空文字）。
@@ -121,6 +141,11 @@ export function extractRows(
       // desired_muni_code_5: 「マッチング市区」は市区名でありコードではない。
       //   名前→5桁コード変換（prefecture_code+name 複合キー）は PR-D で行う（原則2）。
       desired_muni_code_5: null,
+      // オプトアウト/削除フラグ（空=OFF/非空=ON）。列未指定は false。
+      opt_out_dm: flagOn(row, opts.optOutDmColumn),
+      opt_out_mail_magazine: flagOn(row, opts.optOutMailMagazineColumn),
+      opt_out_mail: flagOn(row, opts.optOutMailColumn),
+      is_deleted: flagOn(row, opts.deletedColumn),
       reasons,
     }
   })

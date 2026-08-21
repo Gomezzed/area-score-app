@@ -62,12 +62,21 @@ export async function GET(
   }
 
   // 名簿の全行を取得（RLS で自分の行のみ）。
+  //   ⛔ アタックリストから除外する条件（裁定C=案1・PR-D改 c6）:
+  //     ① deleted_at IS NOT NULL（CRM で削除された顧客・裁定A）
+  //     ② opt_out_mail = true（90列「メール禁止フラグ」＝名実ともに禁止）
+  //   ⚠ 72列「DM郵送希望」/ 89列「メール営業対象者フラグ」は CRM 実ヘッダの語義が
+  //      オプトイン（希望・営業対象）であり、ON=除外は逆効果になる。よって除外条件から外す。
+  //      3 列の保存自体（c1 のカラム・c3 の抽出）は変更しない（事実は保持し、判定のみ訂正）。
+  //   ⚠ missing_since の表示是正は本セッションのスコープ外（残件）。ここでは触らない。
   const { data: rows, error } = await supabase
     .from('customer_list_rows')
     .select(
       'id, row_no, customer_name, address_raw, match_status, municipality_id, town_name_normalized, last_contact_at, inquiry_at, media, assignee, match_candidates',
     )
     .eq('list_id', listId)
+    .is('deleted_at', null)
+    .eq('opt_out_mail', false)
   if (error) {
     return NextResponse.json({ error: 'fetch_failed' }, { status: 500 })
   }
