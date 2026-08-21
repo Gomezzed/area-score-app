@@ -274,6 +274,11 @@ export default function CustomersClient() {
   const [listsError, setListsError] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [opening, setOpening] = useState(false) // 一覧から名簿を開く際のフェッチ中フラグ
+  // 現在開いている名簿の作成者判定（D108 の表示上の操作可否）。
+  //   ⚠ これは UI ヒントであって認可ではない。取込/削除の認可は API 403(not_list_owner) と
+  //      RLS(cl_update_org / cl_delete_own) が別に担保する（原則12）。⛔ 判定ロジックには触れない。
+  //   既定 true（新規作成した名簿は本人が作成者）。一覧から開くときに list.is_owner を反映する。
+  const [currentIsOwner, setCurrentIsOwner] = useState(true)
 
   // ── 2段化（作成ステップ → アップロードステップ・PR-E）──
   //   作成で得た空リストの id を保持し、取込が失敗しても id は捨てない
@@ -357,6 +362,8 @@ export default function CustomersClient() {
     setError(null)
     setFileName('')
     setPreset(list.preset)
+    setCurrentIsOwner(list.is_owner) // D108: 作成者以外は操作ボタンを無効化する（表示のみ）
+
     if (list.row_count === 0) {
       // 未取込リスト → アップロードステップで取込を完了させる（既存の2段化 UI を再利用）。
       setListName(list.name)
@@ -389,6 +396,7 @@ export default function CustomersClient() {
     setPreset(DEFAULT_PRESET_CHOICE)
     setFileName('')
     setError(null)
+    setCurrentIsOwner(true) // 一覧へ戻る＝開いている名簿なし。既定（本人）へ戻す
     resetFilters()
     loadLists()
   }
@@ -411,6 +419,7 @@ export default function CustomersClient() {
         return
       }
       const created = await res.json()
+      setCurrentIsOwner(true) // 新規作成＝本人が作成者（D108: 操作可）
       setCreatedListId(created.id as string)
     } catch {
       setError({
@@ -679,86 +688,98 @@ export default function CustomersClient() {
                     </div>
                   </div>
 
-                  <div className="text-xs text-slate-500">
-                    取り込む CSV の形式を選び、ファイルを選択してください（何度でもやり直せます）。
-                  </div>
-                  <label className="text-xs font-medium text-slate-600">
-                    CSV の形式
-                    <select
-                      value={preset}
-                      onChange={(e) => setPreset(e.target.value as PresetChoice)}
-                      disabled={uploading}
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-slate-50"
-                    >
-                      <option value="">形式を選択してください</option>
-                      <option value="hausudo">ハウスドゥ形式（CRM標準出力）</option>
-                      <option value="other">その他のCSV（自動判定）</option>
-                    </select>
-                  </label>
-                  <label
-                    className={`inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      preset === '' || uploading
-                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                        : 'bg-brand-700 hover:bg-brand-500 text-white cursor-pointer'
-                    }`}
-                  >
-                    {uploading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    {uploading ? '取り込み中…' : 'CSV を選択'}
-                    <input
-                      type="file"
-                      accept=".csv,text/csv"
-                      className="hidden"
-                      disabled={preset === '' || uploading}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) handleUpload(f)
-                        e.target.value = '' // 同一ファイル再選択を許可
-                      }}
-                    />
-                  </label>
+                  {/* D108: 取込・削除は作成者のみ。作成者以外には操作ボタンを出さず注記だけ表示する
+                      （認可は API 403/RLS が別に担保・原則12。⛔ その判定には触れない）。*/}
+                  {currentIsOwner ? (
+                    <>
+                      <div className="text-xs text-slate-500">
+                        取り込む CSV の形式を選び、ファイルを選択してください（何度でもやり直せます）。
+                      </div>
+                      <label className="text-xs font-medium text-slate-600">
+                        CSV の形式
+                        <select
+                          value={preset}
+                          onChange={(e) => setPreset(e.target.value as PresetChoice)}
+                          disabled={uploading}
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 disabled:bg-slate-50"
+                        >
+                          <option value="">形式を選択してください</option>
+                          <option value="hausudo">ハウスドゥ形式（CRM標準出力）</option>
+                          <option value="other">その他のCSV（自動判定）</option>
+                        </select>
+                      </label>
+                      <label
+                        className={`inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          preset === '' || uploading
+                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            : 'bg-brand-700 hover:bg-brand-500 text-white cursor-pointer'
+                        }`}
+                      >
+                        {uploading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                        {uploading ? '取り込み中…' : 'CSV を選択'}
+                        <input
+                          type="file"
+                          accept=".csv,text/csv"
+                          className="hidden"
+                          disabled={preset === '' || uploading}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0]
+                            if (f) handleUpload(f)
+                            e.target.value = '' // 同一ファイル再選択を許可
+                          }}
+                        />
+                      </label>
 
-                  {/* 削除導線。既存 DELETE /api/customer-lists/[id]（二層封鎖・RLS 作成者限定）
-                      を呼ぶ。成功時のみ作成ステップへ戻す（handleDelete 内で state 初期化）。*/}
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={deleting || uploading}
-                    className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg text-sm font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {deleting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                    {deleting ? '削除中…' : 'このリストを削除'}
-                  </button>
+                      {/* 削除導線。既存 DELETE /api/customer-lists/[id]（二層封鎖・RLS 作成者限定）
+                          を呼ぶ。成功時のみ一覧へ戻す（handleDelete → backToIndex）。*/}
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleting || uploading}
+                        className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg text-sm font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {deleting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                        {deleting ? '削除中…' : 'このリストを削除'}
+                      </button>
+                    </>
+                  ) : (
+                    <OwnerOnlyNotice />
+                  )}
                 </div>
               )}
 
               {/* 再取込（毎回全件・CL-17）。既に名簿を開いているときだけ出す。
                   顧客番号のある行は同じ行を上書きし、今回の CSV に無くなった行には
-                  「消えた印」が付く。顧客番号の無い行は毎回入れ替わる。*/}
-              {data && (
-                <label className="ml-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white ring-1 ring-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium cursor-pointer transition-colors">
-                  <RefreshCw className="w-4 h-4" />
-                  最新の名簿で再取込
-                  <input
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="hidden"
-                    disabled={uploading}
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) handleReimport(f)
-                      e.target.value = '' // 同一ファイル再選択を許可
-                    }}
-                  />
-                </label>
-              )}
+                  「消えた印」が付く。顧客番号の無い行は毎回入れ替わる。
+                  D108: 再取込は作成者のみ。作成者以外は注記だけ表示する（認可は API 403 が別に担保）。*/}
+              {data &&
+                (currentIsOwner ? (
+                  <label className="ml-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white ring-1 ring-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium cursor-pointer transition-colors">
+                    <RefreshCw className="w-4 h-4" />
+                    最新の名簿で再取込
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      disabled={uploading}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) handleReimport(f)
+                        e.target.value = '' // 同一ファイル再選択を許可
+                      }}
+                    />
+                  </label>
+                ) : (
+                  <OwnerOnlyNotice className="ml-2" />
+                ))}
               {fileName && (
                 <span className="ml-3 text-xs text-slate-500">{fileName}</span>
               )}
@@ -1090,6 +1111,20 @@ function FilterChip({
     >
       {children}
     </button>
+  )
+}
+
+// D108 表示: 作成者以外は操作できないことを明示する（表示のみ）。
+//   ⚠ これは UI の無効化・注記であって認可ではない。取込は API 403(not_list_owner)、
+//      削除は RLS(cl_delete_own) が別に拒否する（原則12）。⛔ その判定には触れない。
+function OwnerOnlyNotice({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`inline-flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 ${className}`}
+    >
+      <Lock className="w-4 h-4 shrink-0" />
+      作成者のみ操作できます
+    </div>
   )
 }
 
