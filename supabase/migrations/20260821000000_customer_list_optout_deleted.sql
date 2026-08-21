@@ -26,14 +26,15 @@
 --     ⛔ 列数（174）は指紋・バリデーション条件にしない（O56）。91（メール禁止日時）は
 --        オプトアウト3列（72/89/90）に含めない裁定のため列を作らない。
 --
--- ⚠ 命名について（PM へ報告事項）:
+-- ⚠ 命名と除外方針について（裁定C=c6 で訂正済み）:
 --   3 本の BOOLEAN は「CRM 側のフラグが ON（非空）か」を **そのまま真偽で保持** する
---   （true = 当該フラグが ON）。attack-list 表示ではこの 3 本のいずれかが true の行を
---   除外する（O55・除外は c3）。値は事実の写しであり、除外の可否（表示ロジック）は
+--   （true = 当該フラグが ON）。値は事実の写しであり、除外の可否（表示ロジック）は
 --   読み取り側の責務として分離する（原則1: 保存と判定を混ぜない）。
---   ※ 72「DM郵送希望」/ 89「メール営業対象者フラグ」は語感が opt-in 寄りだが、
---     PM 裁定（O55）でこの 3 列を「オプトアウト3列＝ON なら表示除外」として束ねている。
---     本列はあくまで CRM フラグの ON/OFF を保持し、意味付け（除外）は c3 の表示側で行う。
+--   ※ 当初 O55 はこの 3 列を「オプトアウト3列＝ON なら表示除外」と束ねていたが、
+--     72「DM郵送希望」/ 89「メール営業対象者フラグ」は CRM 実ヘッダの語義がオプトイン
+--     （希望・営業対象）であり ON=除外は逆効果。よって **裁定C で attack-list の除外は
+--     90「メール禁止フラグ」(opt_out_mail) のみへ訂正済み**。72/89 は保存のみで除外に使わない。
+--     （O55 の語義訂正は Vault 側で PM が転記する。）
 --
 -- ⚠ deleted_at の運用規則（裁定A=③改・c3 が実装。ここでは列だけ用意する）:
 --   - CSV の削除フラグ ON 行:
@@ -63,14 +64,15 @@ ALTER TABLE public.customer_list_rows
   ADD COLUMN IF NOT EXISTS deleted_at            TIMESTAMPTZ;
 
 COMMENT ON COLUMN public.customer_list_rows.opt_out_dm IS
-  'O55: CSV 72列「DM郵送希望」フラグの ON/OFF（非空=ON=true / 空=OFF=false）。'
-  'true の行は attack-list 表示で除外する（除外は c3・保存と判定を分ける・原則1）。';
+  'O55/裁定C: CSV 72列「DM郵送希望」フラグの ON/OFF（非空=ON=true / 空=OFF=false）。'
+  '保存のみ。attack-list の除外条件には使わない（裁定C: ヘッダの語義がオプトイン＝希望のため、'
+  'ON=除外は逆効果）。事実（CRM フラグの ON/OFF）は保持し、除外判定には用いない。';
 COMMENT ON COLUMN public.customer_list_rows.opt_out_mail_magazine IS
-  'O55: CSV 89列「メルマガフラグ（メール営業対象者フラグ）」の ON/OFF（非空=ON=true）。'
-  'true の行は attack-list 表示で除外する（除外は c3）。';
+  'O55/裁定C: CSV 89列「メルマガフラグ（メール営業対象者フラグ）」の ON/OFF（非空=ON=true）。'
+  '保存のみ。attack-list の除外条件には使わない（裁定C: 語義がオプトイン＝営業対象のため）。';
 COMMENT ON COLUMN public.customer_list_rows.opt_out_mail IS
-  'O55: CSV 90列「メール禁止フラグ」の ON/OFF（非空=ON=true）。'
-  'true の行は attack-list 表示で除外する（除外は c3）。';
+  'O55/裁定C: CSV 90列「メール禁止フラグ」の ON/OFF（非空=ON=true）。'
+  'attack-list の除外に使う唯一の列（裁定C: 名実ともに禁止）。true の行は表示除外する（除外は c3/c6）。';
 COMMENT ON COLUMN public.customer_list_rows.deleted_at IS
   'O54（裁定A=③改）: CSV 123列「削除フラグ」ON を反映する時刻。NULL=現存。'
   'CSV 削除フラグ ON かつ external_id が DB 既存の行に now() を設定（内容は更新しない）。'

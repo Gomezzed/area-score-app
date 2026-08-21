@@ -21,14 +21,15 @@
 --     受け取る契約にする。突合キーの文字レベル正規化は既存 2 関数の内部で行われる。
 --
 -- 設計要件（裁定B）:
---   - SECURITY DEFINER + SET search_path = public を明示。
+--   - SECURITY DEFINER + SET search_path を明示（裁定B）。
 --       ⚠ 既存 2 関数は SECURITY INVOKER かつ参照表（geo_reference_points /
 --         school_districts）は deny-by-default。本関数を DEFINER（所有者＝適用者）に
 --         することで、内側の INVOKER 関数が所有者権限で参照表を読めるようになり突合が成立する。
 --         RLS を緩めるのではなく、service_role 専用の DEFINER 経由でのみ到達させる。
---       ※ 既存 DEFINER トリガー関数は `public, pg_temp` を使うが、本関数は裁定Bの明示に
---         従い `public` とする。参照は全て public. 明示修飾で、PostGIS 呼び出しは内側の
---         INVOKER 関数（自前 search_path）と生成列（OID 固定）に閉じているため解決に問題はない。
+--       ※ search_path は `public, pg_temp` とする（c7）。参照は全て public. 明示修飾だが、
+--         既存 DEFINER 関数（set_customer_list_row_org 等）の防御水準に揃え、末尾に pg_temp を
+--         明示して search_path 注入を防ぐ。PostGIS 呼び出しは内側の INVOKER 関数（自前 search_path）
+--         と生成列（OID 固定）に閉じているため解決に問題はない。
 --   - REVOKE EXECUTE を PUBLIC / anon / authenticated から行い、GRANT は service_role のみ。
 --   - fail-soft: 行単位で例外を捕捉し、失敗は failed に集計してリスト全体は止めない。
 --   - 洗い替え: 同一 list_id の既存突合行を先に DELETE してから INSERT（delete→insert）。
@@ -51,7 +52,10 @@ CREATE OR REPLACE FUNCTION public.match_customer_list_rows(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+-- 全参照は public. で修飾済みだが、既存 DEFINER 関数（set_customer_list_row_org /
+--   set_customer_list_row_geocode_owner / set_sale_prediction_log_org）の防御水準に揃え、
+--   末尾に pg_temp を明示して search_path 注入を防ぐ（DEFINER 実行時の一時オブジェクト経路の固定）。
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_elem       jsonb;
@@ -216,7 +220,7 @@ COMMIT;
 --          array_to_string(p.proconfig, ',') AS config
 --   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 --   WHERE n.nspname='public' AND p.proname='match_customer_list_rows';
---   -- 期待: security_definer=t / config に 'search_path=public' /
+--   -- 期待: security_definer=t / config に 'search_path=public, pg_temp' /
 --   --       acl に anon= も authenticated= も含まれない（service_role=X のみ）。
 --   SET ROLE anon;
 --   SELECT public.match_customer_list_rows('00000000-0000-0000-0000-000000000000', '[]'::jsonb);
