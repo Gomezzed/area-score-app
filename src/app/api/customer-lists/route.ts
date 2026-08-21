@@ -2,8 +2,70 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { guardFeature } from '@/lib/subscription'
 import { isCustomerListEnabled } from '@/lib/customer-list/server'
+import { presetChoiceFromMapping } from '@/lib/customer-list/preset-choice'
 
 export const runtime = 'nodejs'
+
+// GET /api/customer-lists
+//   org 内で共有される顧客名簿の一覧を返す（PR-F・一覧導線／SD-3 の org 共有読み取り）。
+//   返す各要素: { id, name, row_count, imported_at, is_owner, preset }
+//     - row_count  : 保存列をそのまま返す（customer_list_rows を数え直さない）。
+//     - imported_at: 「最終取込」。取込成功のたびに更新される列（初回作成日ではない・原則1）。
+//     - is_owner   : 作成者(user_id)== 現ユーザー か。⚠ これは D108 の「表示上の」操作可否に
+//        使う UI ヒントであって認可ではない。認可は RLS / API 403(not_list_owner) が別に持つ
+//        （原則12）。⛔ 生の user_id は返さない（他ユーザーの id を露出しない）。
+//     - preset     : 前回の CSV 形式選択を復元するための導出値（''/'hausudo'/'other'）。
+//        column_mapping(v:2) からサーバー側で導出して返す。⛔ 生の column_mapping（他ユーザーの
+//        CSV ヘッダ名を含む）は返さない＝データ最小化（is_owner と同じ方針）。
+//
+//   処理順は POST と同一（新ルートだけ緩い、を作らない）:
+//     ① フィーチャーフラグ（off → 404）
+//     ② guardFeature('townAcquisitionPriority')（未認証 401 / 非 platinum 403）★パラメータ検証より前
+//     ③ セッション再確認（is_owner 計算に user.id が要るため）
+//     ④ SELECT（RLS: cl_select_org が org 共有読み取りを担保。⛔ 認可は緩めない）。
+//        並びは imported_at DESC（index customer_lists_user_idx / 既定=最終取込の降順）。
+export async function GET() {
+  // ① フィーチャーフラグ（UI と二層）。off なら存在ごと 404。
+  if (!isCustomerListEnabled()) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  }
+
+  // ② platinum 認可。判定は guardFeature に一任し、返る 401/403 をそのまま返す。
+  const denied = await guardFeature('townAcquisitionPriority')
+  if (denied) return denied
+
+  // ③ セッション再確認（guardFeature 通過済だが is_owner 計算のため user.id を取る）。
+  const supabase = await createSupabaseServerClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
+  // ④ SELECT（RLS: cl_select_org＝org 共有読み取り）。user_id は is_owner の計算にのみ使い、
+  //    レスポンスには載せない。並びは imported_at 降順（最終取込の新しい順）。
+  const { data, error } = await supabase
+    .from('customer_lists')
+    .select('id, name, row_count, imported_at, user_id, column_mapping')
+    .order('imported_at', { ascending: false })
+
+  if (error) {
+    return NextResponse.json({ error: 'fetch_failed' }, { status: 500 })
+  }
+
+  const lists = (data ?? []).map((l) => ({
+    id: l.id as string,
+    name: l.name as string,
+    row_count: l.row_count as number,
+    imported_at: l.imported_at as string,
+    is_owner: l.user_id === user.id,
+    // 前回の CSV 形式選択を復元（v:2 column_mapping から導出）。⛔ 生の mapping は返さない。
+    preset: presetChoiceFromMapping(l.column_mapping),
+  }))
+
+  return NextResponse.json({ ok: true, lists })
+}
 
 // POST /api/customer-lists
 //   空の顧客名簿を1件だけ作成する（作成ステップ → アップロードステップの2段化・PR-E）。
