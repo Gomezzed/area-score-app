@@ -22,6 +22,11 @@ import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
 import type { PresetChoice } from '@/lib/customer-list/preset-choice'
+import {
+  canDeleteList,
+  describeListForDelete,
+  mapDeleteError,
+} from '@/lib/customer-list/delete-ui'
 
 // ── /api/customer-lists/[id]/attack-list のレスポンス型（サーバーと対応）──
 type MatchStatus = 'confirmed' | 'ambiguous' | 'out_of_scope'
@@ -289,6 +294,19 @@ export default function CustomersClient() {
   const [preset, setPreset] = useState<PresetChoice>(DEFAULT_PRESET_CHOICE)
   const [deleting, setDeleting] = useState(false)
 
+  // ── 削除の確認ダイアログ（O86）──
+  //   削除は必ずこのダイアログを経由する（確認ダイアログ必須・②(a) 統一）。
+  //   confirmDelete=null は非表示。対象の id/name/rowCount を保持し、ダイアログに提示する。
+  //   deleteError はダイアログ内に出す削除失敗の文言（一覧ビューには error カードが無いため
+  //   失敗はダイアログ内で見せ、ダイアログは閉じない）。
+  //   ⚠ 表示制御であって認可ではない。削除の可否は API 403/RLS が別に担保する（原則12）。
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string
+    name: string
+    rowCount: number
+  } | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
   // ── 表示上の絞り込み（フィルタチップ）の状態 ──
   // ⚠️ これは本人の自分のデータに対する表示上の絞り込みであり、プラン制御でも認可でもない。
   //    認可は guardFeature / API 403 / RLS の3層で別に行われている（原則12）。
@@ -474,29 +492,54 @@ export default function CustomersClient() {
     }
   }
 
-  // 取込未完了（row_count=0）のリストを削除する（案①・PR-E commit4）。
+  // 削除の確認ダイアログを開く（O86）。実際の削除は confirm 後の performDelete で行う。
+  //   ⛔ どの導線（一覧の行内／未取込のアップロードステップ）からもここを必ず通す
+  //      （確認ダイアログ必須・②(a) 統一）。以前の即時削除は廃止した（PM 承認済み差分）。
+  function requestDelete(target: { id: string; name: string; rowCount: number }) {
+    if (deleting || uploading) return
+    setDeleteError(null)
+    setConfirmDelete(target)
+  }
+
+  // 確認ダイアログを閉じる（キャンセル）。削除は実行しない。削除中は閉じさせない。
+  function cancelDelete() {
+    if (deleting) return
+    setConfirmDelete(null)
+    setDeleteError(null)
+  }
+
+  // 確認後に実際に削除する（O86／案①・PR-E 由来の挙動を統合）。
   //   既存の DELETE /api/customer-lists/[id]（二層封鎖済み・RLS 作成者限定）を呼ぶ。
-  //   ⛔ 削除に成功したときだけ state を初期化して作成ステップへ戻す。失敗時は state を
-  //      消さない（消せていないのに消えたと見せない）。
-  async function handleDelete() {
-    if (!createdListId || deleting || uploading) return
-    setError(null)
+  //   ⛔ 削除に成功したときだけ一覧へ戻して再取得する。失敗時はダイアログを閉じず、
+  //      ダイアログ内に理由を出す（消せていないのに消えたと見せない）。
+  async function performDelete() {
+    const target = confirmDelete
+    if (!target || deleting) return
+    setDeleteError(null)
     setDeleting(true)
     try {
-      const res = await fetch(`/api/customer-lists/${createdListId}`, {
+      const res = await fetch(`/api/customer-lists/${target.id}`, {
         method: 'DELETE',
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        setError(buildFailure(body, res.status))
+        const b = (body ?? {}) as Record<string, unknown>
+        // 削除の失敗はダイアログ内に出す（一覧ビューには error カードが無いため）。
+        setDeleteError(mapDeleteError(b.error, res.status))
         return
       }
-      // 削除成功 → 一覧へ戻す（一覧を再取得して件数・最終取込を最新化する）。
-      backToIndex()
+      // 削除成功 → ダイアログを閉じ、一覧を最新化する。
+      setConfirmDelete(null)
+      if (data?.id === target.id || createdListId === target.id) {
+        // いま開いている名簿（詳細／未取込アップロード）を消した → 一覧へ戻る（再取得込み）。
+        backToIndex()
+      } else {
+        // 一覧の行内から消した → その場で楽観的に除去しつつ一覧を再取得する。
+        setLists((cur) => (cur ? cur.filter((l) => l.id !== target.id) : cur))
+        loadLists()
+      }
     } catch {
-      setError({
-        message: 'リストの削除に失敗しました。時間をおいて再度お試しください。',
-      })
+      setDeleteError('リストの削除に失敗しました。時間をおいて再度お試しください。')
     } finally {
       setDeleting(false)
     }
@@ -615,6 +658,7 @@ export default function CustomersClient() {
             }}
             onOpen={openList}
             onReload={loadLists}
+            onRequestDelete={requestDelete}
           />
         ) : (
           <>
@@ -734,20 +778,23 @@ export default function CustomersClient() {
                         />
                       </label>
 
-                      {/* 削除導線。既存 DELETE /api/customer-lists/[id]（二層封鎖・RLS 作成者限定）
-                          を呼ぶ。成功時のみ一覧へ戻す（handleDelete → backToIndex）。*/}
+                      {/* 削除導線（O86）。確認ダイアログを必ず経由する（②(a) 統一）。
+                          実削除は performDelete → 既存 DELETE /api/customer-lists/[id]
+                          （二層封鎖・RLS 作成者限定）。成功時のみ一覧へ戻す。*/}
                       <button
                         type="button"
-                        onClick={handleDelete}
+                        onClick={() =>
+                          requestDelete({
+                            id: createdListId,
+                            name: listName.trim() || '顧客名簿',
+                            rowCount: 0,
+                          })
+                        }
                         disabled={deleting || uploading}
                         className="inline-flex items-center gap-2 self-start px-3 py-1.5 rounded-lg text-sm font-medium text-rose-700 ring-1 ring-rose-300 hover:bg-rose-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {deleting ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                        {deleting ? '削除中…' : 'このリストを削除'}
+                        <Trash2 className="w-4 h-4" />
+                        このリストを削除
                       </button>
                     </>
                   ) : (
@@ -864,6 +911,108 @@ export default function CustomersClient() {
           </>
         )}
       </main>
+
+      {/* 削除の確認ダイアログ（O86・確認ダイアログ必須）。リスト名・件数・取り消し不可を明示し、
+          削除中はボタンを無効化する。失敗はダイアログ内に出し、ダイアログは閉じない。*/}
+      {confirmDelete && (
+        <ConfirmDeleteDialog
+          target={confirmDelete}
+          deleting={deleting}
+          error={deleteError}
+          onCancel={cancelDelete}
+          onConfirm={performDelete}
+        />
+      )}
+    </div>
+  )
+}
+
+// 削除の確認ダイアログ（O86）。リスト名・件数ラベル・「この操作は取り消せません」を提示する。
+//   削除中は両ボタンを無効化し、オーバーレイ／Esc での誤クローズも抑止する（実行中の取り消し防止）。
+//   ⚠ これは確認 UI であって認可ではない。削除の可否は API 403/RLS が担保する（原則12）。
+function ConfirmDeleteDialog({
+  target,
+  deleting,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  target: { id: string; name: string; rowCount: number }
+  deleting: boolean
+  error: string | null
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const { name, rowsLabel } = describeListForDelete(target)
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-dialog-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      onClick={() => {
+        if (!deleting) onCancel()
+      }}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-50">
+            <Trash2 className="h-4 w-4 text-rose-600" />
+          </div>
+          <div className="min-w-0">
+            <h2 id="delete-dialog-title" className="text-base font-bold text-slate-900">
+              このリストを削除しますか？
+            </h2>
+            <dl className="mt-3 space-y-1 text-sm">
+              <div className="flex gap-2">
+                <dt className="shrink-0 text-slate-500">リスト名</dt>
+                <dd className="min-w-0 break-words font-medium text-slate-900">{name}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="shrink-0 text-slate-500">件数</dt>
+                <dd className="tabular-nums text-slate-900">{rowsLabel}</dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-sm font-medium text-rose-700">
+              この操作は取り消せません。
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={deleting}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 ring-1 ring-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={deleting}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {deleting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+            {deleting ? '削除中…' : '削除する'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -949,6 +1098,7 @@ function ListIndex({
   onNew,
   onOpen,
   onReload,
+  onRequestDelete,
 }: {
   lists: ListSummary[] | null
   error: string | null
@@ -956,6 +1106,7 @@ function ListIndex({
   onNew: () => void
   onOpen: (list: ListSummary) => void
   onReload: () => void
+  onRequestDelete: (target: { id: string; name: string; rowCount: number }) => void
 }) {
   return (
     <div>
@@ -1064,18 +1215,41 @@ function ListIndex({
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-right">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!opening) onOpen(l)
-                      }}
-                      disabled={opening}
-                      className="inline-flex items-center gap-1 text-brand-700 hover:text-brand-500 disabled:opacity-50 text-sm font-medium transition-colors"
-                    >
-                      {l.row_count === 0 ? '取込へ' : '開く'}
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
+                    <div className="inline-flex items-center gap-1">
+                      {/* 削除（O86）。作成者本人（is_owner）のときだけ出す＝表示上のヒント。
+                          認可は API 403/RLS が別に担保する（原則12）。行クリック（開く）へ
+                          伝播させないため stopPropagation。実削除は確認ダイアログ経由。*/}
+                      {canDeleteList(l.is_owner) && (
+                        <button
+                          type="button"
+                          aria-label={`「${l.name}」を削除`}
+                          title="このリストを削除"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onRequestDelete({
+                              id: l.id,
+                              name: l.name,
+                              rowCount: l.row_count,
+                            })
+                          }}
+                          className="inline-flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!opening) onOpen(l)
+                        }}
+                        disabled={opening}
+                        className="inline-flex items-center gap-1 text-brand-700 hover:text-brand-500 disabled:opacity-50 text-sm font-medium transition-colors"
+                      >
+                        {l.row_count === 0 ? '取込へ' : '開く'}
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
