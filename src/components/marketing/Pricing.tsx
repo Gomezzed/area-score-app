@@ -37,6 +37,7 @@ const PLANS: PricingPlan[] = [
     features: [
       { label: '上位3エリアの閲覧のみ' },
       { label: '人口推移グラフ' },
+      { label: '駅データ（市区町村の合計）' },
     ],
     cta: { label: '無料で始める', href: '/register?plan=free' },
   },
