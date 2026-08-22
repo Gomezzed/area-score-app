@@ -256,7 +256,7 @@ export const BETA_PLANS: BetaPlan[] = [
     name: 'Free',
     betaPriceLabel: '¥0',
     regularPriceLabel: null,
-    features: ['上位3エリアの閲覧のみ'],
+    features: ['上位3エリアの閲覧のみ', '人口推移グラフ', '駅データ（市区町村の合計）'],
   },
   {
     id: 'starter',
@@ -291,8 +291,10 @@ export const BETA_PLANS: BetaPlan[] = [
     regularPriceLabel: '¥300,000',
     features: [
       'Standard の全機能',
+      '町域 仕入れ優先度（注目TOP20）',
       'エリア比較',
       '商圏レポート',
+      'アラート機能（近日提供）',
       'Slack / Zoom サポート',
       'PDFロゴ対応',
     ],
