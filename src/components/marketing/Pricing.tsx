@@ -96,6 +96,9 @@ export function Pricing() {
           <p className="text-brand-700 text-sm mt-4">
             2026年9月30日までにご契約いただいた価格は、<Br />契約継続中ずっと据え置き。今後の通常価格改定の影響を受けません。
           </p>
+          <p className="text-slate-500 text-xs mt-3">
+            ※ご解約後に再契約された場合、またはプランを変更された場合は、その時点の通常価格が適用されます。
+          </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4 items-stretch">
