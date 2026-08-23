@@ -34,17 +34,17 @@ const ROWS: { label: string; value: string }[] = [
     label: '商品代金以外の必要料金',
     value: '消費税。インターネット接続にかかる通信料等はお客様のご負担となります。',
   },
-  { label: '支払方法', value: 'クレジットカード決済（Stripe）' },
+  { label: '支払方法', value: 'クレジットカード決済（Stripe）または銀行振込' },
   {
     label: '支払時期',
     value:
-      '初回: お申し込み時に決済。以降: 契約更新日に自動決済（毎月）。',
+      'クレジットカード決済の場合＝初回はお申し込み時に決済、以降は契約更新日に自動決済（毎月）。銀行振込の場合＝請求書に記載の期日までにお支払いください。',
   },
   { label: 'サービスの提供時期', value: '決済完了後、直ちにご利用いただけます。' },
   {
     label: '解約について',
     value:
-      'アカウント設定内のカスタマーポータル（Stripe Customer Portal）より、いつでも解約手続きが可能です。解約後も、当該請求期間の末日までサービスをご利用いただけます。',
+      'アカウント設定内のカスタマーポータル（Stripe Customer Portal）より、いつでも解約手続きが可能です。解約後も、当該請求期間の末日までサービスをご利用いただけます。銀行振込によるご契約の解約は、お問い合わせ窓口（メール）までご連絡ください。',
   },
   {
     label: '返金について',
@@ -55,7 +55,7 @@ const ROWS: { label: string; value: string }[] = [
 
 export default function TokushohoPage() {
   return (
-    <LegalShell title="特定商取引法に基づく表記" established="2026年6月11日 制定／2026年8月5日 改定">
+    <LegalShell title="特定商取引法に基づく表記" established="制定：2026年6月11日／最終改定：2026年8月25日">
       <div className="overflow-hidden rounded-xl border border-slate-200">
         <table className="w-full table-fixed border-collapse text-[15px]">
           <tbody>
