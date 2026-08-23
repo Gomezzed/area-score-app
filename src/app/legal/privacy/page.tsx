@@ -16,7 +16,7 @@ const td = 'text-slate-700 px-3 sm:px-4 py-2.5 border-b border-slate-200 leading
 
 export default function PrivacyPage() {
   return (
-    <LegalShell title="プライバシーポリシー" established="制定：2026年6月11日／最終改定：2026年8月25日">
+    <LegalShell title="プライバシーポリシー" established="制定：2026年6月11日／最終改定：2026年8月23日">
       <LegalParagraph>
         Crouching Style（以下「当方」といいます）は、当方が提供する「エリアスコア」（以下「本サービス」といいます）における個人情報の取扱いについて、以下のとおりプライバシーポリシーを定めます。
       </LegalParagraph>
@@ -274,7 +274,7 @@ export default function PrivacyPage() {
         <ul className={ul}>
           <li>2026年6月11日 制定</li>
           <li>2026年8月5日 改定</li>
-          <li>2026年8月25日 改定（顧客名簿の取扱い、業務委託先と外国における取扱い、保有期間、安全管理措置の具体化ほか全面改訂）</li>
+          <li>2026年8月23日 改定（顧客名簿の取扱い、業務委託先と外国における取扱い、保有期間、安全管理措置の具体化ほか全面改訂）</li>
         </ul>
       </section>
     </LegalShell>
