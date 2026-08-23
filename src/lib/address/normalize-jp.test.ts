@@ -179,9 +179,10 @@ test('PoC移植: 文字列以外・null・undefined は invalid（例外を投�
   }
 })
 
-// ── 追加回帰: 8市一般化 ────────────────────────────────────────────────
-test('8市すべてが正しい muni_code_5 へ解決される', () => {
-  assert.equal(TARGET_MUNICIPALITIES.length, 8)
+// ── 追加回帰: 対象自治体一般化（D135 で 32 件へ拡張）─────────────────────
+test('対象自治体すべてが正しい muni_code_5 へ解決される', () => {
+  // 既存8 + D135(愛知6市 + 名古屋16区 + 東郷町 2表記) = 32。
+  assert.equal(TARGET_MUNICIPALITIES.length, 32)
   for (const m of TARGET_MUNICIPALITIES) {
     const r = normalizeJpAddress(`${m.prefName}${m.muniName}中町1丁目2番3号`)
     assert.equal(r.status, 'normalized', m.muniName)
@@ -189,6 +190,35 @@ test('8市すべてが正しい muni_code_5 へ解決される', () => {
     assert.equal(r.prefCode, m.prefCode, m.muniName)
     assert.equal(r.town, '中町', m.muniName)
   }
+})
+
+// ── D135 回帰: 名古屋16区（案A）は区コードへ、東郷町は郡名有無どちらでも解決 ──
+test('名古屋市の行政区は区コード（案A）へ解決される', () => {
+  const chikusa = normalizeJpAddress('愛知県名古屋市千種区中町1丁目2番3号')
+  assert.equal(chikusa.status, 'normalized')
+  assert.equal(chikusa.muniCode5, '23101')
+  assert.equal(chikusa.municipality, '名古屋市千種区')
+  assert.equal(chikusa.town, '中町')
+
+  // 中区 と 中村区 を取り違えない（最長一致）。
+  const naka = normalizeJpAddress('愛知県名古屋市中区栄3丁目1番1号')
+  assert.equal(naka.status, 'normalized')
+  assert.equal(naka.muniCode5, '23106')
+  assert.equal(naka.town, '栄')
+
+  const nakamura = normalizeJpAddress('愛知県名古屋市中村区名駅1丁目1番1号')
+  assert.equal(nakamura.status, 'normalized')
+  assert.equal(nakamura.muniCode5, '23105')
+})
+
+test('東郷町は郡名の有無どちらの表記でも 23302 へ解決される', () => {
+  const withGun = normalizeJpAddress('愛知県愛知郡東郷町大字春木1番地')
+  assert.equal(withGun.status, 'normalized')
+  assert.equal(withGun.muniCode5, '23302')
+
+  const withoutGun = normalizeJpAddress('愛知県東郷町春木1番地')
+  assert.equal(withoutGun.status, 'normalized')
+  assert.equal(withoutGun.muniCode5, '23302')
 })
 
 test('都道府県を省略しても8市は一意に解決される（現辞書に同名衝突なし）', () => {
@@ -199,8 +229,10 @@ test('都道府県を省略しても8市は一意に解決される（現辞書�
   assert.equal(r.go, '1')
 })
 
-test('対象8市以外の市区町村は out_of_scope（断定しない）', () => {
-  for (const raw of ['愛知県名古屋市中区栄3丁目1番1号', '東京都府中市宮西町2丁目24番']) {
+test('対象外の市区町村は out_of_scope（断定しない）', () => {
+  // 名古屋市中区は D135 で対象入り（23106）したため、対象外例からは外した。
+  // 府中市（東京都/広島県）は非対象のまま。刈谷市の隣接だが未対象の東浦町も out_of_scope。
+  for (const raw of ['東京都府中市宮西町2丁目24番', '愛知県知多郡東浦町大字緒川1番地']) {
     const r = normalizeJpAddress(raw)
     assert.equal(r.status, 'out_of_scope', raw)
     assert.equal(r.muniCode5, null, raw)
