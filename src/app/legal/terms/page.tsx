@@ -10,7 +10,7 @@ const ol = 'list-decimal pl-5 space-y-1.5 text-[15px] text-slate-700 leading-rel
 
 export default function TermsPage() {
   return (
-    <LegalShell title="利用規約" established="制定：2026年6月11日／最終改定：2026年8月25日">
+    <LegalShell title="利用規約" established="制定：2026年6月11日／最終改定：2026年8月23日">
       <LegalParagraph>
         この利用規約(以下「本規約」といいます)は、Crouching Style（以下「当方」といいます）が提供する地域分析サービス「エリアスコア」（以下「本サービス」といいます）の利用条件を定めるものです。利用者は、本規約に同意のうえ本サービスを利用するものとします。
       </LegalParagraph>

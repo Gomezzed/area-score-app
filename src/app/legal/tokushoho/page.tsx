@@ -55,7 +55,7 @@ const ROWS: { label: string; value: string }[] = [
 
 export default function TokushohoPage() {
   return (
-    <LegalShell title="特定商取引法に基づく表記" established="制定：2026年6月11日／最終改定：2026年8月25日">
+    <LegalShell title="特定商取引法に基づく表記" established="制定：2026年6月11日／最終改定：2026年8月23日">
       <div className="overflow-hidden rounded-xl border border-slate-200">
         <table className="w-full table-fixed border-collapse text-[15px]">
           <tbody>
