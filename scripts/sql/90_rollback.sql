@@ -32,6 +32,8 @@ INSERT INTO m1_11_roster (email, corp_name) VALUES
 --     (organization_id, user_id, role) をそのまま下記 VALUES に貼ること。
 --     貼らなければ個人 org の復元はできない（紐付け情報は RETURNING だけが持つ）。
 --   role を復元する逆 INSERT（裁定2 ③）。冪等（ON CONFLICT DO NOTHING）。
+--   ★ role は 25 の RETURNING 実値を貼ること（個人 org は 'owner' が既定だが、
+--     手作業で変更された行など owner/member が混在し得る。ダミーの 'owner' に丸めない）。
 -- =====================================================================
 -- ↓↓↓ ここに 25 の RETURNING 出力を貼る（下記1行は example のダミー・要差し替え）↓↓↓
 INSERT INTO public.organization_members (organization_id, user_id, role)

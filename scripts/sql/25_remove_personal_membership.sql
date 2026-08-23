@@ -33,7 +33,7 @@ INSERT INTO m1_11_roster (email, corp_name) VALUES
 -- ─────────────────────────────────────────────────────────────────────
 
 -- (D1) ① 削除対象を先に提示（副作用なし）。この一覧が想定どおりか PM が確認してから DELETE。
-\echo '=== (D1) 削除対象の個人 org membership（削除前プレビュー） ==='
+-- === (D1) 削除対象の個人 org membership（削除前プレビュー） ===
 SELECT o.id AS organization_id, u.id AS user_id, om.role,
        r.email, o.name AS personal_org_name
 FROM m1_11_roster r
@@ -51,25 +51,26 @@ ORDER BY r.email;
 
 -- (D2) ② 実削除。対応表結合を必須にし（⑤）、個人 org の membership のみ（④ organizations は消さない）、
 --        法人所属済みの人だけ（stranding 防止）。RETURNING で削除行を必ず出力する。
-BEGIN;
+--   ⚠ 単文の data-modifying CTE なので、それ自体が原子的でトランザクション不要。
+--     削除行の出力（90 の唯一の rollback 材料）が呼び出しの最終結果として確実に返る。
+WITH del AS (
+  DELETE FROM public.organization_members om
+  USING m1_11_roster r,
+        auth.users u,
+        public.organizations o
+  WHERE lower(u.email) = lower(r.email)      -- ⑤ 対応表→user の必須結合（既存ユーザーを除外）
+    AND om.user_id = u.id
+    AND o.id = om.organization_id
+    AND o.is_personal = true                  -- 個人 org の membership のみ
+    AND EXISTS (                              -- 安全弁: 法人 org に既に所属している人のみ
+      SELECT 1
+      FROM public.organization_members omc
+      JOIN public.organizations oc ON oc.id = omc.organization_id
+      WHERE omc.user_id = u.id AND oc.is_personal = false AND oc.name = r.corp_name
+    )
+  RETURNING om.organization_id, om.user_id, om.role
+)
+SELECT * FROM del;
 
-DELETE FROM public.organization_members om
-USING m1_11_roster r,
-      auth.users u,
-      public.organizations o
-WHERE lower(u.email) = lower(r.email)      -- ⑤ 対応表→user の必須結合（既存ユーザーを除外）
-  AND om.user_id = u.id
-  AND o.id = om.organization_id
-  AND o.is_personal = true                  -- 個人 org の membership のみ
-  AND EXISTS (                              -- 安全弁: 法人 org に既に所属している人のみ
-    SELECT 1
-    FROM public.organization_members omc
-    JOIN public.organizations oc ON oc.id = omc.organization_id
-    WHERE omc.user_id = u.id AND oc.is_personal = false AND oc.name = r.corp_name
-  )
-RETURNING om.organization_id, om.user_id, om.role;
-
-COMMIT;
-
--- ★上の RETURNING が出力した (organization_id, user_id, role) を控え、
+-- ★上の SELECT で出力された (organization_id, user_id, role) を控え、
 --   90_rollback.sql の (R1) VALUES ブロックへ貼ること（個人 org 復元の唯一の材料）。

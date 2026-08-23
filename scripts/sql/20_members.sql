@@ -13,7 +13,8 @@
 --
 -- 実行者: PM が Supabase コネクタ（service_role 文脈）で実行。
 -- 注意:
---   - role は既存慣習に合わせ 'owner'（RLS は role 非依存。調整可）。
+--   - role は 'member'（PM 裁定）。CHECK (role IN ('owner','admin','member')) で許容を実読確認済み
+--     （20260814100000_step1_create_organizations.sql）。RLS は role 非依存。
 --   - auth.users に存在しないメールは JOIN で除外＝昇格されない（40 で欠落として検出）。
 --   - ⛔ 破壊的操作なし（追加のみ）。
 -- =====================================================================
@@ -29,9 +30,9 @@ INSERT INTO m1_11_roster (email, corp_name) VALUES
 
 BEGIN;
 
--- 対象ユーザーを法人 org（is_personal=false・name 一致）へ owner として追加。
+-- 対象ユーザーを法人 org（is_personal=false・name 一致）へ member として追加。
 INSERT INTO public.organization_members (organization_id, user_id, role)
-SELECT o.id, u.id, 'owner'
+SELECT o.id, u.id, 'member'
 FROM m1_11_roster r
 JOIN auth.users u          ON lower(u.email) = lower(r.email)
 JOIN public.organizations o ON o.name = r.corp_name AND o.is_personal = false
@@ -40,7 +41,7 @@ ON CONFLICT (organization_id, user_id) DO NOTHING;
 COMMIT;
 
 -- 確認: 対象ユーザーが法人 org に所属できているか（1 なら OK）。
-\echo '=== 法人 org 所属の付与後状態（corp_membership=1 が期待） ==='
+-- === 法人 org 所属の付与後状態（corp_membership=1 が期待） ===
 SELECT r.email, r.corp_name,
   (SELECT count(*) FROM public.organization_members om
      JOIN public.organizations o ON o.id = om.organization_id

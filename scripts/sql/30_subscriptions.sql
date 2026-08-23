@@ -67,7 +67,7 @@ ON CONFLICT (user_id) DO UPDATE SET
 COMMIT;
 
 -- 確認: 対象ユーザーが platinum/active になっているか。
-\echo '=== コンプ付与後の対象ユーザー状態（platinum/active が期待） ==='
+-- === コンプ付与後の対象ユーザー状態（platinum/active が期待） ===
 SELECT r.email, s.plan, s.status,
        s.stripe_customer_id, s.stripe_subscription_id,
        s.current_period_end, s.cancel_at_period_end, s.organization_id

@@ -39,7 +39,7 @@ WHERE NOT EXISTS (
 COMMIT;
 
 -- 確認: 対応表の全法人が is_personal=false で1件ずつ存在すること。
-\echo '=== 法人 org の作成後状態（各 corp_name が 1 件であること） ==='
+-- === 法人 org の作成後状態（各 corp_name が 1 件であること） ===
 SELECT r.corp_name,
        (SELECT count(*) FROM public.organizations o
         WHERE o.name = r.corp_name AND o.is_personal = false) AS corp_org_count

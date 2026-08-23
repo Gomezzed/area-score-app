@@ -24,7 +24,7 @@ INSERT INTO m1_11_roster (email, corp_name) VALUES
   -- ここに残り32行を追加（合計34行）
 -- ─────────────────────────────────────────────────────────────────────
 
-\echo '=== (V1) ★対応表メールのうち auth.users に存在しないもの（空が合格） ==='
+-- === (V1) ★対応表メールのうち auth.users に存在しないもの（空が合格） ===
 SELECT r.email, r.corp_name
 FROM m1_11_roster r
 WHERE NOT EXISTS (
@@ -32,7 +32,7 @@ WHERE NOT EXISTS (
 )
 ORDER BY r.email;
 
-\echo '=== (V2) プラン判定が platinum になる人数（status/plan の判定条件で数える） ==='
+-- === (V2) プラン判定が platinum になる人数（status/plan の判定条件で数える） ===
 --   判定条件は current_user_plan() / getUserPlan と同一（status ∈ active/past_due かつ plan=platinum）。
 SELECT
   (SELECT count(*) FROM m1_11_roster r
@@ -42,7 +42,7 @@ SELECT
      JOIN public.subscriptions s ON s.user_id = u.id
      WHERE s.status IN ('active','past_due') AND s.plan = 'platinum')      AS platinum_ok;
 
-\echo '=== (V2b) platinum 判定にならない対象ユーザー（空が合格） ==='
+-- === (V2b) platinum 判定にならない対象ユーザー（空が合格） ===
 SELECT r.email,
        COALESCE(s.plan, '(no row)')   AS plan,
        COALESCE(s.status, '(no row)') AS status
@@ -54,7 +54,7 @@ WHERE s.user_id IS NULL
    OR s.status NOT IN ('active','past_due')
 ORDER BY r.email;
 
-\echo '=== (V3) 法人 org ごとの members 数 ==='
+-- === (V3) 法人 org ごとの members 数 ===
 SELECT o.name AS corp_org, count(om.user_id) AS members
 FROM public.organizations o
 LEFT JOIN public.organization_members om ON om.organization_id = o.id
@@ -63,14 +63,14 @@ WHERE o.is_personal = false
 GROUP BY o.name
 ORDER BY o.name;
 
-\echo '=== (V4) ★対象34名の個人 org membership 残数（0 が合格） ==='
+-- === (V4) ★対象34名の個人 org membership 残数（0 が合格） ===
 SELECT count(*) AS personal_memberships_remaining
 FROM m1_11_roster r
 JOIN auth.users u ON lower(u.email) = lower(r.email)
 JOIN public.organization_members om ON om.user_id = u.id
 JOIN public.organizations o ON o.id = om.organization_id AND o.is_personal = true;
 
-\echo '=== (V4b) （残っている場合の内訳） ==='
+-- === (V4b) （残っている場合の内訳） ===
 SELECT r.email, o.id AS personal_org_id, o.name AS personal_org_name
 FROM m1_11_roster r
 JOIN auth.users u ON lower(u.email) = lower(r.email)

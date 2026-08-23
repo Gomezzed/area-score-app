@@ -28,7 +28,7 @@ INSERT INTO m1_11_roster (email, corp_name) VALUES
   -- ここに残り32行を追加（合計34行）
 -- ─────────────────────────────────────────────────────────────────────
 
-\echo '=== (S1) 全体カウント（org / members / subscriptions） ==='
+-- === (S1) 全体カウント（org / members / subscriptions） ===
 SELECT
   (SELECT count(*) FROM public.organizations)                              AS org_total,
   (SELECT count(*) FROM public.organizations WHERE is_personal)            AS org_personal,
@@ -36,13 +36,13 @@ SELECT
   (SELECT count(*) FROM public.organization_members)                       AS members_total,
   (SELECT count(*) FROM public.subscriptions)                              AS subs_total;
 
-\echo '=== (S1b) subscriptions プラン別内訳 ==='
+-- === (S1b) subscriptions プラン別内訳 ===
 SELECT plan, status, count(*) AS n
 FROM public.subscriptions
 GROUP BY plan, status
 ORDER BY plan, status;
 
-\echo '=== (S2) 対応表の解決状況（roster 行数 / 実在ユーザー数 / 欠落数） ==='
+-- === (S2) 対応表の解決状況（roster 行数 / 実在ユーザー数 / 欠落数） ===
 SELECT
   (SELECT count(*) FROM m1_11_roster)                                      AS roster_rows,
   (SELECT count(*) FROM m1_11_roster r
@@ -51,7 +51,7 @@ SELECT
      WHERE NOT EXISTS (SELECT 1 FROM auth.users u
                        WHERE lower(u.email) = lower(r.email)))             AS missing_users;
 
-\echo '=== (S2b) ★auth.users に存在しない対応表メール（昇格せず一覧提示・勝手に作成しない） ==='
+-- === (S2b) ★auth.users に存在しない対応表メール（昇格せず一覧提示・勝手に作成しない） ===
 SELECT r.email, r.corp_name
 FROM m1_11_roster r
 WHERE NOT EXISTS (
@@ -59,7 +59,7 @@ WHERE NOT EXISTS (
 )
 ORDER BY r.email;
 
-\echo '=== (S3) 対象ユーザーの現状（現プラン / 個人org所属数 / 法人org所属数） ==='
+-- === (S3) 対象ユーザーの現状（現プラン / 個人org所属数 / 法人org所属数） ===
 SELECT
   r.email,
   r.corp_name,
@@ -76,7 +76,7 @@ JOIN auth.users u ON lower(u.email) = lower(r.email)
 LEFT JOIN public.subscriptions s ON s.user_id = u.id
 ORDER BY r.corp_name, r.email;
 
-\echo '=== (S4) ★abort 条件: 対象ユーザーの個人 org 配下 customer_lists 件数（0 でなければ適用中止） ==='
+-- === (S4) ★abort 条件: 対象ユーザーの個人 org 配下 customer_lists 件数（0 でなければ適用中止） ===
 SELECT count(*) AS customer_lists_under_personal_org
 FROM public.customer_lists cl
 WHERE cl.organization_id IN (
@@ -87,7 +87,7 @@ WHERE cl.organization_id IN (
   JOIN public.organizations o ON o.id = om.organization_id AND o.is_personal
 );
 
-\echo '=== (S4b) （S4 が 0 でない場合の内訳: どのリストが対象か） ==='
+-- === (S4b) （S4 が 0 でない場合の内訳: どのリストが対象か） ===
 SELECT cl.id AS customer_list_id, cl.name, cl.organization_id
 FROM public.customer_lists cl
 WHERE cl.organization_id IN (
@@ -99,7 +99,7 @@ WHERE cl.organization_id IN (
 )
 ORDER BY cl.organization_id, cl.name;
 
-\echo '=== (S5) 法人 org の存在確認（10 で作成予定。既存なら作らない） ==='
+-- === (S5) 法人 org の存在確認（10 で作成予定。既存なら作らない） ===
 SELECT DISTINCT
   r.corp_name,
   EXISTS (SELECT 1 FROM public.organizations o
