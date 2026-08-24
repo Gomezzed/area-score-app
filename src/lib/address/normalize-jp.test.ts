@@ -179,10 +179,10 @@ test('PoC移植: 文字列以外・null・undefined は invalid（例外を投�
   }
 })
 
-// ── 追加回帰: 対象自治体一般化（D135 で 32 件へ拡張）─────────────────────
+// ── 追加回帰: 対象自治体一般化（D135 で 32 件、D140 で 34 件へ拡張）──────────
 test('対象自治体すべてが正しい muni_code_5 へ解決される', () => {
-  // 既存8 + D135(愛知6市 + 名古屋16区 + 東郷町 2表記) = 32。
-  assert.equal(TARGET_MUNICIPALITIES.length, 32)
+  // 既存8 + D135(愛知6市 + 名古屋16区 + 東郷町 2表記) = 32、+ D140(豊川市 + 日進市) = 34。
+  assert.equal(TARGET_MUNICIPALITIES.length, 34)
   for (const m of TARGET_MUNICIPALITIES) {
     const r = normalizeJpAddress(`${m.prefName}${m.muniName}中町1丁目2番3号`)
     assert.equal(r.status, 'normalized', m.muniName)
@@ -219,6 +219,20 @@ test('東郷町は郡名の有無どちらの表記でも 23302 へ解決され�
   const withoutGun = normalizeJpAddress('愛知県東郷町春木1番地')
   assert.equal(withoutGun.status, 'normalized')
   assert.equal(withoutGun.muniCode5, '23302')
+})
+
+// ── D140 回帰: 豊川市(23207)・日進市(23230) は代表点のみ追加（学校区は対象外）──
+//    コードは ISJ 愛知 位置参照情報(23000-19.0b)から実測して確定。
+test('豊川市・日進市が正しい muni_code_5 へ解決される（D140）', () => {
+  const toyokawa = normalizeJpAddress('愛知県豊川市中町1丁目2番3号')
+  assert.equal(toyokawa.status, 'normalized')
+  assert.equal(toyokawa.muniCode5, '23207')
+  assert.equal(toyokawa.municipality, '豊川市')
+
+  const nisshin = normalizeJpAddress('愛知県日進市中町1丁目2番3号')
+  assert.equal(nisshin.status, 'normalized')
+  assert.equal(nisshin.muniCode5, '23230')
+  assert.equal(nisshin.municipality, '日進市')
 })
 
 test('都道府県を省略しても8市は一意に解決される（現辞書に同名衝突なし）', () => {
