@@ -81,6 +81,9 @@ export const TARGET_MUNICIPALITIES: ReadonlyArray<TargetMunicipality> = [
   // ── D135 追加: 東郷町（郡名の有無で表記が割れるため両表記を登録して吸収）──
   { muniCode5: '23302', prefCode: '23', prefName: '愛知県', muniName: '愛知郡東郷町' },
   { muniCode5: '23302', prefCode: '23', prefName: '愛知県', muniName: '東郷町' },
+  // ── D140（2026-08-24）豊川・日進 追加（代表点のみ。学校区は対象外）──
+  { muniCode5: '23207', prefCode: '23', prefName: '愛知県', muniName: '豊川市' },
+  { muniCode5: '23230', prefCode: '23', prefName: '愛知県', muniName: '日進市' },
 ]
 
 // 市区町村名 → 候補（同名市が複数県にある場合に備え配列で保持する）。
