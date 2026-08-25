@@ -118,6 +118,9 @@ COMMENT ON FUNCTION public.get_school_district_heatmap(uuid, text, text) IS
 -- (新規 public RPC は anon にも自動で EXECUTE が付くため anon を明示的に REVOKE する)
 -- ⛔ service_role には GRANT しない(RLS バイパス経路を作らない)。
 REVOKE ALL ON FUNCTION public.get_school_district_heatmap(uuid, text, text) FROM PUBLIC, anon;
+-- Supabase の ALTER DEFAULT PRIVILEGES が新規 public 関数へ service_role の EXECUTE を
+-- 自動付与するため、明示的に剥がす（「GRANT しない」だけでは付いたままになる・8/25 実測）。
+REVOKE ALL ON FUNCTION public.get_school_district_heatmap(uuid, text, text) FROM service_role;
 GRANT EXECUTE ON FUNCTION public.get_school_district_heatmap(uuid, text, text) TO authenticated;
 
 COMMIT;
