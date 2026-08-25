@@ -59,6 +59,23 @@ interface AttackList {
   rows: AttackRow[]
 }
 
+// ── GET /api/customer-lists/[id]/school-district-ranking（PR-C）──
+//   RPC get_school_district_heatmap の返り列そのまま。★生件数は返らない（4段階の相対濃淡のみ）。
+interface RankingRow {
+  school_district_id: string
+  school_name: string
+  muni_code_5: string
+  muni_name: string
+  tier: number // smallint 1..4
+  attribution_text: string | null
+}
+interface RankingResponse {
+  id: string
+  name: string
+  school_type: string
+  rows: RankingRow[]
+}
+
 // ── GET /api/customer-lists（一覧・PR-F）の1要素。org 共有の名簿メタ ──
 //   preset は前回の CSV 形式選択（サーバーが column_mapping v:2 から導出）。
 interface ListSummary {
@@ -94,6 +111,21 @@ const RANK_STYLE: Record<string, { bg: string; color: string; border: string }> 
 }
 // 要確認（ambiguous 行の優先列に出すバッジ）。ランクではなく突合の未確定を表す warn 系。
 const YOKAKUNIN_STYLE = { bg: '#FBF3DC', color: '#8A6A16', border: '#E0CC8E' }
+
+// 校区濃淡チップ（tier 1..4）。compare/trade-area の RANK_CHIP と同じ作法（Tailwind ring クラス）。
+//   ★件数は出さない・4段階の相対的な濃淡のみを表す（SD-42）。
+const TIER_CHIP: Record<number, string> = {
+  4: 'bg-rose-50 text-rose-700 ring-rose-200',
+  3: 'bg-[#FAEEDA] text-[#854F0B] ring-amber-300',
+  2: 'bg-brand-100 text-brand-700 ring-brand-300',
+  1: 'bg-slate-100 text-slate-600 ring-slate-300',
+}
+const TIER_LABEL: Record<number, string> = {
+  4: '非常に多い',
+  3: '多い',
+  2: 'やや多い',
+  1: '少ない',
+}
 
 // ランクバッジ。等幅・太字・中央寄せ・角丸2px・最小幅26px。
 function RankBadge({ rank }: { rank: string }) {
@@ -897,6 +929,10 @@ export default function CustomersClient() {
                   )}
                 </section>
 
+                {/* 校区別の反響の濃淡（PR-C・SD-42）。RPC get_school_district_heatmap の
+                    tier(1..4)を濃淡順（RPC の ORDER BY そのまま）に描く。件数・順位番号は出さない。*/}
+                <SchoolDistrictRanking listId={data.id} />
+
                 {/* 突合基準の as_of（自治体別）。データの鮮度を明示する。 */}
                 {data.as_of_by_municipality.length > 0 && (
                   <footer className="mt-8 pt-4 border-t border-slate-200 text-xs text-slate-400">
@@ -1085,6 +1121,105 @@ function AttackTable({ rows }: { rows: AttackRow[] }) {
         </tbody>
       </table>
     </div>
+  )
+}
+
+// 校区別の反響の濃淡（PR-C）。名簿を開いた状態で API を叩き、tier を4段階の濃淡で描く。
+//   並び順は RPC の ORDER BY(tier desc, muni_name, school_name)のまま（＝濃淡順・SD-42）。
+//   ⛔ 件数の表示・件数によるソート・順位番号は一切しない（RPC は tier しか返さない）。
+//   ⛔ 小学区/中学区の切替はまだ作らない（PR-B）。elementary 固定（API 既定）。
+function SchoolDistrictRanking({ listId }: { listId: string }) {
+  const [rows, setRows] = useState<RankingRow[] | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/customer-lists/${listId}/school-district-ranking`)
+        if (!alive) return
+        if (!res.ok) {
+          setFailed(true)
+          return
+        }
+        const json = (await res.json()) as RankingResponse
+        if (alive) setRows(json.rows ?? [])
+      } catch {
+        if (alive) setFailed(true)
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [listId])
+
+  // 出典（RPC が返す attribution_text をそのまま。校区ごとに同一のことが多いので一意化）。
+  const attributions =
+    rows && rows.length > 0
+      ? Array.from(
+          new Set(rows.map((r) => r.attribution_text).filter((t): t is string => !!t)),
+        )
+      : []
+
+  return (
+    <section className="mb-8">
+      <h2 className="text-sm font-bold mb-2">校区別の反響の濃淡</h2>
+      {failed ? (
+        <EmptyNote text="校区別の濃淡の取得に失敗しました。" />
+      ) : rows === null ? (
+        <div className="flex items-center gap-2 px-1 py-6 text-sm text-slate-400">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          読み込み中…
+        </div>
+      ) : rows.length === 0 ? (
+        // ★「反響が無い」と断定しない（5件未満で抑止されている場合と区別できないため）。
+        <EmptyNote text="該当する校区がありません。" />
+      ) : (
+        <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                <th className="px-3 py-2 font-medium">校区名</th>
+                <th className="px-3 py-2 font-medium">濃淡</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.school_district_id}
+                  className="border-b border-slate-100 last:border-0"
+                >
+                  <td className="px-3 py-2 text-slate-900">{r.school_name}</td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
+                        TIER_CHIP[r.tier] ?? TIER_CHIP[1]
+                      }`}
+                    >
+                      {TIER_LABEL[r.tier] ?? '—'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ★注記（固定文言）。5件未満の抑止と「件数は出さず4段階の相対濃淡のみ」を明示する。*/}
+      {!failed && rows !== null && (
+        <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+          直近12ヶ月に5件未満の校区は表示していません。件数は表示せず、4段階の相対的な濃淡のみを表示しています。
+        </p>
+      )}
+
+      {/* ★出典（RPC が返す attribution_text をそのまま）。*/}
+      {attributions.length > 0 && (
+        <p className="mt-1 text-xs text-slate-400 leading-relaxed">
+          出典: {attributions.join(' / ')}
+        </p>
+      )}
+    </section>
   )
 }
 
