@@ -15,7 +15,7 @@
 --          provolatile = 's' (STABLE)
 SELECT
   p.proname,
-  pg_get_function_identity_arguments(p.oid) AS args,
+  pg_get_function_identity_arguments(p.oid) AS args,   -- 期待: p_list_id uuid, p_school_type text, p_mode text (= (uuid, text, text))
   p.prosecdef,                 -- false であること(INVOKER)
   p.provolatile,               -- 's'(STABLE)
   p.proconfig                  -- {search_path=public, pg_temp}
@@ -51,7 +51,7 @@ ORDER BY grantee;
 --          tier, attribution_text の6列のみ。
 --          ⛔ count / n / 生件数を意味する列が存在しないこと(k=5 抑止の秘匿要件)。
 SELECT
-  proargnames,                 -- 入力+OUT の名前一覧(count/n が含まれないこと)
+  proargnames,                 -- 入力(p_list_id,p_school_type,p_mode)+OUT の名前一覧(count/n が含まれないこと)
   proallargtypes,              -- 型一覧
   proargmodes                  -- 't'=TABLE(OUT)列 / 'i'=IN
 FROM pg_proc p

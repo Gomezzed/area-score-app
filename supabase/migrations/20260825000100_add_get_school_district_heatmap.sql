@@ -30,6 +30,8 @@
 --     ⛔ organization_id を引数で受け取らない(クライアント指定を許さない)。
 --   - allowlist: p_school_type は 'elementary' / 'junior_high' のみ。それ以外は結果を返さない。
 --     ★school_type で必ず絞る(絞らないと小学区＋中学区で二重計上する)。
+--   - p_mode は SD-41(A案)による将来互換のための先置き。現時点で有効な値は 'sell' のみ。
+--     'buy'/'gap' は lead_type 列の追加と desired_school の名寄せパイプラインが必要(未設計)。
 --   - is_public の絞り込みはビン計算より前(counts CTE 内)で行う＝表示対象だけで分位を作る。
 --   - k=5 抑止: HAVING count(*) >= 5(少数反響から個人が特定されるのを DB 層で防ぐ)。
 --     ⛔ 生件数(count)を返す列は作らない(デバッグ用途でも不可)。
@@ -45,7 +47,8 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION public.get_school_district_heatmap(
   p_list_id uuid,
-  p_school_type text DEFAULT 'elementary'
+  p_school_type text DEFAULT 'elementary',
+  p_mode text DEFAULT 'sell'
 )
 RETURNS TABLE (
   school_district_id uuid,
@@ -87,6 +90,8 @@ AS $$
       AND d.is_public IS TRUE
       -- allowlist 外(compulsory・NULL・想定外)は結果を返さない
       AND p_school_type IN ('elementary', 'junior_high')
+      -- SD-41(A案): 現時点で有効なモードは 'sell' のみ('buy'/'gap' は未設計＝空)
+      AND p_mode = 'sell'
       -- 多層防御(service_role の RLS バイパス経路を関数側で塞ぐ)
       AND public.current_user_plan() = 'platinum'
       AND r.organization_id IN (SELECT public.current_user_org_ids())
@@ -106,20 +111,20 @@ AS $$
   ORDER BY tier DESC, c.muni_name, c.school_name;
 $$;
 
-COMMENT ON FUNCTION public.get_school_district_heatmap(uuid, text) IS
+COMMENT ON FUNCTION public.get_school_district_heatmap(uuid, text, text) IS
   'M2-6a/PR-A-1: 顧客リストの反響を校区ごとに集計し4段階(tier)の濃淡を返す。SECURITY INVOKER で RLS(org スコープ/is_public)が効くうえ、service_role の RLS バイパスに備え current_user_plan()=platinum(SD-40)・organization_id∈current_user_org_ids()・is_public を関数側でも明示。allowlist=elementary/junior_high(それ以外は空)。k=5 抑止(HAVING count>=5)・生件数は返さない。tier=ceil(cume_dist()*4)(ntile 不使用＝同数同色)。';
 
 -- deny-by-default: PUBLIC/anon から実行権を剥奪し、authenticated のみに付与。
 -- (新規 public RPC は anon にも自動で EXECUTE が付くため anon を明示的に REVOKE する)
 -- ⛔ service_role には GRANT しない(RLS バイパス経路を作らない)。
-REVOKE ALL ON FUNCTION public.get_school_district_heatmap(uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_school_district_heatmap(uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_school_district_heatmap(uuid, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_school_district_heatmap(uuid, text, text) TO authenticated;
 
 COMMIT;
 
 -- =====================================================================
 -- ROLLBACK:
---   DROP FUNCTION IF EXISTS public.get_school_district_heatmap(uuid, text);
+--   DROP FUNCTION IF EXISTS public.get_school_district_heatmap(uuid, text, text);
 --
 -- 検証(適用後・PM 用): scripts/sql/verify_school_district_heatmap.sql を参照。
 --   ・prosecdef=false(INVOKER) / proconfig に search_path=public,pg_temp
