@@ -21,6 +21,7 @@ import {
 import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
+import { TIER_LABEL } from '@/lib/school-district-tiers'
 import type { PresetChoice } from '@/lib/customer-list/preset-choice'
 import {
   canDeleteList,
@@ -120,12 +121,7 @@ const TIER_CHIP: Record<number, string> = {
   2: 'bg-brand-100 text-brand-700 ring-brand-300',
   1: 'bg-slate-100 text-slate-600 ring-slate-300',
 }
-const TIER_LABEL: Record<number, string> = {
-  4: '非常に多い',
-  3: '多い',
-  2: 'やや多い',
-  1: '少ない',
-}
+// TIER_LABEL は @/lib/school-district-tiers から import（地図の凡例と共通の単一定義）。
 
 // ランクバッジ。等幅・太字・中央寄せ・角丸2px・最小幅26px。
 function RankBadge({ rank }: { rank: string }) {
