@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, Fragment, type ReactNode } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
 import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
+import { TIER_LABEL } from '@/lib/school-district-tiers'
 import type { PresetChoice } from '@/lib/customer-list/preset-choice'
 import {
   canDeleteList,
@@ -120,12 +121,7 @@ const TIER_CHIP: Record<number, string> = {
   2: 'bg-brand-100 text-brand-700 ring-brand-300',
   1: 'bg-slate-100 text-slate-600 ring-slate-300',
 }
-const TIER_LABEL: Record<number, string> = {
-  4: '非常に多い',
-  3: '多い',
-  2: 'やや多い',
-  1: '少ない',
-}
+// TIER_LABEL は @/lib/school-district-tiers から import（地図の凡例と共通の単一定義）。
 
 // ランクバッジ。等幅・太字・中央寄せ・角丸2px・最小幅26px。
 function RankBadge({ rank }: { rank: string }) {
@@ -929,6 +925,16 @@ export default function CustomersClient() {
                   )}
                 </section>
 
+                {/* 校区ヒートマップ地図への入口（表示条件はランキング表と同一＝allowed の内側）。*/}
+                <div className="mb-3">
+                  <Link
+                    href={`/customers/map?list=${encodeURIComponent(data.id)}&type=elementary`}
+                    className="inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
+                  >
+                    校区ヒートマップを地図で見る
+                  </Link>
+                </div>
+
                 {/* 校区別の反響の濃淡（PR-C・SD-42）。RPC get_school_district_heatmap の
                     tier(1..4)を濃淡順（RPC の ORDER BY そのまま）に描く。件数・順位番号は出さない。*/}
                 <SchoolDistrictRanking listId={data.id} />
@@ -1163,7 +1169,8 @@ function SchoolDistrictRanking({ listId }: { listId: string }) {
 
   return (
     <section className="mb-8">
-      <h2 className="text-sm font-bold mb-2">校区別の反響の濃淡</h2>
+      <h2 className="text-sm font-bold mb-1">校区別の反響の濃さ</h2>
+      <p className="mb-2 text-xs text-slate-400">※ 同じ濃さの中では順不同です。</p>
       {failed ? (
         <EmptyNote text="校区別の濃淡の取得に失敗しました。" />
       ) : rows === null ? (
@@ -1184,23 +1191,38 @@ function SchoolDistrictRanking({ listId }: { listId: string }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.school_district_id}
-                  className="border-b border-slate-100 last:border-0"
-                >
-                  <td className="px-3 py-2 text-slate-900">{r.school_name}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
-                        TIER_CHIP[r.tier] ?? TIER_CHIP[1]
-                      }`}
-                    >
-                      {TIER_LABEL[r.tier] ?? '—'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r, i) => {
+                // 市（自治体）の見出し行を挟む。並び順（RPC の tier desc, muni_name,
+                // school_name）は一切変えず、muni_name が前行から変わった位置にだけ
+                // 全幅の見出し行を差し込む（列は増やさない）。
+                const showMuniHeader = i === 0 || rows[i - 1].muni_name !== r.muni_name
+                return (
+                  <Fragment key={r.school_district_id}>
+                    {showMuniHeader && (
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th
+                          colSpan={2}
+                          className="px-3 py-1.5 text-left text-xs font-semibold text-slate-600"
+                        >
+                          {r.muni_name}
+                        </th>
+                      </tr>
+                    )}
+                    <tr className="border-b border-slate-100 last:border-0">
+                      <td className="px-3 py-2 text-slate-900">{r.school_name}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
+                            TIER_CHIP[r.tier] ?? TIER_CHIP[1]
+                          }`}
+                        >
+                          {TIER_LABEL[r.tier] ?? '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -1213,10 +1235,11 @@ function SchoolDistrictRanking({ listId }: { listId: string }) {
         </p>
       )}
 
-      {/* ★出典（RPC が返す attribution_text をそのまま）。*/}
+      {/* ★出典（RPC が返す attribution_text をそのまま。前置きしない＝文字列自体が
+          「出典：」で始まる）。*/}
       {attributions.length > 0 && (
         <p className="mt-1 text-xs text-slate-400 leading-relaxed">
-          出典: {attributions.join(' / ')}
+          {attributions.join(' / ')}
         </p>
       )}
     </section>
