@@ -63,6 +63,16 @@ WHERE n.nspname = 'public'
   AND p.proname = 'get_school_districts_geojson'
   AND a.grantee::regrole::text = 'service_role';
 
+-- ④'' proacl が NULL でないこと（⛔ ④' だけでは不十分）
+--     期待: proacl_is_not_null = true。
+--     ⚠ proacl IS NULL は「権限なし」ではなく「デフォルト権限」の意味であり、
+--       その状態では aclexplode(NULL) が0行を返すため ④' が素通りする。
+SELECT (p.proacl IS NOT NULL) AS proacl_is_not_null
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'get_school_districts_geojson';
+
 -- ⑤ 同名関数のオーバーロードが 1 本だけであること
 --    期待: overload_count = 1（(text, text) の 1 定義のみ。旧シグネチャの残骸が無いこと）。
 SELECT count(*) AS overload_count
@@ -73,15 +83,17 @@ WHERE n.nspname = 'public'
 
 -- ⑥ データ検証：features の各 properties に 'id' キーが存在し値が NULL でないことを数える。
 --    ⛔ 個別の校区名・件数の羅列は出さない。集計値（本数）のみ返す。
---    期待: features_total = features_with_id_key = features_id_not_null（すべて一致）。
+--    期待: features_total = features_with_id_key = features_id_not_null = distinct_ids = 47
+--          （PM が適用前に岡崎市 23202 / elementary で実測した値）
 --    ⚠ authenticated ロールへ一時切替して RLS(is_public=true)を効かせる。ROLLBACK で必ず戻す。
 BEGIN;
 SET LOCAL ROLE authenticated;
 
 SELECT
   count(*)                                                       AS features_total,
-  count(*) FILTER (WHERE feat -> 'properties' ? 'id')            AS features_with_id_key,
-  count(*) FILTER (WHERE (feat -> 'properties' ->> 'id') IS NOT NULL) AS features_id_not_null
+  count(*) FILTER (WHERE jsonb_exists(feat -> 'properties', 'id')) AS features_with_id_key,
+  count(*) FILTER (WHERE (feat -> 'properties' ->> 'id') IS NOT NULL) AS features_id_not_null,
+  count(DISTINCT (feat -> 'properties' ->> 'id'))                AS distinct_ids
 FROM jsonb_array_elements(
        public.get_school_districts_geojson('23202', 'elementary') -> 'features'
      ) AS feat;

@@ -49,7 +49,7 @@ AS $$
             'school_name',      sd.school_name,
             'school_type',      sd.school_type,
             'muni_code_5',      sd.muni_code_5,
-            'attribution_text', sd.attribution_text,   -- NULL のまま返す（UI 側で "null" 描画を防ぐ・Q-C）
+            'attribution_text', sd.attribution_text,
             'label_lng',        ST_X(ST_PointOnSurface(s.g)),
             'label_lat',        ST_Y(ST_PointOnSurface(s.g))
           )
