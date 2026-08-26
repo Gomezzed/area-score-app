@@ -88,4 +88,7 @@
 - ⛔ **`~/Desktop/area-score-app` は Docker実データを含む別プロジェクト。絶対に触らない。** 削除・移動・ファイル書き込みを一切行わない。
 
 ## 7. 起動コマンド（参考）
-`cd /Users/gomez/dev/area-score-app && claude --dangerously-skip-permissions --model claude-opus-4-8`
+- 起動：`cd /Users/gomez/dev/area-score-app && claude --model claude-opus-4-8`
+- オプションは**無し**。`--dangerously-skip-permissions` は実運用では使っていない（O107 で是正）。
+- 承認モードは **manual mode**。承認は毎回「**1. Yes**」を選ぶ（2番は選ばない）。
+- この起動設定の正本は「**05 Claude Code実行設定**」§1 である（本節は参考の再掲）。
