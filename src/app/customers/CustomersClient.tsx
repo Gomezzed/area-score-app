@@ -925,6 +925,16 @@ export default function CustomersClient() {
                   )}
                 </section>
 
+                {/* 校区ヒートマップ地図への入口（表示条件はランキング表と同一＝allowed の内側）。*/}
+                <div className="mb-3">
+                  <Link
+                    href={`/customers/map?list=${encodeURIComponent(data.id)}&type=elementary`}
+                    className="inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
+                  >
+                    校区ヒートマップを地図で見る
+                  </Link>
+                </div>
+
                 {/* 校区別の反響の濃淡（PR-C・SD-42）。RPC get_school_district_heatmap の
                     tier(1..4)を濃淡順（RPC の ORDER BY そのまま）に描く。件数・順位番号は出さない。*/}
                 <SchoolDistrictRanking listId={data.id} />
