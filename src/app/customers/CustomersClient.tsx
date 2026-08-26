@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, Fragment, type ReactNode } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -1159,7 +1159,8 @@ function SchoolDistrictRanking({ listId }: { listId: string }) {
 
   return (
     <section className="mb-8">
-      <h2 className="text-sm font-bold mb-2">校区別の反響の濃淡</h2>
+      <h2 className="text-sm font-bold mb-1">校区別の反響の濃さ</h2>
+      <p className="mb-2 text-xs text-slate-400">※ 同じ濃さの中では順不同です。</p>
       {failed ? (
         <EmptyNote text="校区別の濃淡の取得に失敗しました。" />
       ) : rows === null ? (
@@ -1180,23 +1181,38 @@ function SchoolDistrictRanking({ listId }: { listId: string }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.school_district_id}
-                  className="border-b border-slate-100 last:border-0"
-                >
-                  <td className="px-3 py-2 text-slate-900">{r.school_name}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
-                        TIER_CHIP[r.tier] ?? TIER_CHIP[1]
-                      }`}
-                    >
-                      {TIER_LABEL[r.tier] ?? '—'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r, i) => {
+                // 市（自治体）の見出し行を挟む。並び順（RPC の tier desc, muni_name,
+                // school_name）は一切変えず、muni_name が前行から変わった位置にだけ
+                // 全幅の見出し行を差し込む（列は増やさない）。
+                const showMuniHeader = i === 0 || rows[i - 1].muni_name !== r.muni_name
+                return (
+                  <Fragment key={r.school_district_id}>
+                    {showMuniHeader && (
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th
+                          colSpan={2}
+                          className="px-3 py-1.5 text-left text-xs font-semibold text-slate-600"
+                        >
+                          {r.muni_name}
+                        </th>
+                      </tr>
+                    )}
+                    <tr className="border-b border-slate-100 last:border-0">
+                      <td className="px-3 py-2 text-slate-900">{r.school_name}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${
+                            TIER_CHIP[r.tier] ?? TIER_CHIP[1]
+                          }`}
+                        >
+                          {TIER_LABEL[r.tier] ?? '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -1209,10 +1225,11 @@ function SchoolDistrictRanking({ listId }: { listId: string }) {
         </p>
       )}
 
-      {/* ★出典（RPC が返す attribution_text をそのまま）。*/}
+      {/* ★出典（RPC が返す attribution_text をそのまま。前置きしない＝文字列自体が
+          「出典：」で始まる）。*/}
       {attributions.length > 0 && (
         <p className="mt-1 text-xs text-slate-400 leading-relaxed">
-          出典: {attributions.join(' / ')}
+          {attributions.join(' / ')}
         </p>
       )}
     </section>
