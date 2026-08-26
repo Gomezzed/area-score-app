@@ -28,9 +28,11 @@
 -- 安全設計(20260825000200 から一切変えない方針):
 --   - SECURITY INVOKER で RLS(customer_lists / customer_list_rows の org スコープ)を
 --     関数越しにそのまま効かせる。⛔ SECURITY DEFINER 禁止。
---   - 多層防御(service_role の RLS バイパス経路を関数側でも塞ぐ・3条件):
+--   - 多層防御(service_role の RLS バイパス経路を関数側でも塞ぐ・4条件):
 --       * public.current_user_plan() = 'platinum'         (SD-40)
---       * l.organization_id IN (SELECT public.current_user_org_ids())
+--       * l.organization_id IN (SELECT public.current_user_org_ids())  … リスト側
+--       * r.organization_id IN (SELECT public.current_user_org_ids())  … 行側
+--         (heatmap RPC と同じく行側でも判定。行 org とリスト org の食い違い漏れを塞ぐ)
 --       * school_districts 参照箇所は sd.is_public IS TRUE
 --   - allowlist: p_school_type は 'elementary' / 'junior_high' のみ（それ以外は空）。
 --   - ⚠ OUT パラメータ名(muni_code_5 等)と本文の列参照の衝突を避けるため、
@@ -90,13 +92,16 @@ AS $$
     -- 多層防御(service_role の RLS バイパス経路を関数側で塞ぐ)
     AND public.current_user_plan() = 'platinum'
     AND l.organization_id IN (SELECT public.current_user_org_ids())
+    -- 行側の org も検証（heatmap RPC と同じく r 側で判定。行 org とリスト org の
+    --   食い違い整合性違反時の漏れを塞ぐ）。
+    AND r.organization_id IN (SELECT public.current_user_org_ids())
   -- 同一自治体 1 行に dedupe（COUNT は取らない）。ORDER/GROUP は別名で修飾する。
   GROUP BY m.prefecture_code, m.city_code, m.name, pf.name
   ORDER BY m.prefecture_code, m.city_code;
 $$;
 
 COMMENT ON FUNCTION public.get_customer_list_areas(uuid, text) IS
-  'M2-6b/SD-44: 顧客リストが当たった自治体の索引一覧を返す（集計ではなく索引＝生件数は返さない・12ヶ月フィルタなし SD-45）。返り列: muni_code_5(=municipalities.city_code 5桁)/muni_name/prefecture_name(prefectures を prefecture_code で LEFT JOIN)/has_school_districts(公開校区 is_public IS TRUE の EXISTS を p_school_type で絞って導出)。municipality_id(uuid) 経由で municipalities に結合し、r.deleted_at IS NULL かつ r.municipality_id IS NOT NULL のみ、同一自治体は 1 行に dedupe。SECURITY INVOKER で RLS(org スコープ)が効くうえ、service_role の RLS バイパスに備え current_user_plan()=platinum(SD-40)・l.organization_id∈current_user_org_ids()・is_public を関数側でも明示。allowlist=elementary/junior_high(それ以外は空)。引数: p_list_id=対象の customer_lists.id / p_school_type=has_school_districts 判定の校種(既定 elementary)。';
+  'M2-6b/SD-44: 顧客リストが当たった自治体の索引一覧を返す（集計ではなく索引＝生件数は返さない・12ヶ月フィルタなし SD-45）。返り列: muni_code_5(=municipalities.city_code 5桁)/muni_name/prefecture_name(prefectures を prefecture_code で LEFT JOIN)/has_school_districts(公開校区 is_public IS TRUE の EXISTS を p_school_type で絞って導出)。municipality_id(uuid) 経由で municipalities に結合し、r.deleted_at IS NULL かつ r.municipality_id IS NOT NULL のみ、同一自治体は 1 行に dedupe。SECURITY INVOKER で RLS(org スコープ)が効くうえ、service_role の RLS バイパスに備え current_user_plan()=platinum(SD-40)・l.organization_id・r.organization_id ∈ current_user_org_ids()・is_public を関数側でも明示。allowlist=elementary/junior_high(それ以外は空)。引数: p_list_id=対象の customer_lists.id / p_school_type=has_school_districts 判定の校種(既定 elementary)。';
 
 -- deny-by-default: PUBLIC/anon/service_role から実行権を剥奪し、authenticated のみに付与。
 -- ★O109: 新規 public 関数へ service_role の EXECUTE が自動付与されるため、
@@ -120,10 +125,7 @@ COMMIT;
 --   -- ※ get_school_districts_geojson への REVOKE は権限のみの是正のため、
 --   --    ロールバックは通常不要（戻す場合は当該関数の元 GRANT を再付与する）。
 --
--- 検証(適用後・PM 用): 取込エリア一覧 RPC の宣言検証 SQL。
---   ※本セッションのスコープ上、検証 SQL は scripts/sql/ に配置できないため
---     _review に別ファイル(verify_list_areas_rpc.sql)として提出する。最終配置
---     (慣例では scripts/sql/verify_list_areas_rpc.sql)は PM/CC-B が行う。
+-- 検証SQL: scripts/sql/verify_list_areas_rpc.sql（適用後・PM 用・SELECT のみ）。
 --   確認観点: prosecdef=false(INVOKER) / provolatile='s'(STABLE) /
 --     proconfig に search_path=public,pg_temp / args=(uuid,text) /
 --     proacl に service_role・anon・PUBLIC が現れないこと(O109 再発検知) /
