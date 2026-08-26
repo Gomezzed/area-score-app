@@ -298,7 +298,7 @@ function Legend() {
         <div key={t} className="flex items-center gap-2 mb-1">
           <span
             className="inline-block w-4 h-3 rounded-sm border border-slate-500"
-            style={{ backgroundColor: TIER_FILL[t], opacity: 0.85 }}
+            style={{ backgroundColor: TIER_FILL[t], opacity: 0.6 }}
           />
           <span className="text-xs text-slate-700">{TIER_LABEL[t]}</span>
         </div>
@@ -306,7 +306,7 @@ function Legend() {
       <div className="flex items-center gap-2">
         <span
           className="inline-block w-4 h-3 rounded-sm border border-dashed border-slate-400"
-          style={{ backgroundColor: NO_DATA_FILL, opacity: 0.5 }}
+          style={{ backgroundColor: NO_DATA_FILL, opacity: 0.25 }}
         />
         <span className="text-xs text-slate-500">{NO_DATA_LEGEND}</span>
       </div>
@@ -353,13 +353,11 @@ function DetailPanel({
           <dt className="text-slate-400 shrink-0">濃さ</dt>
           <dd className="text-slate-700">{tierLabel}</dd>
         </div>
-        {props.attribution_text && (
-          <div className="flex gap-2">
-            <dt className="text-slate-400 shrink-0">—</dt>
-            <dd className="text-slate-500">{props.attribution_text}</dd>
-          </div>
-        )}
       </dl>
+      {/* 出典（attribution_text をそのまま・「出典: 」を前置しない）。免責の上に1行で置く。*/}
+      {props.attribution_text && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-500">{props.attribution_text}</p>
+      )}
       <p className="mt-3 pt-2 border-t border-slate-100 text-[11px] leading-snug text-slate-400">
         {SCHOOL_DISTRICT_DISCLAIMER}
       </p>
@@ -377,6 +375,10 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
   const [areas, setAreas] = useState<AreaRow[] | null>(null)
   const [selected, setSelected] = useState<Selected | null>(null)
   const [polyFailed, setPolyFailed] = useState(false)
+  // ランキング取得失敗（0件と失敗を見分けるため）。
+  const [rankFailed, setRankFailed] = useState(false)
+  // 地図の生成完了（fetch が先に終わっても描画を取りこぼさないため）。
+  const [mapReady, setMapReady] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
@@ -422,13 +424,18 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
         )
         if (!alive) return
         if (!r.ok) {
+          // 取得失敗は 0件と区別する（rankRows は [] のままで rankFailed を立てる）。
+          setRankFailed(true)
           setRankRows([])
           return
         }
         const json = (await r.json()) as RankingResponse
         setRankRows(json.rows ?? [])
       } catch {
-        if (alive) setRankRows([])
+        if (alive) {
+          setRankFailed(true)
+          setRankRows([])
+        }
       }
     })()
     return () => {
@@ -485,7 +492,6 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
     let cancelled = false
     import('leaflet').then((L) => {
       if (cancelled || mapRef.current) return
-      delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl
       mapRef.current = L.map(containerRef.current!, {
         center: [36.2, 138.2],
         zoom: 9,
@@ -496,6 +502,8 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
         maxZoom: 19,
         keepBuffer: 4,
       }).addTo(mapRef.current)
+      // 地図の生成完了を通知（fetch が先に終わっても描画が確実に走るようにする）。
+      if (!cancelled) setMapReady(true)
     })
     const el = containerRef.current
     const ro = new ResizeObserver(() => {
@@ -513,8 +521,9 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
   }, [])
 
   // ポリゴン描画（geojson / tier 突合表が変わったら貼り直し、範囲へ fitBounds）。
+  //   fetch が地図生成より先に終わる経路でも取りこぼさないよう mapReady を待つ。
   useEffect(() => {
-    if (typeof window === 'undefined' || !geojson) return
+    if (typeof window === 'undefined' || !geojson || !mapReady) return
     let cancelled = false
     import('leaflet').then((L) => {
       if (cancelled) return
@@ -551,10 +560,24 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
     return () => {
       cancelled = true
     }
-  }, [geojson, tierById])
+  }, [geojson, tierById, mapReady])
 
-  // ランキング0件（該当反響なし）の判定。
-  const noResponses = rankRows !== null && rankRows.length === 0
+  // 「該当反響なし」の判定（是正2）。市単位で、表示中ポリゴンのうち tier が突合した本数が
+  //   0 のときだけとする。取得失敗（polyFailed/rankFailed）や読込中は対象外。
+  //   ⛔ 件数そのものは画面に出さない（判定にのみ使う）。
+  const matchedCount = useMemo(() => {
+    if (!geojson || rankRows === null) return null
+    return geojson.features.filter(
+      (f) => f.properties?.id != null && tierById.has(f.properties.id),
+    ).length
+  }, [geojson, rankRows, tierById])
+
+  const showNoResponses =
+    !rankFailed &&
+    !polyFailed &&
+    geojson !== null &&
+    geojson.features.length > 0 &&
+    matchedCount === 0
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -575,19 +598,21 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
       <div className="relative flex-1 min-h-[70vh]">
         <div ref={containerRef} className="absolute inset-0" />
 
-        {/* ポリゴン取得失敗 */}
-        {polyFailed && (
+        {/* 表示の優先順位：1) ポリゴン取得失敗 → 2) 濃淡取得失敗 → 3) 該当反響なし。
+            ⛔ 取得失敗のときに「反響がありません」を出さない（0件と失敗を混同しない）。*/}
+        {polyFailed ? (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] rounded-md bg-white/95 px-3 py-1.5 text-xs text-slate-500 shadow-sm">
             校区ポリゴンの取得に失敗しました。
           </div>
-        )}
-
-        {/* ランキング0件：該当反響なし */}
-        {noResponses && (
+        ) : rankFailed ? (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] rounded-md bg-white/95 px-3 py-1.5 text-xs text-slate-500 shadow-sm">
+            濃淡データの取得に失敗しました。
+          </div>
+        ) : showNoResponses ? (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] rounded-md bg-white/95 px-3 py-1.5 text-xs text-slate-600 shadow-sm">
             直近12ヶ月に該当する反響がありません
           </div>
-        )}
+        ) : null}
 
         <Legend />
 
