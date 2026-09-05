@@ -304,6 +304,19 @@ def run(args) -> int:
         code = sval(row, col_code)
         name = sval(row, col_name)
         school_key = code if code else name
+        # 案A: school_name(DB は NOT NULL) が空の地物はスキップする。
+        # school_code だけ有る地物は school_key が code で埋まり下の空チェックを
+        # 素通りするため、ここで明示的に弾かないと本実行の upsert で NOT NULL 違反
+        # になる（--dry-run は列の存在のみ検証し行値を見ないため気づけない。実例:
+        # 46222 奄美市の A32 で A32_003 有り・A32_004 空の1件）。
+        if not name:
+            j = join_by_muni.get(muni, {})
+            log.warning(
+                "校名欠損でスキップ: muni_code_5=%s muni_name=%s school_type=%s school_key=%s",
+                muni, (j.get("muni_name") or ""), args.school_type, (school_key or "(空)"),
+            )
+            excluded["校名欠損(school_name 空)"] += 1
+            continue
         if not school_key:
             excluded["school_key が空(school_code/school_name 双方欠損)"] += 1
             continue
@@ -372,6 +385,9 @@ def run(args) -> int:
         log.info("--- dry-run: 自治体 × school_type 別 投入予定件数（追加指示7）---")
         report_per_muni(per_muni_count, join_by_muni, target_munis,
                         args.source_version, args.school_type, sb, prepared, dry=True)
+        # 本実行前に必ず気づけるよう、除外内訳（校名欠損スキップ含む）を dry-run でも出す。
+        for reason, n in excluded.most_common():
+            log.info("  除外内訳: %s -> %s 件", reason, n)
         log.info("dry-run 完了: DB へは書き込みません（投入予定=%s 件）", len(prepared))
         return 0
 

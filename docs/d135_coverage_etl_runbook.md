@@ -115,6 +115,7 @@ python3 scripts/etl/load_school_districts.py \
 ```
 - BEFORE トリガーが台帳からライセンス列を写し、生成列 `is_public` が CLEARED＋attribution 有で **true** に追随。
 - 既存11市の行は同一キーで上書きされるだけ。**追加分＝愛知6市**。
+- 校名（KSJ の `*_004`）が空の地物はスキップし WARNING で報告する（`school_key`/`muni_code_5`/`muni_name`/`school_type`）。`--dry-run` でも同じ WARNING と「除外内訳: 校名欠損 -> N 件」を出すため本実行前に気づける。実例: 鹿児島 A32 の 46222 奄美市に1件（`school_code` は有るが `school_name` 空）。
 
 ---
 
