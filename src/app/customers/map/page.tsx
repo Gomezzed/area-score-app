@@ -34,6 +34,7 @@ import {
 } from '@/lib/school-districts'
 import { TIER_LABEL, NO_DATA_LEGEND } from '@/lib/school-district-tiers'
 import { TIER_FILL, NO_DATA_FILL, tierToPathStyle } from '@/lib/school-district-map-style'
+import { OSM_TILE_URL_TEMPLATE } from '@/lib/heatmap-pdf/tile-source'
 
 // UI/API の二層封鎖の上層（/customers/page.tsx と同一の環境フラグ）。
 const FEATURE_ON = process.env.NEXT_PUBLIC_FEATURE_CUSTOMER_LIST === 'true'
@@ -494,7 +495,7 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
         zoom: 9,
         preferCanvas: true,
       })
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      L.tileLayer(OSM_TILE_URL_TEMPLATE, {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
         keepBuffer: 4,
