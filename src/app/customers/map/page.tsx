@@ -32,14 +32,11 @@ import {
   isSchoolType,
   type SchoolType,
 } from '@/lib/school-districts'
-import { TIER_LABEL } from '@/lib/school-district-tiers'
+import { TIER_LABEL, NO_DATA_LEGEND } from '@/lib/school-district-tiers'
 import { TIER_FILL, NO_DATA_FILL, tierToPathStyle } from '@/lib/school-district-map-style'
 
 // UI/API の二層封鎖の上層（/customers/page.tsx と同一の環境フラグ）。
 const FEATURE_ON = process.env.NEXT_PUBLIC_FEATURE_CUSTOMER_LIST === 'true'
-
-// グレー凡例の逐語文言（閾値そのものは書かない）。
-const NO_DATA_LEGEND = '件数が少ないため表示していません'
 
 // ── 取込エリア一覧（GET /api/customer-lists/[id]/areas）の1行 ──
 interface AreaRow {

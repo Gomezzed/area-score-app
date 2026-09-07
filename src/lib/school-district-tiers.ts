@@ -13,3 +13,7 @@ export const TIER_LABEL: Record<number, string> = {
   2: 'やや多い',
   1: '少ない',
 }
+
+// 濃淡データが無い（k=5 抑止・該当反響なし）校区の凡例文言（逐語・単一の真実源）。
+//   地図の凡例／詳細パネル／PDF 出力が同じ文字列を参照する。閾値そのものは書かない。
+export const NO_DATA_LEGEND = '件数が少ないため表示していません'
