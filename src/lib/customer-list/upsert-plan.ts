@@ -16,6 +16,8 @@
 
 import type { MatchResult, MatchCandidate, MatchStatus } from './types.ts'
 import type { ExtractedRow } from './row-extract.ts'
+import type { PropertyTypeCode } from './presets.ts'
+import type { LeadType } from './lead-type.ts'
 
 // customer_list_rows へ送る 1 行分のペイロード。
 //   ⛔ desired_school / desired_muni_code_5 は含めない（PR-C で充填する列を
@@ -48,11 +50,34 @@ export interface UpsertRow {
   opt_out_dm: boolean
   opt_out_mail_magazine: boolean
   opt_out_mail: boolean
+  // 反響区分（BM-2）。⛔ 条件付きにしない: DB は NOT NULL DEFAULT 'unknown' で、
+  //   種別が読めない CSV でも 'unknown' を明示的に書く（前回の buy/sell を残さない）。
+  lead_type: LeadType
+  // 希望面積（BM-2・㎡）。desired_school と同じ「条件付きキー」方式（persistDesiredArea）。
+  //   キーを含めなければ UPSERT の SET 句に載らず、既存値を上書きしない
+  //   （面積列を持たない CSV で毎回 null 上書きする事故を防ぐ）。
+  desired_floor_area_min?: number | null
+  desired_floor_area_max?: number | null
+  desired_land_area_min?: number | null
+  desired_land_area_max?: number | null
   // 削除フラグ OFF の行を UPSERT するときは deleted_at を必ず NULL に戻す（CRM を正とする・
   //   裁定A）。SET 句に載せることで、以前 deleted_at が立っていた行の復活を表現する。
   deleted_at: null
   // 再出現した行は必ず missing_since を消す（PR-A 申し送り②）。
   missing_since: null
+}
+
+// customer_list_row_property_types へ送る 1 行分のペイロード（BM-2）。
+//   organization_id は BEFORE INSERT トリガーが親行から埋めるため送らない。
+//   list_id/user_id も同トリガーが上書きするが、NOT NULL のため値は送る。
+export interface UpsertPropertyTypeRow {
+  row_id: string
+  property_type: PropertyTypeCode
+  price_min: number | null
+  price_max: number | null
+  is_primary: boolean
+  list_id: string
+  user_id: string
 }
 
 export interface UpsertPlan {
@@ -66,6 +91,10 @@ export interface UpsertPlan {
   //   ⛔ これらの行は tracked/untracked に含めない（内容を更新せず deleted_at のみ設定するため）。
   //   裁定A(b)（削除 ON かつ DB 未存在）は行を作らないので、ここにも含めない。
   deletedRowIds: string[]
+  // 希望物件種別×価格帯の子行（BM-2）。tracked/untracked の **最終的な行 id** に紐づく。
+  //   ⛔ 削除フラグ ON の行の子行は作らない（行本体を UPSERT しないため）。
+  //   ⚠ CSV 内で external_id が重複した行は後勝ちで畳むため、子行も後勝ちの行のものだけが残る。
+  propertyTypeRows: UpsertPropertyTypeRow[]
 }
 
 export interface PlanUpsertParams {
@@ -81,6 +110,9 @@ export interface PlanUpsertParams {
   // desired_school をペイロードに含めるか（プリセット経路でのみ true）。
   //   既定 false: 汎用取込は列を含めず、既存の desired_school を保全する。
   persistDesiredSchool?: boolean
+  // 希望面積 4 列をペイロードに含めるか（プリセットが面積列を解決したときのみ true）。
+  //   既定 false: 面積列を持たない CSV では列ごと省略し、既存値を保全する。
+  persistDesiredArea?: boolean
 }
 
 // ExtractedRow + MatchResult → UpsertRow。
@@ -91,6 +123,7 @@ function buildRow(
   e: ExtractedRow,
   m: MatchResult,
   persistDesiredSchool: boolean,
+  persistDesiredArea: boolean,
 ): UpsertRow {
   return {
     id,
@@ -113,6 +146,16 @@ function buildRow(
     assignee: e.assignee,
     // プリセット経路のみ desired_school を載せる（未指定なら列ごと省略＝既存値を保全）。
     ...(persistDesiredSchool ? { desired_school: e.desired_school } : {}),
+    lead_type: e.lead_type,
+    // 面積 4 列も同じ流儀（解決できた CSV のときだけ載せる）。
+    ...(persistDesiredArea
+      ? {
+          desired_floor_area_min: e.desired_floor_area_min,
+          desired_floor_area_max: e.desired_floor_area_max,
+          desired_land_area_min: e.desired_land_area_min,
+          desired_land_area_max: e.desired_land_area_max,
+        }
+      : {}),
     opt_out_dm: e.opt_out_dm,
     opt_out_mail_magazine: e.opt_out_mail_magazine,
     opt_out_mail: e.opt_out_mail,
@@ -133,15 +176,17 @@ export function planUpsert(params: PlanUpsertParams): UpsertPlan {
     existingByExternalId,
     newId,
     persistDesiredSchool = false,
+    persistDesiredArea = false,
   } = params
   if (extracted.length !== matches.length) {
     throw new Error('planUpsert: extracted と matches の長さが一致しません')
   }
 
   // Map は挿入順を保つ。同一 external_id の再出現では値だけを差し替える（後勝ち）。
-  const trackedByExternalId = new Map<string, UpsertRow>()
+  //   ⚠ 子行（BM-2）も後勝ちの行のものだけを残すため、行と抽出結果を対で持つ。
+  const trackedByExternalId = new Map<string, { row: UpsertRow; e: ExtractedRow }>()
   const dedupedExternalIds: string[] = []
-  const untracked: UpsertRow[] = []
+  const untracked: Array<{ row: UpsertRow; e: ExtractedRow }> = []
   const deletedRowIdSet = new Set<string>()
 
   extracted.forEach((e, i) => {
@@ -149,6 +194,7 @@ export function planUpsert(params: PlanUpsertParams): UpsertPlan {
     // 裁定A: 削除フラグ ON の行は取り込み方が変わる（内容 UPSERT の対象にしない）。
     //   (a) external_id が DB 既存 → その行 id に deleted_at を立てる（deletedRowIds へ）。
     //   (b) external_id 無し / DB 未存在 → 行を作らない（O54 の原義・ここでは何もしない）。
+    //   ⛔ どちらの場合も子行は作らない（行本体を UPSERT しないため）。
     if (e.is_deleted) {
       if (e.external_id != null) {
         const existingId = existingByExternalId.get(e.external_id)
@@ -156,25 +202,43 @@ export function planUpsert(params: PlanUpsertParams): UpsertPlan {
       }
       return
     }
+    const build = (id: string) =>
+      buildRow(listId, userId, id, e, m, persistDesiredSchool, persistDesiredArea)
     if (e.external_id == null) {
-      untracked.push(buildRow(listId, userId, newId(), e, m, persistDesiredSchool))
+      untracked.push({ row: build(newId()), e })
       return
     }
     const existing = trackedByExternalId.get(e.external_id)
     // 既存行の id は「DB にある id」＞「同一 CSV 内で既に採番した id」の順で再利用する。
-    const id =
-      existing?.id ?? existingByExternalId.get(e.external_id) ?? newId()
+    const id = existing?.row.id ?? existingByExternalId.get(e.external_id) ?? newId()
     if (existing) dedupedExternalIds.push(e.external_id)
-    trackedByExternalId.set(
-      e.external_id,
-      buildRow(listId, userId, id, e, m, persistDesiredSchool),
-    )
+    trackedByExternalId.set(e.external_id, { row: build(id), e })
   })
 
+  const trackedEntries = Array.from(trackedByExternalId.values())
+
+  // 希望物件種別×価格帯の子行（BM-2）。最終的に UPSERT される行の id にだけ紐づける。
+  //   ⚠ list_id/user_id は DB 側のトリガーが親行から上書きするが、NOT NULL のため値を送る。
+  const propertyTypeRows: UpsertPropertyTypeRow[] = []
+  for (const { row, e } of [...trackedEntries, ...untracked]) {
+    for (const p of e.property_types) {
+      propertyTypeRows.push({
+        row_id: row.id,
+        property_type: p.code,
+        price_min: p.price_min,
+        price_max: p.price_max,
+        is_primary: p.is_primary,
+        list_id: listId,
+        user_id: userId,
+      })
+    }
+  }
+
   return {
-    tracked: Array.from(trackedByExternalId.values()),
-    untracked,
+    tracked: trackedEntries.map((t) => t.row),
+    untracked: untracked.map((t) => t.row),
     dedupedExternalIds,
     deletedRowIds: Array.from(deletedRowIdSet),
+    propertyTypeRows,
   }
 }

@@ -85,6 +85,20 @@ export interface ExtractedPropertyType {
   is_primary: boolean
 }
 
+// 「日付を NULL にした根拠」とみなす reason の接頭辞（唯一の定義・裁定8）。
+//   ⚠ reasons は日付以外（価格・面積・物件種別）の根拠も持つようになったため、
+//      取込サマリの date_null_rows は接頭辞で絞って数える。ここに列挙されていない
+//      reason は date_null_rows に加算されない（既存メトリクスの意味を保つ）。
+//   ⛔ 新しい日付列を足したときはこの配列に追加する（判定を各所に散らさない）。
+export const DATE_NULL_REASON_PREFIXES = ['inquiry_at:', 'last_contact_at:'] as const
+
+// 日付の根拠を 1 つでも持つ行の件数（取込サマリの date_null_rows）。
+export function countDateNullRows(rows: readonly ExtractedRow[]): number {
+  return rows.filter((r) =>
+    r.reasons.some((reason) => DATE_NULL_REASON_PREFIXES.some((p) => reason.startsWith(p))),
+  ).length
+}
+
 // 空文字を null に潰す（未入力と空を同一視）。
 function emptyToNull(s: string): string | null {
   const t = s.trim()

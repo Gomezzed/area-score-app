@@ -3,7 +3,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parseCsv, detectColumnMapping } from './csv-import.ts'
-import { extractRows, EXTRACT_KEYS, DISCARDED_KEYS } from './row-extract.ts'
+import {
+  extractRows,
+  countDateNullRows,
+  DATE_NULL_REASON_PREFIXES,
+  EXTRACT_KEYS,
+  DISCARDED_KEYS,
+} from './row-extract.ts'
 import type { PropertyTypeCode } from './presets.ts'
 
 // 架空のフィクスチャ（ハウスドゥ形式のヘッダ 174 列・データ 1 行）。
@@ -271,4 +277,22 @@ test('extractRows(BM): EXTRACT_KEYS を増やさずに新列を読んでいる�
   // BM-2 の新列はすべて ExtractOptions の index 指定経路で読む。許可リストは 8 件のまま。
   assert.equal(EXTRACT_KEYS.length, 8)
   assert.equal(EXTRACT_KEYS.includes('phone' as never), false)
+})
+
+test('countDateNullRows: 価格・面積・物件種別の reason は date_null_rows に加算しない（裁定8）', () => {
+  // 日付以外の根拠だけを持つ行（BM-2 で reasons を共用したことによる副作用の防止）。
+  const bmOnly = extractBm(['買主', '一戸建て', '', '約3000', '', '', '', '30坪', '', '', ''])
+  assert.ok(bmOnly.reasons.length > 0, '前提: BM 由来の reason は付いている')
+  assert.equal(countDateNullRows([bmOnly]), 0)
+
+  // 日付の根拠を持つ行はこれまでどおり数える。
+  const csv = '反響日,住所\n未来の日付,岡崎市稲熊町3-1\n'
+  const rows = parseCsv(csv)
+  const dated = extractRows(rows.slice(1), detectColumnMapping(rows[0]))
+  assert.ok(dated[0].reasons.some((r) => r.startsWith('inquiry_at:')))
+  assert.equal(countDateNullRows(dated), 1)
+
+  // 日付と BM の根拠を両方持つ行は 1 行として数える（二重計上しない）。
+  assert.equal(countDateNullRows([...dated, bmOnly]), 1)
+  assert.equal(DATE_NULL_REASON_PREFIXES.length, 2)
 })
