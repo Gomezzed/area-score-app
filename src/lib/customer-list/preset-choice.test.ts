@@ -45,3 +45,17 @@ test('レガシー flat 形（v なし）は未選択 ""（プリセット概念
 test('v が 2 以外（例: 1）は未選択 ""', () => {
   assert.equal(presetChoiceFromMapping({ v: 1, preset_id: 'hausudo' }), '')
 })
+
+test('v:2 と v:3 で同じ preset_id なら同じ選択値を返す（BM-2 の読み出し互換）', () => {
+  // v:3 は v:2 に列 index を追記しただけで、preset_id の意味は変わらない。
+  const v2 = { v: 2, columns: { address: '住所' }, resolve_route: 'preset', preset_id: 'hausudo' }
+  const v3 = { ...v2, v: 3, propertyTypeColumn: 95, landAreaColumns: { min: 108, max: 109 } }
+  assert.equal(presetChoiceFromMapping(v3), presetChoiceFromMapping(v2))
+  assert.equal(presetChoiceFromMapping(v3), 'hausudo')
+
+  // preset_id 無し（自動判定で取り込んだ）も v:2/v:3 で同じ 'other'。
+  const v2other = { v: 2, columns: {}, resolve_route: 'heuristic' }
+  const v3other = { ...v2other, v: 3 }
+  assert.equal(presetChoiceFromMapping(v3other), presetChoiceFromMapping(v2other))
+  assert.equal(presetChoiceFromMapping(v3other), 'other')
+})

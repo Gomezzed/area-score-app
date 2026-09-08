@@ -10,6 +10,8 @@ import {
   resolveHausudo,
   resolveColumnMapping,
   matchesHausudoFingerprint,
+  buildColumnMappingV3,
+  PRICE_TARGETS,
   UnknownPresetError,
 } from './presets.ts'
 import { extractRows } from './row-extract.ts'
@@ -150,4 +152,113 @@ test('resolveColumnMapping: 非ハウスドゥのヘッダは既存 heuristic �
   // フォールバックでは複合住所/小学校の補助は付かない。
   assert.equal(resolved.extract.addressColumns, undefined)
   assert.equal(resolved.extract.schoolColumn, undefined)
+})
+
+// ── 購入希望マッチ（BM-2 / c3）────────────────────────────────────────
+test('resolveHausudo: BM-2 の列（物件種別・価格6組・面積4列）が正しい index に解決される', () => {
+  const { header } = loadFixture()
+  const { targets } = resolveHausudo(header, 'preset:hausudo')
+
+  // 物件種別（列番号は 1 始まり・index は -1）。
+  assert.deepEqual(targets.property_type, [95]) // マッチング物件種別(96)
+  assert.deepEqual(targets.sell_property_type, [149]) // 物件種別(150)
+
+  // 価格 6 組（列97〜108）。下限→上限の順に 2 列ずつ並ぶ。
+  assert.deepEqual(targets.price_low_new_house, [96]) // 新築戸建 下限(97)
+  assert.deepEqual(targets.price_high_commercial, [107]) // 事業用 上限(108)
+
+  // 面積 4 列（列109〜112）。土地が先、専有が後。
+  assert.deepEqual(targets.desired_land_area_min, [108]) // マッチング土地面積下限(109)
+  assert.deepEqual(targets.desired_land_area_max, [109]) // マッチング土地面積上限(110)
+  assert.deepEqual(targets.desired_floor_area_min, [110]) // マッチング専有面積下限(111)
+  assert.deepEqual(targets.desired_floor_area_max, [111]) // マッチング専有面積上限(112)
+})
+
+test('resolveHausudo: 「物件種別」と「マッチング物件種別」は exact なので取り違えない（O49）', () => {
+  const { header } = loadFixture()
+  const { targets } = resolveHausudo(header, 'preset:hausudo')
+  // 部分一致なら '物件種別' が 'マッチング物件種別' を拾ってしまう。exact なので別列になる。
+  assert.notDeepEqual(targets.property_type, targets.sell_property_type)
+  assert.equal(header[targets.property_type![0]], 'マッチング物件種別')
+  assert.equal(header[targets.sell_property_type![0]], '物件種別')
+})
+
+test('resolveColumnMapping: extract に BM-2 の列（price/area）が code 単位で入る', () => {
+  const { header } = loadFixture()
+  const { extract } = resolveColumnMapping(header, 'hausudo')
+
+  assert.equal(extract.propertyTypeColumn, 95)
+  assert.equal(extract.sellPropertyTypeColumn, 149)
+  // 価格は property_types.code をキーに持つ（preset の target 名ではない）。
+  assert.deepEqual(extract.priceColumns, {
+    new_detached: { min: 96, max: 97 },
+    used_detached: { min: 98, max: 99 },
+    new_condo: { min: 100, max: 101 },
+    used_condo: { min: 102, max: 103 },
+    land: { min: 104, max: 105 },
+    commercial: { min: 106, max: 107 },
+  })
+  assert.deepEqual(extract.landAreaColumns, { min: 108, max: 109 })
+  assert.deepEqual(extract.floorAreaColumns, { min: 110, max: 111 })
+})
+
+test('PRICE_TARGETS: 6 種別ぶん・target 名と code の対応が唯一の定義として揃っている', () => {
+  assert.equal(PRICE_TARGETS.length, 6)
+  assert.deepEqual(
+    PRICE_TARGETS.map((t) => t.code),
+    ['new_detached', 'used_detached', 'new_condo', 'used_condo', 'land', 'commercial'],
+  )
+  // 既存の target 名はリネームしない（裁定2）。対応表だけが両者を橋渡しする。
+  const newDetached = PRICE_TARGETS.find((t) => t.code === 'new_detached')!
+  assert.equal(newDetached.low, 'price_low_new_house')
+  assert.equal(newDetached.high, 'price_high_new_house')
+})
+
+test('resolveColumnMapping: heuristic 経路では BM-2 の列を埋めない（列位置の決め打ちをしない）', () => {
+  const header = ['顧客番号', '顧客名', '住所', '電話番号']
+  const { extract, route } = resolveColumnMapping(header)
+  assert.equal(route, 'fallback:heuristic')
+  assert.equal(extract.propertyTypeColumn, undefined)
+  assert.equal(extract.sellPropertyTypeColumn, undefined)
+  assert.equal(extract.priceColumns, undefined)
+  assert.equal(extract.floorAreaColumns, undefined)
+  assert.equal(extract.landAreaColumns, undefined)
+})
+
+test('buildColumnMappingV3: v:2 のキーを保ったまま BM-2 の index を追記する', () => {
+  const { header } = loadFixture()
+  const { mapping, extract, route } = resolveColumnMapping(header, 'hausudo')
+  const m = buildColumnMappingV3(header, mapping, extract, route, 'hausudo')
+
+  // v:2 と同じ意味のキー（名前も値の形も変えない）。
+  assert.equal(m.v, 3)
+  assert.equal(m.resolve_route, 'preset:hausudo')
+  assert.equal(m.preset_id, 'hausudo')
+  assert.deepEqual(m.address_columns, ['都道府県', '市区', '住所'])
+  assert.equal((m.columns as Record<string, string>).external_id, '顧客番号')
+
+  // BM-2 の追記（0 始まり index）。
+  assert.equal(m.propertyTypeColumn, 95)
+  assert.equal(m.sellPropertyTypeColumn, 149)
+  assert.deepEqual((m.priceColumns as Record<string, unknown>).land, { min: 104, max: 105 })
+  assert.deepEqual(m.floorAreaColumns, { min: 110, max: 111 })
+  assert.deepEqual(m.landAreaColumns, { min: 108, max: 109 })
+})
+
+test('buildColumnMappingV3: 未解決の列はキーごと省略する（null を入れない）', () => {
+  const header = ['顧客番号', '顧客名', '住所']
+  const { mapping, extract, route } = resolveColumnMapping(header)
+  const m = buildColumnMappingV3(header, mapping, extract, route, null)
+  assert.equal(m.v, 3)
+  for (const k of [
+    'propertyTypeColumn',
+    'sellPropertyTypeColumn',
+    'priceColumns',
+    'floorAreaColumns',
+    'landAreaColumns',
+    'preset_id',
+    'address_columns',
+  ]) {
+    assert.equal(k in m, false, `${k} はキーごと省略されるべき`)
+  }
 })
