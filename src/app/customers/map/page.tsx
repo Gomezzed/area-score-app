@@ -35,6 +35,7 @@ import {
 import { TIER_LABEL, NO_DATA_LEGEND } from '@/lib/school-district-tiers'
 import { TIER_FILL, NO_DATA_FILL, tierToPathStyle } from '@/lib/school-district-map-style'
 import { OSM_TILE_URL_TEMPLATE } from '@/lib/heatmap-pdf/tile-source'
+import { useRangeSelect, type RangeMode, type UserSubMode } from './useRangeSelect'
 
 // UI/API の二層封鎖の上層（/customers/page.tsx と同一の環境フラグ）。
 const FEATURE_ON = process.env.NEXT_PUBLIC_FEATURE_CUSTOMER_LIST === 'true'
@@ -363,6 +364,201 @@ function DetailPanel({
   )
 }
 
+// 出力範囲の指定パネル（右サイド）。校区種別は表示のみ。生成状態は PR-A と同じ扱い。
+function RangePanel({
+  range,
+  type,
+  muniName,
+  pdfStatus,
+  onExport,
+}: {
+  range: ReturnType<typeof useRangeSelect>
+  type: SchoolType
+  muniName: string | null
+  pdfStatus: 'idle' | 'generating' | 'error'
+  onExport: () => void
+}) {
+  const generating = pdfStatus === 'generating'
+  const rangeItems: { value: RangeMode; label: string }[] = [
+    { value: 'current', label: '現在表示中' },
+    { value: 'auto', label: `${muniName ?? 'この市区町村'}全体に自動調整` },
+    { value: 'user', label: 'ユーザー指定' },
+  ]
+  const subItems: { value: UserSubMode; label: string }[] = [
+    { value: 'rect', label: '矩形ドラッグ' },
+    { value: 'move', label: '地図を動かして指定' },
+    { value: 'click', label: '校区をクリック' },
+  ]
+  return (
+    <div className="absolute top-3 right-3 z-[1100] w-80 max-w-[calc(100%-1.5rem)] rounded-lg border border-slate-200 bg-white/97 p-4 shadow-lg backdrop-blur-sm">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-sm font-bold text-slate-900">PDF出力範囲</h3>
+        <button
+          type="button"
+          onClick={range.closePanel}
+          aria-label="閉じる"
+          className="text-slate-400 hover:text-slate-700"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* 校区種別（表示のみ・変更不可） */}
+      <div className="mt-3 flex items-center gap-2 text-xs">
+        <span className="text-slate-400">校区種別</span>
+        <span className="font-semibold text-slate-700">{SCHOOL_TYPE_LABELS[type]}</span>
+      </div>
+
+      {/* 出力範囲（ラジオ） */}
+      <fieldset className="mt-3">
+        <legend className="text-xs font-semibold text-slate-500 mb-1.5">出力範囲</legend>
+        <div className="space-y-1">
+          {rangeItems.map((it) => (
+            <label key={it.value} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+              <input
+                type="radio"
+                name="range-mode"
+                checked={range.rangeMode === it.value}
+                onChange={() => range.selectRangeMode(it.value)}
+              />
+              {it.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* ユーザー指定のサブ選択（セグメント） */}
+      {range.rangeMode === 'user' && (
+        <div className="mt-2 rounded-md bg-slate-50 p-2">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5" role="radiogroup" aria-label="指定方法">
+            {subItems.map((it) => {
+              const active = range.userSubMode === it.value
+              return (
+                <button
+                  key={it.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => range.selectUserSubMode(it.value)}
+                  className={`px-2 py-1 text-[11px] font-medium rounded-md transition-colors ${
+                    active ? 'bg-brand-700 text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {it.label}
+                </button>
+              )
+            })}
+          </div>
+          {range.userSubMode === 'rect' && (
+            <p className="mt-2 text-[11px] leading-snug text-slate-500">
+              {range.rectInvalid
+                ? '範囲が小さすぎます。もう一度ドラッグしてください。'
+                : range.rectConfirmable
+                  ? 'この範囲で出力できます。'
+                  : '地図上をドラッグして矩形を描いてください（ESCで解除）。'}
+              {range.rectConfirmable && (
+                <button
+                  type="button"
+                  onClick={range.redoRect}
+                  className="ml-2 underline font-semibold text-slate-600"
+                >
+                  やり直す
+                </button>
+              )}
+            </p>
+          )}
+          {range.userSubMode === 'click' && (
+            <p className="mt-2 text-[11px] leading-snug text-slate-600">
+              {range.selectedCount}校区を選択中
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* 市外を薄くする */}
+      <label className="mt-3 flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={range.maskOutside}
+          onChange={(e) => range.setMaskOutside(e.target.checked)}
+        />
+        市外を薄くする
+      </label>
+
+      {/* 出力・閉じる */}
+      <div className="mt-4 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onExport}
+          disabled={generating || !range.canExport}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {generating ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              PDFを生成中…
+            </>
+          ) : (
+            <>
+              <Download className="w-3.5 h-3.5" />
+              PDFを出力
+            </>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={range.closePanel}
+          className="text-xs font-medium text-slate-500 hover:text-slate-800"
+        >
+          閉じる
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// 「地図を動かして指定」の下部確定バー（パネルを畳んでいる間）。
+function MoveConfirmBar({
+  range,
+  pdfStatus,
+  onExport,
+}: {
+  range: ReturnType<typeof useRangeSelect>
+  pdfStatus: 'idle' | 'generating' | 'error'
+  onExport: () => void
+}) {
+  const generating = pdfStatus === 'generating'
+  return (
+    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1100] flex items-center gap-3 rounded-full border border-slate-200 bg-white/97 px-4 py-2 shadow-lg backdrop-blur-sm">
+      <span className="text-xs text-slate-500">地図を動かして範囲を合わせてください</span>
+      <label className="flex items-center gap-1.5 text-[11px] text-slate-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={range.maskOutside}
+          onChange={(e) => range.setMaskOutside(e.target.checked)}
+        />
+        市外を薄く
+      </label>
+      <button
+        type="button"
+        onClick={onExport}
+        disabled={generating}
+        className="inline-flex items-center gap-1.5 rounded-full bg-brand-700 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-500 disabled:opacity-50 transition-colors"
+      >
+        {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+        この範囲で出力
+      </button>
+      <button
+        type="button"
+        onClick={range.closePanel}
+        className="text-xs font-medium text-slate-500 hover:text-slate-800"
+      >
+        閉じる
+      </button>
+    </div>
+  )
+}
+
 // ── muni 指定：地図 ──
 function MapView({ list, muni, type }: { list: string; muni: string; type: SchoolType }) {
   // FeatureCollection（ポリゴン）。properties は DistrictProps。
@@ -386,6 +582,9 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const layerRef = useRef<LeafletGeoJSON | null>(null)
+
+  // 出力範囲の指定（右パネル／矩形ドラッグ・移動確定・校区クリック）。
+  const range = useRangeSelect({ mapRef, layerRef, containerRef, geojson, mapReady })
 
   // ポリゴン取得（再マウント key=muni:type により初期化されるため、冒頭での同期 setState はしない）。
   useEffect(() => {
@@ -490,34 +689,34 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
   }, [geojson])
 
   // PDF 出力（クリック時に生成モジュールを動的 import。初期バンドルに乗せない）。
-  //   案B：ライブ地図には触れず、現在の中心・表示範囲・校区種別で 1 ページを生成する。
+  //   案B：ライブ地図には触れず、パネルで確定した範囲（現在表示中／自動調整／ユーザー指定）と
+  //   「市外を薄くする」で 1 ページを生成する。
   async function handleExportPdf() {
     const map = mapRef.current
     if (!map || !geojson || rankRows === null) return
+    // 出力範囲を現在のモードから解決（範囲が未確定なら中断）。
+    const resolved = range.resolveRange()
+    if (!resolved) return
     setPdfStatus('generating')
     setPdfError(null)
     setPdfToast(null)
     try {
-      const center = map.getCenter()
-      const bounds = map.getBounds()
       const { exportHeatmapPdf } = await import('@/lib/heatmap-pdf')
       const fileName = await exportHeatmapPdf({
-        center: { lng: center.lng, lat: center.lat },
-        bounds: {
-          west: bounds.getWest(),
-          south: bounds.getSouth(),
-          east: bounds.getEast(),
-          north: bounds.getNorth(),
-        },
+        center: resolved.center,
+        bounds: resolved.bounds,
         geojson,
         rankRows: rankRows ?? [],
         tierById,
         muniCode5: muni,
         schoolType: type,
         muniName,
+        maskOutside: resolved.maskOutside,
       })
       setPdfStatus('idle')
       setPdfToast(fileName)
+      // 出力後：パネルを閉じ、中心・ズーム・モードを元に戻す。
+      range.closePanel()
       window.setTimeout(() => setPdfToast(null), 6000)
     } catch {
       setPdfStatus('error')
@@ -581,6 +780,8 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
         },
         onEachFeature: (feature: Feature<Geometry, DistrictProps>, lyr: Layer) => {
           lyr.on('click', () => {
+            // 校区クリック選択モード中は「選択/解除」に切替え、詳細パネルは開かない（S-15）。
+            if (range.handlePolygonClick(feature, lyr)) return
             const props = feature.properties
             const tier = props?.id != null ? tierById.get(props.id) ?? null : null
             setSelected({ props, tier })
@@ -599,7 +800,7 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
     return () => {
       cancelled = true
     }
-  }, [geojson, tierById, mapReady])
+  }, [geojson, tierById, mapReady, range.handlePolygonClick])
 
   // 「該当反響なし」の判定（是正2）。市単位で、表示中ポリゴンのうち tier が突合した本数が
   //   0 のときだけとする。取得失敗（polyFailed/rankFailed）や読込中は対象外。
@@ -637,21 +838,12 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
           {rankRows !== null && !rankFailed && (
             <button
               type="button"
-              onClick={handleExportPdf}
-              disabled={pdfStatus === 'generating' || !geojson}
+              onClick={range.openPanel}
+              disabled={pdfStatus === 'generating' || !geojson || range.panelOpen}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {pdfStatus === 'generating' ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  PDFを生成中…
-                </>
-              ) : (
-                <>
-                  <Download className="w-3.5 h-3.5" />
-                  PDF出力
-                </>
-              )}
+              <Download className="w-3.5 h-3.5" />
+              PDF出力
             </button>
           )}
         </div>
@@ -701,8 +893,23 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
 
         <Legend />
 
-        {selected && (
+        {/* 詳細パネルは範囲指定パネルと重ならないよう、パネル表示中は開かない。 */}
+        {selected && !range.panelOpen && (
           <DetailPanel selected={selected} muniName={muniName} onClose={() => setSelected(null)} />
+        )}
+
+        {/* 出力範囲パネル（移動確定モードでは畳んで下部バーに切替）。 */}
+        {range.panelOpen && !range.panelCollapsed && (
+          <RangePanel
+            range={range}
+            type={type}
+            muniName={muniName}
+            pdfStatus={pdfStatus}
+            onExport={handleExportPdf}
+          />
+        )}
+        {range.panelOpen && range.panelCollapsed && (
+          <MoveConfirmBar range={range} pdfStatus={pdfStatus} onExport={handleExportPdf} />
         )}
       </div>
 
