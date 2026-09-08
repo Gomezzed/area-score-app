@@ -11,7 +11,7 @@
 //   - ポリゴンと濃淡の突合キーは properties.id ↔ RankingRow.school_district_id（校区名では突合しない）。
 // =====================================================================
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { notFound, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Lock, Loader2, X, Download } from 'lucide-react'
@@ -380,6 +380,7 @@ function RangePanel({
 }) {
   const generating = pdfStatus === 'generating'
   const rangeItems: { value: RangeMode; label: string }[] = [
+    { value: 'fit', label: '濃淡のある校区に合わせる' },
     { value: 'current', label: '現在表示中' },
     { value: 'auto', label: `${muniName ?? 'この市区町村'}全体に自動調整` },
     { value: 'user', label: 'ユーザー指定' },
@@ -426,6 +427,13 @@ function RangePanel({
           ))}
         </div>
       </fieldset>
+
+      {/* 濃淡フィットで対象が 0 件のとき：現在表示中へフォールバックする旨を明示 */}
+      {range.rangeMode === 'fit' && !range.fitHasTargets && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-500">
+          濃淡のある校区がないため現在表示中で出力します
+        </p>
+      )}
 
       {/* ユーザー指定のサブ選択（セグメント） */}
       {range.rangeMode === 'user' && (
@@ -583,8 +591,26 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
   const mapRef = useRef<LeafletMap | null>(null)
   const layerRef = useRef<LeafletGeoJSON | null>(null)
 
-  // 出力範囲の指定（右パネル／矩形ドラッグ・移動確定・校区クリック）。
-  const range = useRangeSelect({ mapRef, layerRef, containerRef, geojson, mapReady })
+  // properties.id → tier の突合表（校区名では突合しない）。濃淡フィット判定の単一の真実源。
+  const tierById = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of rankRows ?? []) m.set(r.school_district_id, r.tier)
+    return m
+  }, [rankRows])
+
+  // 「濃淡のある校区」判定＝ランキングに載った（tier が突合した）校区のみ。範囲フックへ注入する。
+  //   ⛔ 抑止校区(k=5)・反響ゼロは含めない（SD-38 で画面上区別できないため）。
+  const isTargetDistrict = useCallback((id: string) => tierById.has(id), [tierById])
+
+  // 出力範囲の指定（右パネル／矩形ドラッグ・移動確定・校区クリック・濃淡フィット）。
+  const range = useRangeSelect({
+    mapRef,
+    layerRef,
+    containerRef,
+    geojson,
+    mapReady,
+    isTargetDistrict,
+  })
 
   // ポリゴン取得（再マウント key=muni:type により初期化されるため、冒頭での同期 setState はしない）。
   useEffect(() => {
@@ -665,13 +691,6 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
       alive = false
     }
   }, [list, type])
-
-  // properties.id → tier の突合表（校区名では突合しない）。
-  const tierById = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const r of rankRows ?? []) m.set(r.school_district_id, r.tier)
-    return m
-  }, [rankRows])
 
   const muniName = useMemo(() => {
     const a = (areas ?? []).find((x) => x.muni_code_5 === muni)

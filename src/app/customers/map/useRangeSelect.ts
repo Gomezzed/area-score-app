@@ -12,7 +12,7 @@
 //      クリック挙動・中心/ズーム）。既存 click ハンドラの意味は変えない（モード中ガードのみ）。
 // =====================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import type {
   GeoJSON as LeafletGeoJSON,
@@ -24,16 +24,26 @@ import type {
 } from 'leaflet'
 import {
   boundsFromFeatures,
+  boundsFromTargetFeatures,
   centerOfBounds,
   isRectTooSmall,
   normalizeRect,
   type Bounds,
+  type IdentifiedFeatureLike,
   type LngLat,
 } from '@/lib/heatmap-pdf/range'
 import type { FeatureLike } from '@/lib/heatmap-pdf/mask-path'
 
-export type RangeMode = 'current' | 'auto' | 'user'
+// 'fit'＝濃淡のある校区に合わせる（既定）。並び順は fit → current → auto → user。
+export type RangeMode = 'fit' | 'current' | 'auto' | 'user'
 export type UserSubMode = 'rect' | 'move' | 'click'
+
+// 既定の出力範囲モード＝「濃淡のある校区に合わせる」。
+const DEFAULT_RANGE_MODE: RangeMode = 'fit'
+// 「市外を薄くする」の既定 ON になるモード（自動調整・濃淡フィット）。
+function defaultMaskFor(mode: RangeMode): boolean {
+  return mode === 'auto' || mode === 'fit'
+}
 
 // ポリゴンからは突合キー id しか使わない（tier 以外の値は載せない）。
 type DistrictFeature = Feature<Geometry, { id: string }>
@@ -50,6 +60,8 @@ export interface UseRangeSelectParams {
   containerRef: React.RefObject<HTMLDivElement | null>
   geojson: FeatureCollection<Geometry, { id: string }> | null
   mapReady: boolean
+  // 「濃淡のある校区」判定（page.tsx の tierById.has(id) を注入）。安定参照を渡すこと。
+  isTargetDistrict: (id: string) => boolean
 }
 
 export interface ResolvedRange {
@@ -64,11 +76,12 @@ export function useRangeSelect({
   containerRef,
   geojson,
   mapReady,
+  isTargetDistrict,
 }: UseRangeSelectParams) {
   const [panelOpen, setPanelOpen] = useState(false)
-  const [rangeMode, setRangeMode] = useState<RangeMode>('current')
+  const [rangeMode, setRangeMode] = useState<RangeMode>(DEFAULT_RANGE_MODE)
   const [userSubMode, setUserSubMode] = useState<UserSubMode | null>(null)
-  const [maskOutside, setMaskOutside] = useState(false)
+  const [maskOutside, setMaskOutside] = useState(defaultMaskFor(DEFAULT_RANGE_MODE))
   // 矩形ドラッグの確定可否／極小無効フラグ。
   const [rectConfirmable, setRectConfirmable] = useState(false)
   const [rectInvalid, setRectInvalid] = useState(false)
@@ -84,6 +97,17 @@ export function useRangeSelect({
   const teardownRef = useRef<(() => void) | null>(null)
   // パネルを開いた時点の中心・ズーム（出力後・キャンセル後に戻す）。
   const viewSnapRef = useRef<{ center: LngLat; zoom: number } | null>(null)
+
+  // 「濃淡のある校区に合わせる」の bounds（対象＝濃淡付きのみ・外接矩形＋4% 余白）。
+  //   対象 0 件なら null で、resolveRange/canExport が「現在表示中」へフォールバックする。
+  const fitBounds = useMemo<Bounds | null>(() => {
+    if (!geojson) return null
+    return boundsFromTargetFeatures(
+      geojson.features as unknown as IdentifiedFeatureLike[],
+      isTargetDistrict,
+    )
+  }, [geojson, isTargetDistrict])
+  const fitHasTargets = fitBounds !== null
 
   // 矩形プレビューを消す。
   const clearRectPreview = useCallback(() => {
@@ -213,14 +237,14 @@ export function useRangeSelect({
     }
   }, [rangeMode, userSubMode, mapReady, mapRef, containerRef, clearRectPreview, clearSelection])
 
-  // ── ESC でユーザー指定モードを解除（＝既定「現在表示中」へ戻す）──
+  // ── ESC でユーザー指定モードを解除（＝既定「濃淡のある校区に合わせる」へ戻す）──
   useEffect(() => {
     if (!panelOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && rangeMode === 'user') {
-        setRangeMode('current')
+        setRangeMode(DEFAULT_RANGE_MODE)
         setUserSubMode(null)
-        setMaskOutside(false)
+        setMaskOutside(defaultMaskFor(DEFAULT_RANGE_MODE))
       }
     }
     window.addEventListener('keydown', onKey)
@@ -265,7 +289,13 @@ export function useRangeSelect({
     const map = mapRef.current
     if (!map) return null
 
-    if (rangeMode === 'current') {
+    // 濃淡フィット：対象があればその bounds、無ければ「現在表示中」へフォールバック。
+    if (rangeMode === 'fit' && fitBounds) {
+      return { bounds: fitBounds, center: centerOfBounds(fitBounds), maskOutside }
+    }
+
+    // 現在表示中（および濃淡フィットで対象 0 件のフォールバック）。
+    if (rangeMode === 'current' || rangeMode === 'fit') {
       const b = map.getBounds()
       const c = map.getCenter()
       return {
@@ -291,10 +321,12 @@ export function useRangeSelect({
     }
     if (!bounds) return null
     return { bounds, center: centerOfBounds(bounds), maskOutside }
-  }, [rangeMode, userSubMode, geojson, maskOutside, mapRef])
+  }, [rangeMode, userSubMode, geojson, maskOutside, mapRef, fitBounds])
 
   // 出力ボタンの活性条件（範囲が確定しているか）。
   const canExport = (() => {
+    // 濃淡フィットは対象 0 件でも「現在表示中」へフォールバックするため常に出力可。
+    if (rangeMode === 'fit') return true
     if (rangeMode === 'current') return true
     if (rangeMode === 'auto') return (geojson?.features.length ?? 0) > 0
     if (userSubMode === 'rect') return rectConfirmable
@@ -303,10 +335,10 @@ export function useRangeSelect({
     return false
   })()
 
-  // 出力範囲ラジオの選択。自動調整=既定 ON、他=既定 OFF（この後ユーザーが切替可）。
+  // 出力範囲ラジオの選択。濃淡フィット・自動調整=既定 ON、他=既定 OFF（この後ユーザーが切替可）。
   const selectRangeMode = useCallback((m: RangeMode) => {
     setRangeMode(m)
-    setMaskOutside(m === 'auto')
+    setMaskOutside(defaultMaskFor(m))
     setUserSubMode(m === 'user' ? 'rect' : null)
   }, [])
 
@@ -329,9 +361,9 @@ export function useRangeSelect({
       const c = map.getCenter()
       viewSnapRef.current = { center: { lng: c.lng, lat: c.lat }, zoom: map.getZoom() }
     }
-    setRangeMode('current')
+    setRangeMode(DEFAULT_RANGE_MODE)
     setUserSubMode(null)
-    setMaskOutside(false)
+    setMaskOutside(defaultMaskFor(DEFAULT_RANGE_MODE))
     setRectConfirmable(false)
     setRectInvalid(false)
     setPanelOpen(true)
@@ -340,9 +372,9 @@ export function useRangeSelect({
   // パネルを閉じる：モードを解除（effect の後始末が走る）し、中心・ズームを復帰。
   const closePanel = useCallback(() => {
     setPanelOpen(false)
-    setRangeMode('current')
+    setRangeMode(DEFAULT_RANGE_MODE)
     setUserSubMode(null)
-    setMaskOutside(false)
+    setMaskOutside(defaultMaskFor(DEFAULT_RANGE_MODE))
     setRectConfirmable(false)
     setRectInvalid(false)
     const map = mapRef.current
@@ -369,6 +401,7 @@ export function useRangeSelect({
     rectConfirmable,
     rectInvalid,
     selectedCount,
+    fitHasTargets,
     canExport,
     // 操作
     openPanel,
