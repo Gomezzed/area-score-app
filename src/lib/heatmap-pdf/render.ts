@@ -9,7 +9,7 @@
 
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import { tierToPathStyle } from '@/lib/school-district-map-style'
-import { framePx } from './geometry.ts'
+import { framePx, type PxSize } from './geometry.ts'
 import {
   project,
   chooseZoomWithTileCap,
@@ -34,6 +34,10 @@ export interface RenderInput {
   tierById: Map<string, number>
   // 市外を薄くする。既定 false（未指定＝従来どおりマスクなし・後方互換）。
   maskOutside?: boolean
+  // ラスタ寸法（px）。未指定＝従来どおり framePx()（全フレーム 277×150mm）。
+  //   2パネル（PR-C）は panelFramePx() を渡し、ズーム・タイル範囲・膜をパネル px 基準で計算する。
+  //   ⚠ 省略時は framePx() と完全同値のため、1パネル経路の出力は不変（S-16）。
+  framePx?: PxSize
 }
 
 export interface RenderResult {
@@ -106,7 +110,9 @@ function parseDash(dashArray: string | undefined): number[] {
 }
 
 export async function renderHeatmapPng(input: RenderInput): Promise<RenderResult> {
-  const { width, height } = framePx()
+  // 寸法は引数優先・未指定は framePx()（既定同値＝1パネル経路は不変）。
+  //   以降のズーム選択・タイル範囲・膜はすべてこの width/height を基準に計算する。
+  const { width, height } = input.framePx ?? framePx()
   const z = chooseZoomWithTileCap(input.center, input.bounds, width, height, {
     maxZoom: OSM_MAX_ZOOM,
   })
