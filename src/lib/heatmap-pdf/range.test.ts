@@ -8,6 +8,9 @@ import {
   boundsFromFeatures,
   centerOfBounds,
   isRectTooSmall,
+  padBounds,
+  boundsFromTargetFeatures,
+  type IdentifiedFeatureLike,
 } from './range.ts'
 import type { FeatureLike } from './mask-path.ts'
 
@@ -116,4 +119,99 @@ test('isRectTooSmall: 幅または高さが 20px 未満は無効', () => {
   assert.equal(isRectTooSmall(-30, -30), false)
   // しきい値は注入可能
   assert.equal(isRectTooSmall(25, 25, 30), true)
+})
+
+test('padBounds: 上下左右に span の frac 倍を足す（span=0 は縮退のまま）', () => {
+  assert.deepEqual(padBounds({ west: 138, east: 139, south: 35, north: 37 }, 0.04), {
+    west: 137.96,
+    east: 139.04,
+    south: 34.92,
+    north: 37.08,
+  })
+  // 1 点（span=0）なら余白は 0（そのまま）
+  assert.deepEqual(padBounds({ west: 138, east: 138, south: 35, north: 35 }, 0.04), {
+    west: 138,
+    east: 138,
+    south: 35,
+    north: 35,
+  })
+})
+
+// 対象抽出＋4% 余白の共通フィクスチャ（id 併せ持ち・述語で絞る）。
+const TARGET_FEATURES: IdentifiedFeatureLike[] = [
+  {
+    // a：対象（濃淡付き）
+    properties: { id: 'a' },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [138, 35],
+          [139, 35],
+          [139, 36],
+          [138, 35],
+        ],
+      ],
+    },
+  },
+  {
+    // b：非対象（抑止/反響ゼロ相当）。遠方に置き、混入したら bounds が壊れることで検知する。
+    properties: { id: 'b' },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [100, 10],
+          [101, 10],
+          [101, 11],
+          [100, 10],
+        ],
+      ],
+    },
+  },
+  {
+    // c：対象（濃淡付き）
+    properties: { id: 'c' },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [140, 37],
+          [141, 37],
+          [141, 38],
+          [140, 37],
+        ],
+      ],
+    },
+  },
+  // id を持たない feature は対象に含めない（露出防止）
+  { properties: null, geometry: { type: 'Point', coordinates: [0, 0] } },
+]
+
+test('boundsFromTargetFeatures: 述語で対象のみ絞り、外接矩形に 4% 余白を足す', () => {
+  const isTarget = (id: string) => id === 'a' || id === 'c'
+  // 対象 a+c の外接矩形＝west138 east141 south35 north38（span=3,3）→ 4% 余白 0.12
+  assert.deepEqual(boundsFromTargetFeatures(TARGET_FEATURES, isTarget), {
+    west: 137.88,
+    east: 141.12,
+    south: 34.88,
+    north: 38.12,
+  })
+})
+
+test('boundsFromTargetFeatures: 対象 0 件は null（現在表示中フォールバックの合図）', () => {
+  // どの id も対象でない（抑止校区・反響ゼロだけの市を想定）
+  assert.equal(boundsFromTargetFeatures(TARGET_FEATURES, () => false), null)
+  // 空配列も null
+  assert.equal(boundsFromTargetFeatures([], () => true), null)
+})
+
+test('boundsFromTargetFeatures: padFrac は注入可能（0 なら余白なし）', () => {
+  const isTarget = (id: string) => id === 'a'
+  assert.deepEqual(boundsFromTargetFeatures(TARGET_FEATURES, isTarget, 0), {
+    west: 138,
+    east: 139,
+    south: 35,
+    north: 36,
+  })
 })
