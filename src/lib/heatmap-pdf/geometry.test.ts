@@ -10,6 +10,10 @@ import {
   footerRectPt,
   A4_LANDSCAPE_PT,
   PDF_PX_PER_PT,
+  PANEL_GAP_MM,
+  panelWidthMm,
+  panelRectsPt,
+  panelFramePx,
 } from './geometry.ts'
 
 test('mmToPt: 25.4mm = 72pt（1インチ）', () => {
@@ -45,4 +49,44 @@ test('footerRectPt: フレーム下端から下余白まで（正の高さ・用
   assert.ok(Math.abs(footer.y - (frame.y + frame.height)) < 1e-9)
   // 下端が用紙内（下余白 10mm の位置）
   assert.ok(Math.abs(footer.y + footer.height - (A4_LANDSCAPE_PT.height - mmToPt(10))) < 1e-9)
+})
+
+// ── 2パネル幾何（PR-C・追加のみ）──
+
+test('panelWidthMm: 等分幅 = (277 - 4) / 2 = 136.5mm', () => {
+  assert.equal(PANEL_GAP_MM, 4)
+  assert.equal(panelWidthMm(), 136.5)
+})
+
+test('panelRectsPt ①: 左右2枠の幅 + 間隔 = 全フレーム幅（pt）', () => {
+  const frame = frameRectPt()
+  const { left, right } = panelRectsPt()
+  const gap = mmToPt(PANEL_GAP_MM)
+  // 幅の等分
+  assert.ok(Math.abs(left.width - right.width) < 1e-9)
+  // 2枠 + 間隔 = 全フレーム幅
+  assert.ok(Math.abs(left.width + right.width + gap - frame.width) < 1e-9)
+  // 左は frame 左端、右は 幅 + 間隔だけ右、右端が frame 右端に一致
+  assert.ok(Math.abs(left.x - frame.x) < 1e-9)
+  assert.ok(Math.abs(right.x - (frame.x + left.width + gap)) < 1e-9)
+  assert.ok(Math.abs(right.x + right.width - (frame.x + frame.width)) < 1e-9)
+})
+
+test('panelRectsPt ②: 高さ・y は全フレームと同一（両パネル）', () => {
+  const frame = frameRectPt()
+  const { left, right } = panelRectsPt()
+  assert.ok(Math.abs(left.height - frame.height) < 1e-9)
+  assert.ok(Math.abs(right.height - frame.height) < 1e-9)
+  assert.ok(Math.abs(left.y - frame.y) < 1e-9)
+  assert.ok(Math.abs(right.y - frame.y) < 1e-9)
+})
+
+test('panelFramePx ③: パネル px は左枠 px と一致し、高さは全フレーム px と同一', () => {
+  const { left } = panelRectsPt()
+  const px = panelFramePx()
+  assert.equal(px.width, Math.round(left.width * PDF_PX_PER_PT))
+  assert.equal(px.height, Math.round(left.height * PDF_PX_PER_PT))
+  // 高さは全フレーム（1276px）と同一。幅は全フレーム幅より狭い（縦長）。
+  assert.equal(px.height, framePx().height)
+  assert.ok(px.width < framePx().width)
 })

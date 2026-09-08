@@ -11,6 +11,13 @@ import {
   formatGeneratedAt,
   buildTitle,
   buildMetaTitle,
+  buildFileNameBoth,
+  buildTitleBoth,
+  buildMetaTitleBoth,
+  buildHeatmapPdfBothModel,
+  BOTH_PANEL_MODEL_KEYS,
+  HEATMAP_PDF_BOTH_MODEL_KEYS,
+  type BothPanelModel,
 } from './model.ts'
 import { TIER_LABEL, NO_DATA_LEGEND } from '../school-district-tiers.ts'
 import { TIER_FILL, NO_DATA_FILL } from '../school-district-map-style.ts'
@@ -76,4 +83,61 @@ test('formatGeneratedAt: JST・分まで（決定的）', () => {
 test('buildTitle / buildMetaTitle', () => {
   assert.equal(buildTitle('岩国市', '小学校区'), '校区別の反響の濃さ ― 岩国市（小学校区）')
   assert.equal(buildMetaTitle('岩国市'), '校区別の反響の濃さ 岩国市')
+})
+
+// ── 2パネル（both）モデル（PR-C・追加のみ）──
+
+test('buildFileNameBoth: _both_ を含み ASCII のみ・規定書式', () => {
+  const d = new Date(Date.UTC(2026, 8, 8, 5, 30)) // JST 2026-09-08 14:30
+  const name = buildFileNameBoth('35208', d)
+  assert.equal(name, 'areascore_heatmap_35208_both_20260908-1430.pdf')
+  assert.ok(/^[\x20-\x7E]+$/.test(name), 'ASCII 印字可能文字のみ')
+  assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(name), 'UUID を含まない')
+})
+
+test('buildTitleBoth / buildMetaTitleBoth: 綴じ文言は 小学校区＋中学校区', () => {
+  assert.equal(buildTitleBoth('岩国市'), '校区別の反響の濃さ ― 岩国市（小学校区＋中学校区）')
+  assert.equal(buildMetaTitleBoth('岩国市'), '校区別の反響の濃さ 岩国市（小学校区＋中学校区）')
+})
+
+test('buildHeatmapPdfBothModel: 許可キーのみ（件数・氏名・住所・座標点を持てない）', () => {
+  const model = buildHeatmapPdfBothModel({
+    metaTitle: 'm',
+    title: 't',
+    generatedAtLabel: 'g',
+    left: {
+      heading: '小学校区',
+      pngDataUrl: 'data:image/png;base64,AAAA',
+      tilesFailed: false,
+      // 余分なキー（件数）を混ぜても綴じ込まれないことを実行時に確認する。
+      count: 999,
+    } as unknown as BothPanelModel,
+    right: { heading: '中学校区', pngDataUrl: 'data:image/png;base64,BBBB', tilesFailed: true },
+    legend: [],
+    attributions: ['出典: 岩国市', '出典: 国土数値情報'],
+    disclaimer: 'd',
+    osmAttribution: 'o',
+    siteLabel: 's',
+  })
+  // トップレベルの許可キー
+  assert.deepEqual(Object.keys(model).sort(), [...HEATMAP_PDF_BOTH_MODEL_KEYS].sort())
+  // 各パネルの許可キー（余分な count は綴じ込まれない）
+  assert.deepEqual(Object.keys(model.left).sort(), [...BOTH_PANEL_MODEL_KEYS].sort())
+  assert.deepEqual(Object.keys(model.right).sort(), [...BOTH_PANEL_MODEL_KEYS].sort())
+  assert.ok(!('count' in model.left))
+  // 左＝小学校区・右＝中学校区で固定
+  assert.equal(model.left.heading, '小学校区')
+  assert.equal(model.right.heading, '中学校区')
+})
+
+test('uniqueAttributions: 小→中 の連結でも出現順・重複除去（both の出典2系列）', () => {
+  // 小(rows,features)→中(rows,features) の順に連結して1回で綴じる想定。
+  const out = uniqueAttributions([
+    { attribution_text: '出典: 小・行政' },
+    { attribution_text: '出典: 国土数値情報' },
+    { attribution_text: null },
+    { attribution_text: '出典: 中・行政' },
+    { attribution_text: '出典: 国土数値情報' }, // 中で重複 → 除去
+  ])
+  assert.deepEqual(out, ['出典: 小・行政', '出典: 国土数値情報', '出典: 中・行政'])
 })

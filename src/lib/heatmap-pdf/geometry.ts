@@ -78,3 +78,41 @@ export function framePx(): PxSize {
     height: Math.round(frame.height * PDF_PX_PER_PT),
   }
 }
+
+// =====================================================================
+// 2パネル（小学校区＋中学校区）用の幾何（追加のみ・PR-C）。
+//   地図フレーム領域（FRAME_MM＝277×150mm）を左右2分割・間隔 PANEL_GAP_MM。
+//   各パネル幅は等分。左＝小学校区・右＝中学校区で固定（呼び出し側で割当）。
+//   高さはフレームと同じ（150mm）。既存の frameRectPt / framePx は不変。
+// =====================================================================
+
+// 左右パネルの間隔（mm）。
+export const PANEL_GAP_MM = 4
+
+// 各パネルの幅（mm・等分）。(277 - 4) / 2 = 136.5mm。
+export function panelWidthMm(): number {
+  return (FRAME_MM.width - PANEL_GAP_MM) / 2
+}
+
+// 左右パネルの矩形（pt）。フレームと同じ領域を間隔で二分する。
+//   left.x = frame.x、right.x = frame.x + 幅 + 間隔。両パネル同じ y・幅・高さ。
+export function panelRectsPt(): { left: Rect; right: Rect } {
+  const frame = frameRectPt()
+  const gap = mmToPt(PANEL_GAP_MM)
+  const width = (frame.width - gap) / 2
+  return {
+    left: { x: frame.x, y: frame.y, width, height: frame.height },
+    right: { x: frame.x + width + gap, y: frame.y, width, height: frame.height },
+  }
+}
+
+// 各パネルのラスタ px サイズ（両パネル等分＝同値）。倍率 3 px/pt。
+//   ⚠ このサイズを render.ts の framePx 引数に渡すと、ズーム・タイル範囲・膜が
+//     パネル px を基準に計算される（両パネル同値のズームになる）。
+export function panelFramePx(): PxSize {
+  const { left } = panelRectsPt()
+  return {
+    width: Math.round(left.width * PDF_PX_PER_PT),
+    height: Math.round(left.height * PDF_PX_PER_PT),
+  }
+}

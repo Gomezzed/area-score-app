@@ -92,3 +92,89 @@ export function buildTitle(muniName: string, schoolTypeLabel: string): string {
 export function buildMetaTitle(muniName: string): string {
   return `校区別の反響の濃さ ${muniName}`
 }
+
+// =====================================================================
+// 2パネル（小学校区＋中学校区）用のモデル（追加のみ・PR-C）。
+//   既存 build* は不変。both は種別ラベルを固定文言「小学校区＋中学校区」で綴じる。
+//   ⛔ tier 以外の値（件数・氏名・住所・座標点）をモデルに入れない（S-4）。
+// =====================================================================
+
+// 2パネル固定の校種綴じ文言。左＝小学校区・右＝中学校区。
+export const BOTH_PANEL_SUFFIX = '小学校区＋中学校区'
+
+// ファイル名（both）。areascore_heatmap_{muni_code_5}_both_{YYYYMMDD-HHmm}.pdf
+export function buildFileNameBoth(muniCode5: string, d: Date): string {
+  const p = toJstParts(d)
+  const stamp = `${p.y}${pad2(p.mo)}${pad2(p.day)}-${pad2(p.h)}${pad2(p.mi)}`
+  return `areascore_heatmap_${muniCode5}_both_${stamp}.pdf`
+}
+
+// タイトル（both）「校区別の反響の濃さ ― {muni_name}（小学校区＋中学校区）」。
+export function buildTitleBoth(muniName: string): string {
+  return `校区別の反響の濃さ ― ${muniName}（${BOTH_PANEL_SUFFIX}）`
+}
+
+// PDF メタデータ title（both）「校区別の反響の濃さ {muni_name}（小学校区＋中学校区）」。
+export function buildMetaTitleBoth(muniName: string): string {
+  return `校区別の反響の濃さ ${muniName}（${BOTH_PANEL_SUFFIX}）`
+}
+
+// 2パネル各枠のモデル。tier 以外の値は持てない（heading＝校種ラベル・図＝合成 PNG のみ）。
+export interface BothPanelModel {
+  heading: string
+  pngDataUrl: string
+  tilesFailed: boolean
+}
+
+// 2パネル PDF の表示モデル（許可キーのみ）。件数・氏名・住所・座標点は持たない。
+export interface HeatmapPdfBothModel {
+  metaTitle: string
+  title: string
+  generatedAtLabel: string
+  left: BothPanelModel
+  right: BothPanelModel
+  legend: LegendRow[]
+  attributions: string[]
+  disclaimer: string
+  osmAttribution: string
+  siteLabel: string
+}
+
+// 許可キー（テストで固定＝S-4 の防波堤）。
+export const BOTH_PANEL_MODEL_KEYS = ['heading', 'pngDataUrl', 'tilesFailed'] as const
+export const HEATMAP_PDF_BOTH_MODEL_KEYS = [
+  'metaTitle',
+  'title',
+  'generatedAtLabel',
+  'left',
+  'right',
+  'legend',
+  'attributions',
+  'disclaimer',
+  'osmAttribution',
+  'siteLabel',
+] as const
+
+// モデル組立（許可キーのみを綴じる。余分なキーを混入させない単一の入口）。
+export function buildHeatmapPdfBothModel(input: HeatmapPdfBothModel): HeatmapPdfBothModel {
+  return {
+    metaTitle: input.metaTitle,
+    title: input.title,
+    generatedAtLabel: input.generatedAtLabel,
+    left: {
+      heading: input.left.heading,
+      pngDataUrl: input.left.pngDataUrl,
+      tilesFailed: input.left.tilesFailed,
+    },
+    right: {
+      heading: input.right.heading,
+      pngDataUrl: input.right.pngDataUrl,
+      tilesFailed: input.right.tilesFailed,
+    },
+    legend: input.legend,
+    attributions: input.attributions,
+    disclaimer: input.disclaimer,
+    osmAttribution: input.osmAttribution,
+    siteLabel: input.siteLabel,
+  }
+}
