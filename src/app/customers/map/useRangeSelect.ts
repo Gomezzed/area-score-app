@@ -82,6 +82,9 @@ export function useRangeSelect({
   const [rangeMode, setRangeMode] = useState<RangeMode>(DEFAULT_RANGE_MODE)
   const [userSubMode, setUserSubMode] = useState<UserSubMode | null>(null)
   const [maskOutside, setMaskOutside] = useState(defaultMaskFor(DEFAULT_RANGE_MODE))
+  // 校区種別の出力モード（PR-C）。false＝現在の種別のみ（既定）／true＝小学校区＋中学校区（左右2パネル）。
+  //   他方校種の取得・0件フォールバックは page.tsx（データ層）が扱う。ここは UI トグルのみ保持。
+  const [bothMode, setBothMode] = useState(false)
   // 矩形ドラッグの確定可否／極小無効フラグ。
   const [rectConfirmable, setRectConfirmable] = useState(false)
   const [rectInvalid, setRectInvalid] = useState(false)
@@ -364,6 +367,7 @@ export function useRangeSelect({
     setRangeMode(DEFAULT_RANGE_MODE)
     setUserSubMode(null)
     setMaskOutside(defaultMaskFor(DEFAULT_RANGE_MODE))
+    setBothMode(false)
     setRectConfirmable(false)
     setRectInvalid(false)
     setPanelOpen(true)
@@ -375,6 +379,7 @@ export function useRangeSelect({
     setRangeMode(DEFAULT_RANGE_MODE)
     setUserSubMode(null)
     setMaskOutside(defaultMaskFor(DEFAULT_RANGE_MODE))
+    setBothMode(false)
     setRectConfirmable(false)
     setRectInvalid(false)
     const map = mapRef.current
@@ -403,12 +408,14 @@ export function useRangeSelect({
     selectedCount,
     fitHasTargets,
     canExport,
+    bothMode,
     // 操作
     openPanel,
     closePanel,
     selectRangeMode,
     selectUserSubMode,
     setMaskOutside,
+    setBothMode,
     redoRect,
     handlePolygonClick,
     resolveRange,

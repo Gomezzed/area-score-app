@@ -81,6 +81,11 @@ interface DistrictProps {
   label_lat: number
 }
 
+// 反対の校種（2択）。both 出力で他方パネルのデータを取得するのに使う。
+function otherSchoolType(t: SchoolType): SchoolType {
+  return t === 'elementary' ? 'junior_high' : 'elementary'
+}
+
 function FullPageLoading() {
   return (
     <div className="flex items-center justify-center min-h-[60vh] text-sm text-slate-400">
@@ -370,12 +375,15 @@ function RangePanel({
   type,
   muniName,
   pdfStatus,
+  bothMessage,
   onExport,
 }: {
   range: ReturnType<typeof useRangeSelect>
   type: SchoolType
   muniName: string | null
   pdfStatus: 'idle' | 'generating' | 'error'
+  // 校区種別ラジオの補助文言（他方校種が 0 件／取得失敗／読込中のとき。無ければ null）。
+  bothMessage: string | null
   onExport: () => void
 }) {
   const generating = pdfStatus === 'generating'
@@ -404,11 +412,33 @@ function RangePanel({
         </button>
       </div>
 
-      {/* 校区種別（表示のみ・変更不可） */}
-      <div className="mt-3 flex items-center gap-2 text-xs">
-        <span className="text-slate-400">校区種別</span>
-        <span className="font-semibold text-slate-700">{SCHOOL_TYPE_LABELS[type]}</span>
-      </div>
+      {/* 校区種別（PR-C：出力モード。単独の小・中切替は既存タブ＝URL の type に任せる） */}
+      <fieldset className="mt-3">
+        <legend className="text-xs font-semibold text-slate-500 mb-1.5">校区種別</legend>
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+            <input
+              type="radio"
+              name="school-both"
+              checked={!range.bothMode}
+              onChange={() => range.setBothMode(false)}
+            />
+            {SCHOOL_TYPE_LABELS[type]}のみ
+          </label>
+          <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+            <input
+              type="radio"
+              name="school-both"
+              checked={range.bothMode}
+              onChange={() => range.setBothMode(true)}
+            />
+            小学校区＋中学校区（左右2パネル）
+          </label>
+        </div>
+        {bothMessage && (
+          <p className="mt-1 text-[11px] leading-snug text-slate-500">{bothMessage}</p>
+        )}
+      </fieldset>
 
       {/* 出力範囲（ラジオ） */}
       <fieldset className="mt-3">
@@ -587,6 +617,12 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [pdfToast, setPdfToast] = useState<string | null>(null)
 
+  // 他方校種（PR-C・both 出力用）。type 切替で MapView は再マウント（key=muni:type）され自然に初期化。
+  //   取得はセッション内メモリ保持で再取得しない（otherLoad が idle のときだけ取得）。
+  const [otherGeojson, setOtherGeojson] = useState<FeatureCollection<Geometry, DistrictProps> | null>(null)
+  const [otherRankRows, setOtherRankRows] = useState<RankingRow[] | null>(null)
+  const [otherLoad, setOtherLoad] = useState<'idle' | 'loading' | 'loaded' | 'empty' | 'failed'>('idle')
+
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const layerRef = useRef<LeafletGeoJSON | null>(null)
@@ -601,6 +637,13 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
   // 「濃淡のある校区」判定＝ランキングに載った（tier が突合した）校区のみ。範囲フックへ注入する。
   //   ⛔ 抑止校区(k=5)・反響ゼロは含めない（SD-38 で画面上区別できないため）。
   const isTargetDistrict = useCallback((id: string) => tierById.has(id), [tierById])
+
+  // 他方校種の突合表（both 出力の右／左パネル用）。画面の tierById と同じ作り。
+  const otherTierById = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of otherRankRows ?? []) m.set(r.school_district_id, r.tier)
+    return m
+  }, [otherRankRows])
 
   // 出力範囲の指定（右パネル／矩形ドラッグ・移動確定・校区クリック・濃淡フィット）。
   const range = useRangeSelect({
@@ -707,6 +750,65 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
     return Array.from(set)
   }, [geojson])
 
+  // 他方校種の取得（both を選んだときだけ・画面と同じ関数/API/引数で school_type のみ他方に）。
+  //   取得結果はメモリ保持し再取得しない（otherLoad が idle のときだけ走る）。
+  useEffect(() => {
+    if (!range.bothMode || otherLoad !== 'idle') return
+    const other = otherSchoolType(type)
+    let alive = true
+    setOtherLoad('loading')
+    ;(async () => {
+      try {
+        const [gr, rr] = await Promise.all([
+          fetch(
+            `/api/school-districts?muni_code_5=${encodeURIComponent(muni)}&school_type=${encodeURIComponent(other)}`,
+          ),
+          fetch(
+            `/api/customer-lists/${list}/school-district-ranking?school_type=${encodeURIComponent(other)}`,
+          ),
+        ])
+        if (!alive) return
+        if (!gr.ok) {
+          setOtherLoad('failed')
+          return
+        }
+        const gj = (await gr.json()) as FeatureCollection<Geometry, DistrictProps>
+        const feats = gj && Array.isArray(gj.features) ? gj.features : []
+        setOtherGeojson({ type: 'FeatureCollection', features: feats })
+        let rows: RankingRow[] = []
+        if (rr.ok) {
+          const rj = (await rr.json()) as RankingResponse
+          rows = rj.rows ?? []
+        }
+        setOtherRankRows(rows)
+        // ランキングが 0 件でもポリゴンがあれば出力する（全校区が NO_DATA 色）。
+        //   ポリゴン features が 0 件のときだけ「利用できません」で現在の種別へ戻す。
+        setOtherLoad(feats.length === 0 ? 'empty' : 'loaded')
+      } catch {
+        if (alive) setOtherLoad('failed')
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [range.bothMode, otherLoad, type, muni, list])
+
+  // 他方校種が 0 件／取得失敗なら「現在の種別のみ」へ戻す（メッセージはパネルに出す）。
+  useEffect(() => {
+    if (range.bothMode && (otherLoad === 'empty' || otherLoad === 'failed')) {
+      range.setBothMode(false)
+    }
+  }, [range.bothMode, otherLoad, range.setBothMode])
+
+  // 校区種別ラジオの補助文言（他方校種の状態）。
+  const bothMessage = useMemo(() => {
+    const label = SCHOOL_TYPE_LABELS[otherSchoolType(type)]
+    if (otherLoad === 'empty') return `本市では${label}データを利用できません`
+    if (otherLoad === 'failed') return `${label}データの取得に失敗しました`
+    if (otherLoad === 'loading') return `${label}データを読み込み中…`
+    return null
+  }, [otherLoad, type])
+
   // PDF 出力（クリック時に生成モジュールを動的 import。初期バンドルに乗せない）。
   //   案B：ライブ地図には触れず、パネルで確定した範囲（現在表示中／自動調整／ユーザー指定）と
   //   「市外を薄くする」で 1 ページを生成する。
@@ -720,18 +822,37 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
     setPdfError(null)
     setPdfToast(null)
     try {
-      const { exportHeatmapPdf } = await import('@/lib/heatmap-pdf')
-      const fileName = await exportHeatmapPdf({
-        center: resolved.center,
-        bounds: resolved.bounds,
-        geojson,
-        rankRows: rankRows ?? [],
-        tierById,
-        muniCode5: muni,
-        schoolType: type,
-        muniName,
-        maskOutside: resolved.maskOutside,
-      })
+      let fileName: string
+      // both：他方校種が読込済みなら2パネル。左＝小学校区・右＝中学校区で固定に割り当てる。
+      if (range.bothMode && otherLoad === 'loaded' && otherGeojson && otherRankRows) {
+        const { exportHeatmapPdfBoth } = await import('@/lib/heatmap-pdf')
+        const current = { geojson, rankRows: rankRows ?? [], tierById }
+        const other = { geojson: otherGeojson, rankRows: otherRankRows, tierById: otherTierById }
+        const [elementary, juniorHigh] =
+          type === 'elementary' ? [current, other] : [other, current]
+        fileName = await exportHeatmapPdfBoth({
+          center: resolved.center,
+          bounds: resolved.bounds,
+          elementary,
+          juniorHigh,
+          muniCode5: muni,
+          muniName,
+          maskOutside: resolved.maskOutside,
+        })
+      } else {
+        const { exportHeatmapPdf } = await import('@/lib/heatmap-pdf')
+        fileName = await exportHeatmapPdf({
+          center: resolved.center,
+          bounds: resolved.bounds,
+          geojson,
+          rankRows: rankRows ?? [],
+          tierById,
+          muniCode5: muni,
+          schoolType: type,
+          muniName,
+          maskOutside: resolved.maskOutside,
+        })
+      }
       setPdfStatus('idle')
       setPdfToast(fileName)
       // 出力後：パネルを閉じ、中心・ズーム・モードを元に戻す。
@@ -924,6 +1045,7 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
             type={type}
             muniName={muniName}
             pdfStatus={pdfStatus}
+            bothMessage={bothMessage}
             onExport={handleExportPdf}
           />
         )}
