@@ -14,7 +14,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { notFound, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Lock, Loader2, X } from 'lucide-react'
+import { ArrowLeft, Lock, Loader2, X, Download } from 'lucide-react'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import type {
   GeoJSON as LeafletGeoJSON,
@@ -32,14 +32,12 @@ import {
   isSchoolType,
   type SchoolType,
 } from '@/lib/school-districts'
-import { TIER_LABEL } from '@/lib/school-district-tiers'
+import { TIER_LABEL, NO_DATA_LEGEND } from '@/lib/school-district-tiers'
 import { TIER_FILL, NO_DATA_FILL, tierToPathStyle } from '@/lib/school-district-map-style'
+import { OSM_TILE_URL_TEMPLATE } from '@/lib/heatmap-pdf/tile-source'
 
 // UI/API の二層封鎖の上層（/customers/page.tsx と同一の環境フラグ）。
 const FEATURE_ON = process.env.NEXT_PUBLIC_FEATURE_CUSTOMER_LIST === 'true'
-
-// グレー凡例の逐語文言（閾値そのものは書かない）。
-const NO_DATA_LEGEND = '件数が少ないため表示していません'
 
 // ── 取込エリア一覧（GET /api/customer-lists/[id]/areas）の1行 ──
 interface AreaRow {
@@ -380,6 +378,11 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
   // 地図の生成完了（fetch が先に終わっても描画を取りこぼさないため）。
   const [mapReady, setMapReady] = useState(false)
 
+  // PDF 出力の状態（idle / generating / error）＋完了トースト（ファイル名）。
+  const [pdfStatus, setPdfStatus] = useState<'idle' | 'generating' | 'error'>('idle')
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [pdfToast, setPdfToast] = useState<string | null>(null)
+
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const layerRef = useRef<LeafletGeoJSON | null>(null)
@@ -486,6 +489,42 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
     return Array.from(set)
   }, [geojson])
 
+  // PDF 出力（クリック時に生成モジュールを動的 import。初期バンドルに乗せない）。
+  //   案B：ライブ地図には触れず、現在の中心・表示範囲・校区種別で 1 ページを生成する。
+  async function handleExportPdf() {
+    const map = mapRef.current
+    if (!map || !geojson || rankRows === null) return
+    setPdfStatus('generating')
+    setPdfError(null)
+    setPdfToast(null)
+    try {
+      const center = map.getCenter()
+      const bounds = map.getBounds()
+      const { exportHeatmapPdf } = await import('@/lib/heatmap-pdf')
+      const fileName = await exportHeatmapPdf({
+        center: { lng: center.lng, lat: center.lat },
+        bounds: {
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth(),
+        },
+        geojson,
+        rankRows: rankRows ?? [],
+        tierById,
+        muniCode5: muni,
+        schoolType: type,
+        muniName,
+      })
+      setPdfStatus('idle')
+      setPdfToast(fileName)
+      window.setTimeout(() => setPdfToast(null), 6000)
+    } catch {
+      setPdfStatus('error')
+      setPdfError('PDFの生成に失敗しました。時間をおいて再試行してください。')
+    }
+  }
+
   // 地図初期化（マウント時1回。SSR 回避＝useEffect 内で import('leaflet'))。
   useEffect(() => {
     if (!containerRef.current || typeof window === 'undefined') return
@@ -497,7 +536,7 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
         zoom: 9,
         preferCanvas: true,
       })
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      L.tileLayer(OSM_TILE_URL_TEMPLATE, {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
         keepBuffer: 4,
@@ -592,8 +631,54 @@ function MapView({ list, muni, type }: { list: string; muni: string; type: Schoo
           </Link>
           <h1 className="text-base font-bold text-slate-900">{muniName ?? ''}</h1>
         </div>
-        <SchoolTypeTabs list={list} muni={muni} current={type} />
+        <div className="flex items-center gap-2">
+          <SchoolTypeTabs list={list} muni={muni} current={type} />
+          {/* PDF出力：ランキング（濃淡）取得が成功した状態でのみ描画（townAcquisitionPriority に内包）。*/}
+          {rankRows !== null && !rankFailed && (
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={pdfStatus === 'generating' || !geojson}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {pdfStatus === 'generating' ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  PDFを生成中…
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  PDF出力
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* PDF 出力の状態（生成中／完了トースト／失敗＋再試行）。地図操作は妨げない。*/}
+      {(pdfStatus === 'generating' || pdfStatus === 'error' || pdfToast) && (
+        <div className="max-w-6xl w-full mx-auto px-4 pb-1 text-xs">
+          {pdfStatus === 'generating' && (
+            <span className="inline-flex items-center gap-1 text-slate-500">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              PDFを生成中…
+            </span>
+          )}
+          {pdfStatus === 'idle' && pdfToast && (
+            <span className="text-emerald-700">PDFを保存しました: {pdfToast}</span>
+          )}
+          {pdfStatus === 'error' && (
+            <span className="text-rose-700">
+              {pdfError}{' '}
+              <button type="button" onClick={handleExportPdf} className="underline font-semibold">
+                再試行
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="relative flex-1 min-h-[70vh]">
         <div ref={containerRef} className="absolute inset-0" />
