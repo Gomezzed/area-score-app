@@ -9,7 +9,7 @@ import {
   UnknownPresetError,
 } from '@/lib/customer-list/presets'
 import { extractRows, countDateNullRows } from '@/lib/customer-list/row-extract'
-import { countLeadTypes } from '@/lib/customer-list/lead-type'
+import { summarizeImportConditions } from '@/lib/customer-list/import-summary'
 import { planUpsert } from '@/lib/customer-list/upsert-plan'
 import {
   matchAddress,
@@ -511,16 +511,8 @@ export async function POST(
   const dateNullRows = countDateNullRows(extracted)
 
   // BM-2 の集計（⛔ 件数のみ。生値・個票は返さない・D144/D122）。
-  const leadTypeCounts = countLeadTypes(extracted.map((e) => e.lead_type))
-  const countReasons = (pred: (r: string) => boolean) =>
-    extracted.reduce((n, e) => n + e.reasons.filter(pred).length, 0)
-  const propertyTypeUnknownTokens = countReasons((r) =>
-    r.startsWith('property_type:unknown_token:') || r.startsWith('sell_property_type:unresolved:'),
-  )
-  const priceUnparsed = countReasons((r) => r.startsWith('price_') && r.endsWith(':unparsed'))
-  const areaUnparsed = countReasons(
-    (r) => r.startsWith('desired_floor_area_') || r.startsWith('desired_land_area_'),
-  )
+  //   集計そのものは純ロジック（import-summary.ts）に置き、ここでは組み立てない。
+  const conditionSummary = summarizeImportConditions(extracted, propertyTypeRowsWritten)
 
   return NextResponse.json(
     {
@@ -540,15 +532,10 @@ export async function POST(
       summary,
       // 突合バッチの集計（RPC の jsonb サマリ。未実行/失敗時は null）。
       match: matchSummary,
-      // ── BM-2 の集計（件数のみ）──────────────────────────────
-      lead_type: leadTypeCounts,
-      // 書き込んだ子行の件数。書き込みに失敗した場合は error: true を添える。
-      property_type_rows: propertyTypeRowsWritten,
+      // ── BM-2 の集計（件数のみ・⛔ 未解決トークンそのものは返さない）──
+      ...conditionSummary,
+      // 子行の書き込みに失敗した場合だけ error を添える（property_type_rows は 0 のまま）。
       ...(propertyTypeError ? { property_type_error: true } : {}),
-      // 解決できなかった物件種別トークンの件数（⛔ トークンそのものは返さない）。
-      property_type_unknown_tokens: propertyTypeUnknownTokens,
-      price_unparsed: priceUnparsed,
-      area_unparsed: areaUnparsed,
       // 希望校区の名寄せ RPC の jsonb サマリ（失敗時は { error: true }）。
       desired_districts: desiredDistricts,
       as_of_by_municipality: muniAsOf,
