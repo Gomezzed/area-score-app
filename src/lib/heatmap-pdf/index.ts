@@ -42,6 +42,8 @@ export interface ExportHeatmapPdfInput {
   schoolType: SchoolType
   muniName: string | null
   now?: Date
+  // 市外を薄くする。既定 false（未指定＝従来どおり・後方互換）。
+  maskOutside?: boolean
 }
 
 // PDF を生成してダウンロードし、ファイル名を返す。
@@ -56,6 +58,7 @@ export async function exportHeatmapPdf(input: ExportHeatmapPdfInput): Promise<st
       bounds: input.bounds,
       geojson: input.geojson,
       tierById: input.tierById,
+      maskOutside: input.maskOutside ?? false,
     })
 
     const legend = buildLegendRows(TIER_LABEL, TIER_FILL, NO_DATA_FILL, NO_DATA_LEGEND)

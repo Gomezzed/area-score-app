@@ -19,6 +19,7 @@ import {
   type Bounds,
   type LngLat,
 } from './tiles.ts'
+import { collectPolygonRings, buildMaskPath, type FeatureLike } from './mask-path.ts'
 import { OSM_TILE_URL_TEMPLATE, OSM_SUBDOMAINS, OSM_MAX_ZOOM } from './tile-source.ts'
 
 // ポリゴンの properties は突合キー id のみ使う（tier 以外の値は載せない）。
@@ -31,6 +32,8 @@ export interface RenderInput {
   bounds: Bounds
   geojson: FeatureCollection<Geometry, DistrictLike>
   tierById: Map<string, number>
+  // 市外を薄くする。既定 false（未指定＝従来どおりマスクなし・後方互換）。
+  maskOutside?: boolean
 }
 
 export interface RenderResult {
@@ -42,6 +45,7 @@ const TILE_TIMEOUT_MS = 8000
 const TILE_CONCURRENCY = 6
 const FAILED_TILE_FILL = '#e5e7eb' // slate-200（失敗タイルの薄い灰色）
 const BASE_BACKGROUND = '#f8fafc' // slate-50（下地）
+const MASK_FILL = 'rgba(255,255,255,0.55)' // 市外を薄くする覆い（合併形の外側）
 
 // crossOrigin 付きで 1 枚読み込む。失敗・タイムアウトは null。
 function loadTileImage(url: string): Promise<HTMLImageElement | null> {
@@ -194,6 +198,41 @@ export async function renderHeatmapPng(input: RenderInput): Promise<RenderResult
   }
 
   for (const feature of input.geojson.features) drawFeature(feature)
+
+  // ── 市外を薄くする（maskOutside）──
+  //   フレーム矩形＋読み込み済み全 feature の全リングを 1 本の even-odd パスにまとめ、
+  //   ctx.fill('evenodd') で合併形の外側だけを白 55% で覆う。
+  //   ⛔ tier で feature を絞らない（抑止校区・tier 無しも含む・補足1）。凡例・出典・免責・
+  //     ラベルには触れない（描画順はポリゴンの後・タイルの上）。
+  if (input.maskOutside) {
+    const frameCorners: number[][] = [
+      [0, 0],
+      [width, 0],
+      [width, height],
+      [0, height],
+    ]
+    const ringsPx = collectPolygonRings(
+      input.geojson.features as unknown as FeatureLike[],
+    ).map((ring) =>
+      ring.map(([lng, lat]) => {
+        const p = project(lng, lat, z)
+        return [p.x - range.originX, p.y - range.originY]
+      }),
+    )
+    const maskPath = buildMaskPath(frameCorners, ringsPx)
+    const path = new Path2D()
+    for (const ring of maskPath.rings) {
+      ring.forEach(([x, y], i) => {
+        if (i === 0) path.moveTo(x, y)
+        else path.lineTo(x, y)
+      })
+      path.closePath()
+    }
+    ctx.save()
+    ctx.fillStyle = MASK_FILL
+    ctx.fill(path, 'evenodd')
+    ctx.restore()
+  }
 
   return { pngDataUrl: canvas.toDataURL('image/png'), tilesFailed }
 }
