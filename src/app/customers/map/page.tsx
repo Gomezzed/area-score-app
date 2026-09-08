@@ -380,6 +380,7 @@ function RangePanel({
 }) {
   const generating = pdfStatus === 'generating'
   const rangeItems: { value: RangeMode; label: string }[] = [
+    { value: 'fit', label: '濃淡のある校区に合わせる' },
     { value: 'current', label: '現在表示中' },
     { value: 'auto', label: `${muniName ?? 'この市区町村'}全体に自動調整` },
     { value: 'user', label: 'ユーザー指定' },
@@ -426,6 +427,13 @@ function RangePanel({
           ))}
         </div>
       </fieldset>
+
+      {/* 濃淡フィットで対象が 0 件のとき：現在表示中へフォールバックする旨を明示 */}
+      {range.rangeMode === 'fit' && !range.fitHasTargets && (
+        <p className="mt-2 text-[11px] leading-snug text-slate-500">
+          濃淡のある校区がないため現在表示中で出力します
+        </p>
+      )}
 
       {/* ユーザー指定のサブ選択（セグメント） */}
       {range.rangeMode === 'user' && (
