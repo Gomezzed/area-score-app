@@ -12,7 +12,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeTownName } from './normalize.ts'
 import { latestPerMunicipality } from './latest.ts'
 import type { TownRecord, MatchStatus } from './types.ts'
-import type { UpsertRow } from './upsert-plan.ts'
+import type { PropertyTypeCode } from './presets.ts'
+import type { UpsertRow, UpsertPropertyTypeRow } from './upsert-plan.ts'
 
 // サーバー側フィーチャーフラグ（H9 の教訓: UI と二層で封鎖する）。
 //   off のとき Route Handler は 404 を返す（機能の存在自体を隠す）。
@@ -235,6 +236,58 @@ export async function replaceUntrackedRows(
       .from('customer_list_rows')
       .insert(rows.slice(i, i + chunkSize))
     if (error) throw new CustomerListDbError('customer_list_rows.insert_untracked', error)
+  }
+}
+
+// label_ja → property_types.code の解決表を作る（BM-2）。
+//   ⛔ 対応表を TS にハードコードしない（原則19）。取込のたびに DB を 1 回だけ読み、
+//      運用側で種別を足したら取込にそのまま反映されるようにする。
+//   ⚠ 読み出しは親 UPSERT と同じユーザースコープのクライアントで行う
+//      （property_types は authenticated に SELECT が付いている参照マスタ）。
+//   is_active=false の種別は解決表に入れない＝新規の子行を作らない（既存行は触らない）。
+export async function loadPropertyTypeLabels(
+  supabase: SupabaseClient,
+): Promise<Map<string, PropertyTypeCode>> {
+  const { data, error } = await supabase
+    .from('property_types')
+    .select('code, label_ja')
+    .eq('is_active', true)
+  if (error) throw new CustomerListDbError('property_types.select', error)
+  const map = new Map<string, PropertyTypeCode>()
+  for (const r of (data ?? []) as Array<{ code: string; label_ja: string }>) {
+    // 比較キーは NFKC 正規化＋trim（row-extract 側のトークン正規化と揃える）。
+    map.set(r.label_ja.normalize('NFKC').trim(), r.code as PropertyTypeCode)
+  }
+  return map
+}
+
+// 希望物件種別×価格帯（子行）を list 単位で洗い替える（delete → insert・BM-2）。
+//   ⚠ admin（service_role）クライアントで呼ぶこと。子テーブルは authenticated=SELECT のみで、
+//      書込は service_role が行う導出データ（BM-1 20260908000100:196-197）。
+//   ⛔ DELETE は当該 list_id に限定する（他の名簿に到達しない）。
+//   list_id/user_id/organization_id は BEFORE INSERT トリガー
+//     （trg_set_customer_list_row_property_type_owner）が親行から上書きするため、
+//     ここで送る list_id/user_id は詐称の余地がない（送らないと NOT NULL に触れる）。
+export async function replaceRowPropertyTypes(
+  admin: SupabaseClient,
+  listId: string,
+  rows: readonly UpsertPropertyTypeRow[],
+  chunkSize: number = UPSERT_CHUNK,
+): Promise<void> {
+  const { error: delErr } = await admin
+    .from('customer_list_row_property_types')
+    .delete()
+    .eq('list_id', listId)
+  if (delErr) {
+    throw new CustomerListDbError('customer_list_row_property_types.delete', delErr)
+  }
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const { error } = await admin
+      .from('customer_list_row_property_types')
+      .insert(rows.slice(i, i + chunkSize))
+    if (error) {
+      throw new CustomerListDbError('customer_list_row_property_types.insert', error)
+    }
   }
 }
 

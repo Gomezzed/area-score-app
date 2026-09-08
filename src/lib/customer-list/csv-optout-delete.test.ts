@@ -156,6 +156,12 @@ function erow(
     opt_out_mail_magazine: opts.opt_out_mail_magazine ?? false,
     opt_out_mail: opts.opt_out_mail ?? false,
     is_deleted: opts.is_deleted ?? false,
+    lead_type: 'unknown',
+    property_types: [],
+    desired_floor_area_min: null,
+    desired_floor_area_max: null,
+    desired_land_area_min: null,
+    desired_land_area_max: null,
     reasons: [],
   }
 }

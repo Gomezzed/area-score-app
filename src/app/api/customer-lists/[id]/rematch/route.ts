@@ -20,10 +20,17 @@ const PAGE = 1000
 const MAX_PAGES = 20
 
 // 取り込み処理の段階識別子（import と同じ観測性の流儀）。
-type RematchStage = 'guardFeature' | 'auth' | 'list' | 'load' | 'match'
+type RematchStage =
+  | 'guardFeature'
+  | 'auth'
+  | 'list'
+  | 'load'
+  | 'match'
+  | 'desiredDistricts'
 
 // POST /api/customer-lists/[id]/rematch
 //   既存の取込済み行（deleted_at IS NULL）を CSV 無しで再突合する（PR-D改 c4）。
+//   BM-2 で希望校区の名寄せ（match_customer_list_desired_districts）も続けて呼ぶ。
 //   突合は import と同一の DB バッチ RPC match_customer_list_rows（service_role・DEFINER）を
 //   再利用し、当該リストの突合結果を洗い替え（delete→insert）する（裁定B）。
 //
@@ -152,12 +159,38 @@ export async function POST(
     return failEnvelope(500, 'match', 'match_failed', requestId, timings, startedAt)
   }
 
+  // ⑦ BM-2: 希望校区の名寄せ（match_customer_list_desired_districts）を import と同じ流儀で呼ぶ。
+  //    ⚠ 同じ admin（service_role）クライアントを使う: この RPC は SECURITY DEFINER で
+  //       EXECUTE が service_role のみに付いている（BM-1 20260908000200）。
+  //    ⚠ fail-soft: 住所の再突合（本来の目的）は既に成功しているため、名寄せの失敗で
+  //       全体を 500 にしない。サマリに { error: true } を入れて続行する（import と同じ）。
+  //    ⛔ 子行の洗い替えはしない（CSV が無く希望条件を作り直せないため。再突合は
+  //       既存の子行・希望条件をそのまま使って名寄せだけをやり直す）。
+  let desiredDistricts: unknown = { error: true }
+  const ddStart = performance.now()
+  try {
+    const { data, error: ddErr } = await admin.rpc(
+      'match_customer_list_desired_districts',
+      { p_list_id: listId },
+    )
+    if (ddErr) {
+      reportImportError(ddErr, { requestId, stage: 'desiredDistricts', timings })
+    } else {
+      desiredDistricts = data
+    }
+  } catch (error) {
+    reportImportError(error, { requestId, stage: 'desiredDistricts', timings })
+  }
+  timings.desiredDistricts = elapsedMsSince(ddStart)
+
   return NextResponse.json(
     {
       ok: true,
       id: listId,
       rows: rows.length,
       match: matchSummary,
+      // 希望校区の名寄せ RPC の jsonb サマリ（失敗時は { error: true }）。
+      desired_districts: desiredDistricts,
       requestId,
       timings,
     },

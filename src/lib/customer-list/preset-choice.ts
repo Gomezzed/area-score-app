@@ -10,13 +10,14 @@ export type PresetChoice = '' | 'hausudo' | 'other'
 //     { v:2, columns:{...}, resolve_route, preset_id? }
 //   - v:2 かつ preset_id==='hausudo'         → 'hausudo'（?preset=hausudo で取り込んだ）
 //   - v:2 かつ preset_id 無し（キーごと省略） → 'other'（?preset= を付けず自動判定で取り込んだ）
-//   - v:2 でない（レガシー flat 形 or 未取込で column_mapping=null）→ ''（プリセット概念が無い＝再選択）
+//   - v:2/v:3 でない（レガシー flat 形 or 未取込で column_mapping=null）→ ''（プリセット概念が無い＝再選択）
 //   - v:2 だが未知の preset_id                → ''（未知 preset を UI に復元しない）
 export function presetChoiceFromMapping(mapping: unknown): PresetChoice {
   if (!mapping || typeof mapping !== 'object') return ''
   const m = mapping as Record<string, unknown>
-  // v:2 以外（レガシー flat 形）はプリセット選択の概念が無いため復元しない。
-  if (m.v !== 2) return ''
+  // v:2/v:3 以外（レガシー flat 形）はプリセット選択の概念が無いため復元しない。
+  //   v:3（BM-2）は v:2 に列 index を追記しただけで preset_id の意味は同じ（読み出し互換）。
+  if (m.v !== 2 && m.v !== 3) return ''
   if (m.preset_id === 'hausudo') return 'hausudo'
   // v:2 で preset_id が無い＝?preset= を付けずに取り込んだ＝「その他（自動判定）」。
   if (m.preset_id == null || m.preset_id === '') return 'other'

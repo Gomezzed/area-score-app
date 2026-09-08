@@ -5,10 +5,11 @@ import { decodeCsvBytes, CsvDecodeError } from '@/lib/customer-list/decode'
 import { parseCsv } from '@/lib/customer-list/csv-import'
 import {
   resolveColumnMapping,
+  buildColumnMappingV3,
   UnknownPresetError,
-  type ResolveRoute,
 } from '@/lib/customer-list/presets'
-import { extractRows } from '@/lib/customer-list/row-extract'
+import { extractRows, countDateNullRows } from '@/lib/customer-list/row-extract'
+import { summarizeImportConditions } from '@/lib/customer-list/import-summary'
 import { planUpsert } from '@/lib/customer-list/upsert-plan'
 import {
   matchAddress,
@@ -22,8 +23,10 @@ import {
   loadMunicipalities,
   loadTownData,
   loadExistingExternalIds,
+  loadPropertyTypeLabels,
   upsertCustomerListRows,
   replaceUntrackedRows,
+  replaceRowPropertyTypes,
   markMissingRows,
   markDeletedRows,
   type MuniAsOf,
@@ -36,7 +39,8 @@ import {
   type Timings,
 } from '@/lib/customer-list/api-envelope'
 import type { TownIndex } from '@/lib/customer-list/match'
-import type { MatchResult, ColumnMapping } from '@/lib/customer-list/types'
+import type { MatchResult } from '@/lib/customer-list/types'
+import type { PropertyTypeCode } from '@/lib/customer-list/presets'
 
 export const runtime = 'nodejs'
 
@@ -56,8 +60,10 @@ type ImportStage =
   | 'prescan'
   | 'loadTownData'
   | 'upsert'
+  | 'propertyTypes'
   | 'missing'
   | 'match'
+  | 'desiredDistricts'
   | 'finalize'
 
 // POST /api/customer-lists/[id]/import
@@ -75,7 +81,10 @@ type ImportStage =
 //     ⑥ 住所→町域 突合（v0 と同じエンジン）
 //     ⑦ 毎回全件 UPSERT（CL-17・主キー UPSERT 方式）
 //     ⑧ external_id を持たない行の全置換（論点B ③）
+//     ⑧-b 希望物件種別×価格帯の子行を list 単位で洗い替え（BM-2・admin/service_role）
 //     ⑨ 今回触られなかった行に missing_since を付与（PR-A 申し送り③）
+//     ⑩ 住所→代表点→校区の突合バッチ（match_customer_list_rows・admin・fail-soft）
+//     ⑪ 希望校区の名寄せ（match_customer_list_desired_districts・admin・fail-soft・BM-2）
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -221,7 +230,20 @@ export async function POST(
       startedAt,
     )
   }
-  const extracted = extractRows(dataRows, mapping, extract)
+  // BM-2: label_ja → property_types.code の解決表を 1 回だけ読む（原則19）。
+  //   プリセットが物件種別の列を解決したときだけ引く（heuristic 経路では引かない）。
+  //   ⚠ fail-soft: 参照マスタが読めなくても取込自体は続ける。解決表が無い行には
+  //      row-extract が reason 'property_type:resolver_unavailable' を残し、子行は作らない
+  //      （推測で種別を作らない）。
+  let propertyTypeByLabel: Map<string, PropertyTypeCode> | undefined
+  if (extract.propertyTypeColumn != null || extract.sellPropertyTypeColumn != null) {
+    try {
+      propertyTypeByLabel = await loadPropertyTypeLabels(supabase)
+    } catch (error) {
+      reportImportError(error, { requestId, stage: 'parse', timings })
+    }
+  }
+  const extracted = extractRows(dataRows, mapping, { ...extract, propertyTypeByLabel })
   timings.parse = elapsedMsSince(pStart)
 
   // ⑥ 突合（v0 と同じ手順: 自治体母集合 → 候補解決 → 町域取得 → 行ごと突合）。
@@ -291,6 +313,9 @@ export async function POST(
   const uStart = performance.now()
   let missingMarked = 0
   let deletedMarked = 0
+  // BM-2: 子行の書き込み結果（件数のみ・個票は持たない）。
+  let propertyTypeRowsWritten = 0
+  let propertyTypeError = false
   let plan: ReturnType<typeof planUpsert>
   try {
     const existingByExternalId = await loadExistingExternalIds(supabase, listId)
@@ -304,6 +329,9 @@ export async function POST(
       // プリセットが小学校区列を解決したときだけ desired_school を永続化する
       //   （汎用取込では列を含めず既存値を保全する）。
       persistDesiredSchool: extract.schoolColumn != null,
+      // 面積 4 列も同じ流儀。プリセットが面積列を解決したときだけ SET 句に載せる。
+      persistDesiredArea:
+        extract.floorAreaColumns != null || extract.landAreaColumns != null,
     })
 
     // ⑦ 追跡可能な行（external_id 有り）を毎回全件 UPSERT。
@@ -313,7 +341,29 @@ export async function POST(
     await replaceUntrackedRows(supabase, listId, plan.untracked)
     timings.upsert = elapsedMsSince(uStart)
 
-    // ⑧-b 裁定A(a): 削除フラグ ON かつ DB 既存の行に deleted_at を立てる（内容は更新しない）。
+    // ⑧-b BM-2: 希望物件種別×価格帯の子行を list 単位で洗い替える（delete → insert）。
+    //    ⚠ admin（service_role）で書く: 子テーブルは authenticated=SELECT のみで、書込は
+    //       service_role が行う導出データ（BM-1 20260908000100:196-197）。GRANT も RLS も
+    //       変更しない。認可は上の ④（作成者本人 403）で担保済み。
+    //    ⚠ 親 UPSERT の直後・missing 判定より前に実行する（子行は親行の FK を参照するため）。
+    //    ⚠ fail-soft: 行本体は既にコミット済み。ここで 500 にすると「行は入ったのに失敗」の
+    //       誤報になるため、失敗は Sentry に送りサマリに error を立てて続行する。
+    const ptStart = performance.now()
+    try {
+      const ptAdmin = getSupabaseAdmin()
+      if (!ptAdmin) {
+        // service_role 未設定（環境差）。子行の書き込みはスキップし可観測にする。
+        throw new Error('supabase admin client unavailable')
+      }
+      await replaceRowPropertyTypes(ptAdmin, listId, plan.propertyTypeRows)
+      propertyTypeRowsWritten = plan.propertyTypeRows.length
+    } catch (error) {
+      propertyTypeError = true
+      reportImportError(error, { requestId, stage: 'propertyTypes', timings })
+    }
+    timings.propertyTypes = elapsedMsSince(ptStart)
+
+    // ⑧-c 裁定A(a): 削除フラグ ON かつ DB 既存の行に deleted_at を立てる（内容は更新しない）。
     //    ⚠ missing 判定より前に実行する。deleted_at の UPDATE はトリガーで updated_at を
     //       進めるため、この後の markMissingRows（updated_at < t 条件）が削除行を対象外にでき、
     //       削除行へ missing_since が二重に付くのを防げる。基準時刻は DB 由来 dbNow を使い、
@@ -348,13 +398,8 @@ export async function POST(
     } = {
       row_count: plan.tracked.length + plan.untracked.length,
       imported_at: dbNow ?? new Date().toISOString(),
-      column_mapping: buildColumnMappingV2(
-        rows[0],
-        mapping,
-        extract.addressColumns,
-        resolveRoute,
-        presetId,
-      ),
+      // BM-2: v:3（v:2 のキーは名前も意味も変えず、解決した列 index を追記する）。
+      column_mapping: buildColumnMappingV3(rows[0], mapping, extract, resolveRoute, presetId),
     }
     if (dbNow) patch.updated_at = dbNow
     // 監査上重要な列（column_mapping/imported_at）を載せる UPDATE のため、失敗を握りつぶさない。
@@ -428,8 +473,46 @@ export async function POST(
   }
   timings.match = elapsedMsSince(matchStart)
 
+  // ⑪ BM-2: 希望校区の名寄せ（match_customer_list_desired_districts）。
+  //    ⚠ admin（service_role）で呼ぶ: この RPC は SECURITY DEFINER で EXECUTE が
+  //       service_role のみに付いている（BM-1 20260908000200）。
+  //    ⚠ fail-soft: 名寄せは取込成功後の派生処理。失敗しても取込全体を失敗にせず、
+  //       サマリに { error: true } を入れて続行する（誤報を作らない・住所突合と同じ流儀）。
+  let desiredDistricts: unknown = { error: true }
+  const ddStart = performance.now()
+  try {
+    const ddAdmin = getSupabaseAdmin()
+    if (!ddAdmin) {
+      reportImportError(new Error('supabase admin client unavailable'), {
+        requestId,
+        stage: 'desiredDistricts',
+        timings,
+      })
+    } else {
+      const { data, error: ddErr } = await ddAdmin.rpc(
+        'match_customer_list_desired_districts',
+        { p_list_id: listId },
+      )
+      if (ddErr) {
+        reportImportError(ddErr, { requestId, stage: 'desiredDistricts', timings })
+      } else {
+        // RPC の jsonb サマリをそのままマージする（件数のみ・個票は返らない）。
+        desiredDistricts = data
+      }
+    }
+  } catch (error) {
+    reportImportError(error, { requestId, stage: 'desiredDistricts', timings })
+  }
+  timings.desiredDistricts = elapsedMsSince(ddStart)
+
   // 日付を NULL にした根拠の集計（原則1: 件数だけでも運用で気づけるようにする）。
-  const dateNullRows = extracted.filter((e) => e.reasons.length > 0).length
+  //   ⚠ reasons は BM-2 で日付以外（価格・面積・物件種別）の根拠も持つようになったため、
+  //      日付の接頭辞を持つ行だけを数える（既存メトリクスの意味を保つ・裁定8）。
+  const dateNullRows = countDateNullRows(extracted)
+
+  // BM-2 の集計（⛔ 件数のみ。生値・個票は返さない・D144/D122）。
+  //   集計そのものは純ロジック（import-summary.ts）に置き、ここでは組み立てない。
+  const conditionSummary = summarizeImportConditions(extracted, propertyTypeRowsWritten)
 
   return NextResponse.json(
     {
@@ -449,43 +532,16 @@ export async function POST(
       summary,
       // 突合バッチの集計（RPC の jsonb サマリ。未実行/失敗時は null）。
       match: matchSummary,
+      // ── BM-2 の集計（件数のみ・⛔ 未解決トークンそのものは返さない）──
+      ...conditionSummary,
+      // 子行の書き込みに失敗した場合だけ error を添える（property_type_rows は 0 のまま）。
+      ...(propertyTypeError ? { property_type_error: true } : {}),
+      // 希望校区の名寄せ RPC の jsonb サマリ（失敗時は { error: true }）。
+      desired_districts: desiredDistricts,
       as_of_by_municipality: muniAsOf,
       requestId,
       timings,
     },
     { headers: requestIdHeader(requestId) },
   )
-}
-
-// column_mapping を v:2 の nested 形で組み立てる（決定1・確認B）。
-//   { v: 2, columns: {論理列→実ヘッダ名}, address_columns?, resolve_route, preset_id? }
-//   - "v" は数値リテラル 2（読取り側が `m.v === 2 ? m.columns : m` で flat と分岐できる）。
-//   - "columns" は単一 index マッピングを header 名へ解決したもの。
-//       ⚠ 複合住所（composite）のとき columns.address には結合末尾の1列名しか残らない
-//         （mapping.address = addrCols の末尾列・presets.ts buildFromPreset）。監査では
-//         「実際にどの列を結合して住所にしたか」の全体が要るため、下記 address_columns で補う。
-//   - "address_columns" は複合住所のとき **だけ** 入れる。値は extract.addressColumns（列 index）
-//       を header 名へ解決した配列（例: ["都道府県","市区","住所"]）。単一列住所や未解決のときは
-//       キーごと省略（null や空配列を入れない）。⛔ presets.ts のロジックは変更しない。
-//   - "preset_id" は ?preset= があるときだけ入れる。無ければキーごと省略（null を入れない）。
-//   ⛔ resolve_route の型は presets.ts の ResolveRoute をそのまま使う（新設しない）。
-function buildColumnMappingV2(
-  header: string[],
-  mapping: ColumnMapping,
-  addressColumns: number[] | undefined,
-  route: ResolveRoute,
-  presetId: string | null,
-): Record<string, unknown> {
-  const columns: Record<string, string> = {}
-  for (const key of Object.keys(mapping) as (keyof ColumnMapping)[]) {
-    const idx = mapping[key]
-    if (idx != null) columns[key] = header[idx] ?? ''
-  }
-  const out: Record<string, unknown> = { v: 2, columns, resolve_route: route }
-  // 複合住所のときだけ、結合に使った全列名を監査用に残す（末尾1列問題の回避）。
-  if (addressColumns && addressColumns.length > 0) {
-    out.address_columns = addressColumns.map((idx) => header[idx] ?? '')
-  }
-  if (presetId != null && presetId !== '') out.preset_id = presetId
-  return out
 }

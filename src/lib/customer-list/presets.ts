@@ -12,7 +12,10 @@
 //   - このPRで永続化する: external_id / customer_name / address(複合結合) / category /
 //       inquiry_at / last_contact_at / media / assignee / desired_school
 //   - 解決＋テストのみ・永続化は PR-D（対応 DB 列が無い or 値がコードでない）:
-//       desired_muni_code_5 / rank / status / desired_junior_school / price_*
+//       desired_muni_code_5 / rank / status / desired_junior_school
+//   - BM-2 で永続化する: lead_type（category から辞書変換）/ 希望面積 4 列 /
+//       物件種別・価格帯（customer_list_row_property_types の子行）。
+//       price_* は BM-2 で「解決のみ」から「永続化する」へ変わった。
 // ============================================================
 
 import { detectColumnMapping } from './csv-import.ts'
@@ -45,6 +48,21 @@ export type PresetTarget =
   | 'opt_out_mail_magazine' // 89列: メルマガフラグ（メール営業対象者フラグ）
   | 'opt_out_mail' // 90列: メール禁止フラグ
   | 'deleted' // 123列: 削除フラグ
+  // --- 購入希望マッチ（BM-2）。列番号は 1 始まり（実装は index -1 で読む）---
+  //   property_type      : 列96『マッチング物件種別』。買い行の第一根拠。
+  //                        値は label_ja 表記（例 '新築戸建'）で code ではない。
+  //                        label_ja→code の解決表は property_types を SELECT して作る
+  //                        （⛔ TS にハードコードしない・原則19）。
+  //   sell_property_type : 列150『物件種別』。売り行の物件種別（単一値）。
+  //                        ★ 列150 が「売却対象物件の種別」である点は fixture v1 の
+  //                          ヘッダ名からの解釈で、実データでの確認は未了。
+  //   desired_*_area_*   : 列109〜112。BM-2 c0 の customer_list_rows 4 列へ永続化する。
+  | 'property_type'
+  | 'sell_property_type'
+  | 'desired_land_area_min'
+  | 'desired_land_area_max'
+  | 'desired_floor_area_min'
+  | 'desired_floor_area_max'
   // --- 解決＋テストのみ・永続化は PR-D ---
   //   desired_muni_code_5: 「マッチング市区」は 5 桁コードではなく **市区名**（実測: 岡崎市）。
   //     名前をコード列に入れない（原則2）。PR-D で prefecture_code + name の複合キーで
@@ -68,6 +86,35 @@ export type PresetTarget =
   | 'price_high_land'
   | 'price_low_commercial'
   | 'price_high_commercial'
+
+// public.property_types.code（BM-1 で 6 値を INSERT 済み）。
+//   ⛔ 値の追加・改名はここではなく DB 側（property_types への INSERT）で行う。
+//      ここは「preset の内部 target 名 ↔ code」の橋渡しだけを担う型。
+export type PropertyTypeCode =
+  | 'new_detached'
+  | 'used_detached'
+  | 'new_condo'
+  | 'used_condo'
+  | 'land'
+  | 'commercial'
+
+// 価格 6 組（列97〜108）の target 名と property_types.code の対応（唯一の定義・裁定2）。
+//   ⚠ preset の内部 target 名（new_house 等）は CSV のヘッダ名に由来する既存の名前で、
+//     property_types.code（new_detached 等）とは体系が違う。名前を揃えるリネームはせず、
+//     対応表をここ 1 箇所だけに置く（原則19: 二重管理しない）。
+//   ⛔ row-extract.ts など利用側はこの表を import して使い、code 文字列を書かない。
+export const PRICE_TARGETS: readonly {
+  code: PropertyTypeCode
+  low: PresetTarget
+  high: PresetTarget
+}[] = [
+  { code: 'new_detached', low: 'price_low_new_house', high: 'price_high_new_house' },
+  { code: 'used_detached', low: 'price_low_used_house', high: 'price_high_used_house' },
+  { code: 'new_condo', low: 'price_low_new_mansion', high: 'price_high_new_mansion' },
+  { code: 'used_condo', low: 'price_low_used_mansion', high: 'price_high_used_mansion' },
+  { code: 'land', low: 'price_low_land', high: 'price_high_land' },
+  { code: 'commercial', low: 'price_low_commercial', high: 'price_high_commercial' },
+]
 
 // 列の解決ルール。
 //   - exact       … ヘッダ名の完全一致。同名列は nth 番目（0 始まり・既定 0）を採る。
@@ -116,6 +163,15 @@ const HAUSUDO_FIELDS: readonly FieldSpec[] = [
   },
   { target: 'opt_out_mail', rule: { kind: 'exact', header: 'メール禁止フラグ' } },
   { target: 'deleted', rule: { kind: 'exact', header: '削除フラグ' } },
+
+  // 購入希望マッチ（BM-2）。いずれも exact（部分一致で拾わない・O49）。
+  //   ⚠ '物件種別' と 'マッチング物件種別' は別文字列なので exact では衝突しない。
+  { target: 'property_type', rule: { kind: 'exact', header: 'マッチング物件種別' } }, // 列96
+  { target: 'sell_property_type', rule: { kind: 'exact', header: '物件種別' } }, // 列150
+  { target: 'desired_land_area_min', rule: { kind: 'exact', header: 'マッチング土地面積下限' } }, // 列109
+  { target: 'desired_land_area_max', rule: { kind: 'exact', header: 'マッチング土地面積上限' } }, // 列110
+  { target: 'desired_floor_area_min', rule: { kind: 'exact', header: 'マッチング専有面積下限' } }, // 列111
+  { target: 'desired_floor_area_max', rule: { kind: 'exact', header: 'マッチング専有面積上限' } }, // 列112
 
   // --- ここから下は解決＋テストのみ（永続化は PR-D） ---
   { target: 'desired_junior_school', rule: { kind: 'exact', header: 'マッチング中学校' } },
@@ -191,10 +247,26 @@ export interface ResolvedMapping {
     optOutMailMagazineColumn?: number
     optOutMailColumn?: number
     deletedColumn?: number
+    // 購入希望マッチ（BM-2）。いずれもプリセット経路でのみ埋まる。
+    //   ⛔ heuristic 経路では埋めない＝該当列が無ければ子行を作らない（列位置決め打ちをしない）。
+    propertyTypeColumn?: number // 列96『マッチング物件種別』（買い行の第一根拠）
+    sellPropertyTypeColumn?: number // 列150『物件種別』（売り行）
+    priceColumns?: PriceColumns // 列97〜108（code ごとの下限/上限）
+    floorAreaColumns?: AreaColumns // 列111/112『マッチング専有面積下限/上限』
+    landAreaColumns?: AreaColumns // 列109/110『マッチング土地面積下限/上限』
   }
   // フルの解決結果（テスト・将来の永続化/警告用）。fallback 時は null。
   preset: ResolvedPreset | null
 }
+
+// 面積の下限/上限の列 index（どちらか片方だけの解決もありうる）。
+export interface AreaColumns {
+  min?: number
+  max?: number
+}
+
+// 物件種別 code ごとの価格下限/上限の列 index。解決できた code だけキーを持つ。
+export type PriceColumns = Partial<Record<PropertyTypeCode, AreaColumns>>
 
 // ヘッダを NFKC 正規化して比較キーにする。
 function normHeader(h: string | undefined): string {
@@ -285,6 +357,25 @@ function buildFromPreset(header: string[], route: ResolveRoute): ResolvedMapping
   const addrCols = t.address ?? []
   if (addrCols.length) mapping.address = addrCols[addrCols.length - 1]
 
+  // 面積の下限/上限（片方だけ解決できた場合はその片方だけを持つ）。
+  //   1 つも解決できなければキーごと undefined にする（空オブジェクトを渡さない）。
+  const areaCols = (minKey: PresetTarget, maxKey: PresetTarget): AreaColumns | undefined => {
+    const out: AreaColumns = {}
+    const min = first(minKey)
+    const max = first(maxKey)
+    if (min != null) out.min = min
+    if (max != null) out.max = max
+    return out.min == null && out.max == null ? undefined : out
+  }
+
+  // 価格 6 組。対応表（PRICE_TARGETS）を回して code ごとに下限/上限を集める。
+  //   ⛔ code 文字列はここで書かず対応表から取る（唯一の定義・裁定2）。
+  const priceColumns: PriceColumns = {}
+  for (const { code, low, high } of PRICE_TARGETS) {
+    const cols = areaCols(low, high)
+    if (cols) priceColumns[code] = cols
+  }
+
   return {
     mapping,
     route,
@@ -295,6 +386,11 @@ function buildFromPreset(header: string[], route: ResolveRoute): ResolvedMapping
       optOutMailMagazineColumn: first('opt_out_mail_magazine'),
       optOutMailColumn: first('opt_out_mail'),
       deletedColumn: first('deleted'),
+      propertyTypeColumn: first('property_type'),
+      sellPropertyTypeColumn: first('sell_property_type'),
+      priceColumns: Object.keys(priceColumns).length ? priceColumns : undefined,
+      floorAreaColumns: areaCols('desired_floor_area_min', 'desired_floor_area_max'),
+      landAreaColumns: areaCols('desired_land_area_min', 'desired_land_area_max'),
     },
     preset: resolved,
   }
@@ -321,4 +417,57 @@ export function resolveColumnMapping(
     extract: {},
     preset: null,
   }
+}
+
+// ============================================================
+// customer_lists.column_mapping の組み立て（v:3）— BM-2 / c3。
+//   ⚠ 監査用のメタデータであり、認可・突合には一切関与しない。
+//
+// v:2（PR-E 決定1）からの差分は「バージョンを 3 に上げ、BM-2 で解決した列の
+//   index 情報を追記する」ことだけ。v:2 のキー（columns / address_columns /
+//   resolve_route / preset_id）は名前も意味も一切変えない。
+//
+//   { v: 3,
+//     columns: {論理列→実ヘッダ名},          // v:2 と同じ
+//     address_columns?: [実ヘッダ名...],      // v:2 と同じ（複合住所のときだけ）
+//     resolve_route, preset_id?,             // v:2 と同じ
+//     propertyTypeColumn?: number,           // ← ここから BM-2 の追記（0 始まり index）
+//     sellPropertyTypeColumn?: number,
+//     priceColumns?: { <property_types.code>: { min?: number; max?: number } },
+//     floorAreaColumns?: { min?: number; max?: number },
+//     landAreaColumns?: { min?: number; max?: number } }
+//
+// 読み出し互換（重要）:
+//   - 既存の v:2 レコードは **そのまま読める**。presetChoiceFromMapping は v:2/v:3 の
+//     双方を受け付ける（本コミットで 1 行だけ緩めた）。
+//   - v:3 の追記キーが無いレコード（＝v:2 で取り込んだ名簿・heuristic 経路）は
+//     「BM-2 の列が未解決」として扱い、子行を作らない。サマリには警告件数を出す。
+//   ⛔ 追記キーに null を入れない（未解決はキーごと省略する。v:2 の流儀を踏襲）。
+export function buildColumnMappingV3(
+  header: string[],
+  mapping: ColumnMapping,
+  extract: ResolvedMapping['extract'],
+  route: ResolveRoute,
+  presetId: string | null,
+): Record<string, unknown> {
+  const columns: Record<string, string> = {}
+  for (const key of Object.keys(mapping) as (keyof ColumnMapping)[]) {
+    const idx = mapping[key]
+    if (idx != null) columns[key] = header[idx] ?? ''
+  }
+  const out: Record<string, unknown> = { v: 3, columns, resolve_route: route }
+  // 複合住所のときだけ、結合に使った全列名を監査用に残す（末尾1列問題の回避・v:2 と同じ）。
+  if (extract.addressColumns && extract.addressColumns.length > 0) {
+    out.address_columns = extract.addressColumns.map((idx) => header[idx] ?? '')
+  }
+  if (presetId != null && presetId !== '') out.preset_id = presetId
+  // BM-2 の追記（解決できたものだけ）。
+  if (extract.propertyTypeColumn != null) out.propertyTypeColumn = extract.propertyTypeColumn
+  if (extract.sellPropertyTypeColumn != null) {
+    out.sellPropertyTypeColumn = extract.sellPropertyTypeColumn
+  }
+  if (extract.priceColumns) out.priceColumns = extract.priceColumns
+  if (extract.floorAreaColumns) out.floorAreaColumns = extract.floorAreaColumns
+  if (extract.landAreaColumns) out.landAreaColumns = extract.landAreaColumns
+  return out
 }

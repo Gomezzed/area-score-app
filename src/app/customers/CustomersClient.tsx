@@ -60,6 +60,18 @@ interface AttackList {
   rows: AttackRow[]
 }
 
+// ── POST /api/customer-lists/[id]/import のレスポンス（BM-2 で使う件数だけを型に持つ）──
+//   ⚠ サーバーは他にも多くのキーを返すが、ここでは表示する件数だけを読む。
+//   ⛔ 個票・生値は返らない（件数のみ・D144）。
+interface ImportSummary {
+  lead_type?: { buy: number; sell: number; unknown: number }
+  property_type_rows?: number
+  property_type_unknown_tokens?: number
+  price_unparsed?: number
+  area_unparsed?: number
+  desired_districts?: { matched?: number; ambiguous?: number; unmatched?: number } | null
+}
+
 // ── GET /api/customer-lists/[id]/school-district-ranking（PR-C）──
 //   RPC get_school_district_heatmap の返り列そのまま。★生件数は返らない（4段階の相対濃淡のみ）。
 interface RankingRow {
@@ -200,6 +212,37 @@ function MatchSummary({ rowCount, confirmed }: { rowCount: number; confirmed: nu
   )
 }
 
+// 取り込んだ希望条件の件数（BM-2）。⛔ 件数だけを出す（個票・生値は出さない・D144）。
+//   ⚠ 取込直後だけ表示する（一覧から開き直したときはレスポンスが無いので出ない）。
+function ImportConditionSummary({ summary }: { summary: ImportSummary }) {
+  const lead = summary.lead_type
+  if (!lead) return null
+  const unresolved =
+    (summary.property_type_unknown_tokens ?? 0) +
+    (summary.price_unparsed ?? 0) +
+    (summary.area_unparsed ?? 0)
+  return (
+    <div className="mb-3 text-sm text-slate-600">
+      買い <span className="font-bold tabular-nums">{lead.buy}</span> 件
+      <span className="mx-2 text-slate-300">/</span>
+      売り <span className="font-bold tabular-nums">{lead.sell}</span> 件
+      <span className="mx-2 text-slate-300">/</span>
+      区分なし <span className="font-bold tabular-nums">{lead.unknown}</span> 件
+      <span className="mx-2 text-slate-300">/</span>
+      希望物件種別{' '}
+      <span className="font-bold tabular-nums">{summary.property_type_rows ?? 0}</span> 件
+      {unresolved > 0 && (
+        <span
+          className="ml-2 text-xs text-slate-500"
+          title="CSV の値をそのままの書式では読み取れなかった項目の件数です（推測での補完は行いません）。"
+        >
+          （未解決 <span className="tabular-nums">{unresolved}</span> 件）
+        </span>
+      )}
+    </div>
+  )
+}
+
 // inferred_reason の定型末尾「… → <rank>（主因: <主因テキスト>）」から主因だけを取り出す。
 //   主因テキストは内部に全角（）を含みうる（例: 短期世帯急増（供給イベントの可能性））。
 //   貪欲マッチで「主因:」以降・末尾の閉じ括弧までを主因とみなす（機械生成の定型に依存）。
@@ -320,6 +363,8 @@ export default function CustomersClient() {
   const [creating, setCreating] = useState(false)
   const [createdListId, setCreatedListId] = useState<string | null>(null)
   const [preset, setPreset] = useState<PresetChoice>(DEFAULT_PRESET_CHOICE)
+  // 直近の取込レスポンス（BM-2 の件数表示に使う）。取込していない間は null。
+  const [importSummary, setImportSummary] = useState<ImportSummary | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   // ── 削除の確認ダイアログ（O86）──
@@ -417,6 +462,8 @@ export default function CustomersClient() {
       return
     }
     // 取込済み → 詳細（アタックリスト）を開く。
+    //   ⛔ 直前の取込サマリは畳む（別の名簿の件数を表示に残さない）。
+    setImportSummary(null)
     setOpening(true)
     try {
       const res = await fetch(`/api/customer-lists/${list.id}/attack-list`)
@@ -436,6 +483,7 @@ export default function CustomersClient() {
   //   （件数・最終取込を最新化する）。
   function backToIndex() {
     setData(null)
+    setImportSummary(null)
     setCreatedListId(null)
     setShowCreate(false)
     setListName('')
@@ -488,6 +536,7 @@ export default function CustomersClient() {
     setError(null)
     setUploading(true)
     setFileName(file.name)
+    setImportSummary(null)
     try {
       const bytes = await file.arrayBuffer()
       const res = await fetch(importPath(createdListId, preset), {
@@ -500,6 +549,8 @@ export default function CustomersClient() {
         setError(buildFailure(body, res.status))
         return
       }
+      // 取込サマリ（件数のみ）。表示だけに使うため、読めなくても取込は成功として扱う。
+      setImportSummary((await res.json().catch(() => null)) as ImportSummary | null)
       const listRes = await fetch(
         `/api/customer-lists/${createdListId}/attack-list`,
       )
@@ -583,6 +634,7 @@ export default function CustomersClient() {
     setError(null)
     setUploading(true)
     setFileName(file.name)
+    setImportSummary(null)
     try {
       const bytes = await file.arrayBuffer()
       // 再取込も初回と同じ選択形式を引き継ぐ（同一リストの形式を一貫させる）。
@@ -596,6 +648,8 @@ export default function CustomersClient() {
         setError(buildFailure(body, res.status))
         return
       }
+      // 取込サマリ（件数のみ）。表示だけに使うため、読めなくても取込は成功として扱う。
+      setImportSummary((await res.json().catch(() => null)) as ImportSummary | null)
       const listRes = await fetch(`/api/customer-lists/${listId}/attack-list`)
       if (!listRes.ok) {
         setError({
@@ -865,6 +919,9 @@ export default function CustomersClient() {
               <>
                 {/* 突合サマリー（名簿総数・確定件数・割合）。*/}
                 <MatchSummary rowCount={data.row_count} confirmed={data.summary.confirmed} />
+
+                {/* 取り込んだ希望条件の件数（BM-2）。取込直後のみ表示する。*/}
+                {importSummary && <ImportConditionSummary summary={importSummary} />}
 
                 {/* フィルタチップ。すべて取得済み配列へのクライアント側絞り込み（AND・再フェッチなし）。
                     ⚠️ 表示上の絞り込みであり認可ではない（認可は guardFeature/API 403/RLS の3層・原則12）。*/}
