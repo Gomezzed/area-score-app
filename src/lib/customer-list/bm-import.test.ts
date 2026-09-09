@@ -13,7 +13,9 @@ import { summarizeImportConditions } from './import-summary.ts'
 import type { PropertyTypeCode } from './presets.ts'
 import type { MatchResult } from './types.ts'
 
-// 架空フィクスチャ v2（買主8・売主3・顧客種別なし1／174 列）。
+// 架空フィクスチャ v2（買主10・売主3・顧客種別なし1／174 列）。
+//   買主のうち2行（9990109/9990110）は PR-BM-3 で追加した校区表記ゆれ固定用
+//   （六ッ美中部小学校／岡崎市立六ッ美中部小・どちらも実在の公開校名で個人情報ではない）。
 const FIXTURE_V2 = new URL(
   '../../../docs/specs/hausudo_customer_headers_fixture_v2_bm.csv',
   import.meta.url,
@@ -65,10 +67,10 @@ function pipeline() {
   return { header, resolved, extracted, plan }
 }
 
-test('BM 統合: フィクスチャ v2 はヘッダ 174 列・12 行で hausudo として解決される', () => {
+test('BM 統合: フィクスチャ v2 はヘッダ 174 列・14 行で hausudo として解決される', () => {
   const { header, resolved, extracted } = pipeline()
   assert.equal(header.length, 174)
-  assert.equal(extracted.length, 12)
+  assert.equal(extracted.length, 14)
   assert.equal(resolved.route, 'preset:hausudo')
   // BM-2 の列がすべて解決できている（未解決なら以降の期待値が成立しない）。
   assert.notEqual(resolved.extract.propertyTypeColumn, undefined)
@@ -78,15 +80,15 @@ test('BM 統合: フィクスチャ v2 はヘッダ 174 列・12 行で hausudo 
   assert.notEqual(resolved.extract.landAreaColumns, undefined)
 })
 
-test('BM 統合: lead_type は 買主8 / 売主3 / 区分なし1 に振り分けられる', () => {
+test('BM 統合: lead_type は 買主10 / 売主3 / 区分なし1 に振り分けられる', () => {
   const { extracted } = pipeline()
   const counts = summarizeImportConditions(extracted, 0).lead_type
-  assert.deepEqual(counts, { buy: 8, sell: 3, unknown: 1 })
+  assert.deepEqual(counts, { buy: 10, sell: 3, unknown: 1 })
 })
 
 test('BM 統合: 親 UPSERT のペイロードに lead_type と面積 4 列が載る', () => {
   const { plan } = pipeline()
-  assert.equal(plan.tracked.length, 12)
+  assert.equal(plan.tracked.length, 14)
   assert.equal(plan.untracked.length, 0)
 
   // 面積を書いた行（買主5）。㎡ の整数として載る。
@@ -109,6 +111,30 @@ test('BM 統合: 親 UPSERT のペイロードに lead_type と面積 4 列が�
   for (const r of plan.tracked) {
     assert.equal('phone' in r, false)
   }
+})
+
+// PR-BM-3: 校区の表記ゆれ（「〜立」接頭辞・「小学校/小」接尾辞の違い）2件が
+//   extract 層でどちらも desired_school に生値のまま載ることを固定する。
+//   ⛔ 名寄せ（正規化して同一校区に解決すること）は DB 側の
+//     public.normalize_school_name / public.match_customer_list_desired_districts
+//     （supabase/migrations/20260908000200_bm_desired_districts_match.sql）の役割。
+//     本テストは DB を叩かないため、両者が実際に同じ school_district_id へ
+//     解決されることまでは検証しない。ここで固定するのは
+//     「extract 層が生値を落とさず・書き換えずにそのまま拾う」ことのみ。
+test('BM 統合: 校区表記ゆれ2件（六ッ美中部小学校／岡崎市立六ッ美中部小）は desired_school に生値のまま載る', () => {
+  const { plan } = pipeline()
+
+  const plain = plan.tracked.find((r) => r.external_id === '9990109')!
+  assert.equal(plain.lead_type, 'buy')
+  assert.equal(plain.desired_school, '六ッ美中部小学校')
+
+  const prefixed = plan.tracked.find((r) => r.external_id === '9990110')!
+  assert.equal(prefixed.lead_type, 'buy')
+  assert.equal(prefixed.desired_school, '岡崎市立六ッ美中部小')
+
+  // 生値のまま（extract 層で正規化しない）＝2件の desired_school は文字列として不一致。
+  //   同一校区への解決は DB 側の normalize_school_name の役割（このテストの対象外）。
+  assert.notEqual(plain.desired_school, prefixed.desired_school)
 })
 
 test('BM 統合: 子行は行 id に紐づき、明示種別・価格のみ・売り行が意図どおり作られる', () => {
@@ -167,7 +193,7 @@ test('BM 統合: サマリは件数のみで、生値・トークンを含まな
   const summary = summarizeImportConditions(extracted, plan.propertyTypeRows.length)
 
   assert.deepEqual(summary, {
-    lead_type: { buy: 8, sell: 3, unknown: 1 },
+    lead_type: { buy: 10, sell: 3, unknown: 1 },
     property_type_rows: plan.propertyTypeRows.length,
     // 買主8 の '一戸建て' ＋ 売主2 の '一戸建て' の 2 件。
     property_type_unknown_tokens: 2,
