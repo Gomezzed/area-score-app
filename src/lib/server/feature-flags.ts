@@ -13,3 +13,14 @@
 export function isSheetsExportEnabled(): boolean {
   return process.env.FEATURE_SHEETS_EXPORT !== 'false'
 }
+
+// 購入希望マッチ（BM）機能のサーバー側マスターフラグ。
+//   ⚠ 既定は「無効」（isCustomerListEnabled と同じ向き）。BM は顧客リスト機能の
+//   子機能であり、親（FEATURE_CUSTOMER_LIST）が有効でも本フラグが 'true' でなければ
+//   3ルートとも存在しないものとして扱う。isSheetsExportEnabled とは既定の向きが逆
+//   （こちらは明示的に有効化するまで公開しない運用のため）。
+//   OFF は「この機能はこの環境に存在しない」を意味するため、ルート側は 403 ではなく
+//   404 'not_found' を返す（isCustomerListEnabled と同じ規約）。
+export function isBuyerMatchEnabled(): boolean {
+  return process.env.FEATURE_BUYER_MATCH === 'true'
+}
