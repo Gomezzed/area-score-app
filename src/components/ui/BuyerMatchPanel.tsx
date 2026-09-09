@@ -40,6 +40,11 @@ import type {
   BuyerMatchSummary,
   PropertyTypeOption,
 } from '@/lib/buyer-match/types'
+import { useSchoolDistrictMapPng } from '@/hooks/useSchoolDistrictMapPng'
+import { buildLegendRows, type LegendRow } from '@/lib/heatmap-pdf/model'
+import { TIER_LABEL, NO_DATA_LEGEND } from '@/lib/school-district-tiers'
+import { TIER_FILL, NO_DATA_FILL } from '@/lib/school-district-map-style'
+import { SCHOOL_DISTRICT_DISCLAIMER } from '@/lib/school-districts'
 
 // 非同期取得の状態。'unavailable' は 404（機能なし／名簿なし）で、パネルごと出さない。
 type Load<T> =
@@ -58,6 +63,10 @@ type BuyerMatchLoad =
 
 // 価格入力の打鍵ごとに集計を叩かないための待ち時間（ms）。
 const REFETCH_DELAY_MS = 350
+
+// 凡例5行（tier4→1 ＋ 濃淡データ無し）。地図・PDF と同じ定数から組む
+//   （⛔ ラベル・色をここで書き起こさない）。
+const LEGEND: LegendRow[] = buildLegendRows(TIER_LABEL, TIER_FILL, NO_DATA_FILL, NO_DATA_LEGEND)
 
 const SELECT_CLASS =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500'
@@ -173,6 +182,9 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
 
   const counts = bm.status === 'ready' ? buildCountDisplays(bm.summary) : null
   const cellsView = bm.status === 'ready' ? buildCellsDisplay(bm.cells) : null
+
+  // 学区図パネル（既存の校区ヒートマップを流用）。同じ PNG を画面と PDF で使う。
+  const map = useSchoolDistrictMapPng(listId, muniCode5)
 
   // 404（FEATURE_CUSTOMER_LIST off／名簿が無い）はセクションごと出さない。
   if (areas.status === 'unavailable') return null
@@ -330,6 +342,9 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
               )}
             </div>
 
+            {/* 学区図パネル（校区ヒートマップの流用）。⛔ tier 以外は描かない。*/}
+            <SchoolDistrictMapCard state={map} muniKey={muniCode5 ?? ''} />
+
             {/* 免責（裁定30・逐語）。*/}
             <p className="mt-3 text-xs text-slate-400 leading-relaxed">
               {BUYER_MATCH_MESSAGES.disclaimer}
@@ -354,6 +369,52 @@ function CountCard({ display }: { display: CountDisplay }) {
           {formatCountValue(display.value)}
         </p>
       )}
+    </div>
+  )
+}
+
+// 学区図パネル。地図画像＋凡例＋出典＋学区図の免責。
+//   ⛔ 出典（attribution_text）は DB の文字列をそのまま出す（前置きしない・組み立て直さない）。
+//   学区図が未公開（empty）・取得失敗（failed）のときはパネルごと出さない
+//   （売主向けの資料に「取得できません」という内部事情を出さないため）。
+function SchoolDistrictMapCard({
+  state,
+  muniKey,
+}: {
+  state: ReturnType<typeof useSchoolDistrictMapPng>
+  muniKey: string
+}) {
+  if (state.status !== 'ready' || state.key !== muniKey) return null
+  const { pngDataUrl, attributions, tilesFailed } = state.data
+  return (
+    <div className="mt-4">
+      <h3 className="mb-2 text-xs font-semibold text-slate-500">学区図</h3>
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {/* eslint-disable-next-line @next/next/no-img-element -- Canvas 合成の data URL のため next/image は使えない */}
+        <img src={pngDataUrl} alt="校区の学区図" className="block w-full" />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {LEGEND.map((row) => (
+          <span key={row.label} className="inline-flex items-center gap-1 text-xs text-slate-500">
+            <span
+              className="inline-block h-2.5 w-3.5 rounded-[2px] border border-slate-400"
+              style={{
+                backgroundColor: row.color,
+                opacity: row.opacity,
+                borderStyle: row.dashed ? 'dashed' : 'solid',
+              }}
+            />
+            {row.label}
+          </span>
+        ))}
+      </div>
+      {tilesFailed && (
+        <p className="mt-1 text-xs text-amber-700">一部の地図タイルを取得できませんでした</p>
+      )}
+      {attributions.length > 0 && (
+        <p className="mt-1 text-xs text-slate-400 leading-relaxed">{attributions.join(' / ')}</p>
+      )}
+      <p className="mt-1 text-xs text-slate-400 leading-relaxed">{SCHOOL_DISTRICT_DISCLAIMER}</p>
     </div>
   )
 }
