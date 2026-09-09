@@ -17,7 +17,7 @@
 // =====================================================================
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Download } from 'lucide-react'
 import { BUYER_MATCH_MESSAGES } from '@/lib/buyer-match/messages'
 import { buildBuyerMatchQueryString, parsePriceInput } from '@/lib/buyer-match/request'
 import {
@@ -185,6 +185,41 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
 
   // 学区図パネル（既存の校区ヒートマップを流用）。同じ PNG を画面と PDF で使う。
   const map = useSchoolDistrictMapPng(listId, muniCode5)
+  const mapData = map.status === 'ready' && map.key === (muniCode5 ?? '') ? map.data : null
+
+  // PDF 出力（A4横2枚・裁定31/39）。
+  const [pdfStatus, setPdfStatus] = useState<'idle' | 'generating' | 'error'>('idle')
+  const canExport = bm.status === 'ready' && bm.key === queryKey
+
+  async function handleExportPdf() {
+    if (bm.status !== 'ready') return
+    setPdfStatus('generating')
+    try {
+      // 生成モジュールはクリック時に動的 import する（初期バンドルに乗せない・
+      //   @react-pdf/renderer は重く SSR 不可。pdf.tsx のヘッダコメントの作法）。
+      const { exportSellerSheetPdf } = await import('@/lib/buyer-match/seller-sheet')
+      await exportSellerSheetPdf({
+        condition: {
+          muniCode5,
+          muniName: areaList.find((a) => a.muni_code_5 === muniCode5)?.muni_name ?? null,
+          propertyType,
+          propertyTypeLabel: typeList.find((t) => t.code === propertyType)?.label_ja ?? null,
+          priceMin: priceInverted ? null : priceMin,
+          priceMax: priceInverted ? null : priceMax,
+        },
+        summary: bm.summary,
+        cells: bm.cells,
+        map: mapData,
+        legend: LEGEND,
+        mapDisclaimer: SCHOOL_DISTRICT_DISCLAIMER,
+        // ⛔ 顧客ロゴの取得経路（P1-5）は本 PR で作らない。undefined＝自社マーク。
+        logoSrc: undefined,
+      })
+      setPdfStatus('idle')
+    } catch {
+      setPdfStatus('error')
+    }
+  }
 
   // 404（FEATURE_CUSTOMER_LIST off／名簿が無い）はセクションごと出さない。
   if (areas.status === 'unavailable') return null
@@ -344,6 +379,28 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
 
             {/* 学区図パネル（校区ヒートマップの流用）。⛔ tier 以外は描かない。*/}
             <SchoolDistrictMapCard state={map} muniKey={muniCode5 ?? ''} />
+
+            {/* PDF 出力（A4横2枚）。⛔ 個票・unknown_area_count は出さない。*/}
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={!canExport || pdfStatus === 'generating'}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 disabled:bg-slate-300 text-white text-sm font-medium transition-colors"
+              >
+                {pdfStatus === 'generating' ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                売主向けシートをPDFで出力
+              </button>
+              {pdfStatus === 'error' && (
+                <p className="mt-2 text-xs text-amber-700">
+                  PDFの生成に失敗しました。時間をおいて再試行してください。
+                </p>
+              )}
+            </div>
 
             {/* 免責（裁定30・逐語）。*/}
             <p className="mt-3 text-xs text-slate-400 leading-relaxed">
