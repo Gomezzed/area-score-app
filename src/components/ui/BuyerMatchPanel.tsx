@@ -19,13 +19,27 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { BUYER_MATCH_MESSAGES } from '@/lib/buyer-match/messages'
-import { parsePriceInput } from '@/lib/buyer-match/request'
+import { buildBuyerMatchQueryString, parsePriceInput } from '@/lib/buyer-match/request'
 import {
+  buildCellsDisplay,
+  buildCountDisplays,
+  formatCellCount,
+  formatCellTitle,
+  formatCountValue,
+  type CountDisplay,
+} from '@/lib/buyer-match/display'
+import {
+  fetchBuyerMatchCells,
+  fetchBuyerMatchSummary,
   fetchCustomerListAreas,
   fetchPropertyTypes,
   type CustomerListArea,
 } from '@/lib/buyer-match/client'
-import type { PropertyTypeOption } from '@/lib/buyer-match/types'
+import type {
+  BuyerMatchCell,
+  BuyerMatchSummary,
+  PropertyTypeOption,
+} from '@/lib/buyer-match/types'
 
 // 非同期取得の状態。'unavailable' は 404（機能なし／名簿なし）で、パネルごと出さない。
 type Load<T> =
@@ -33,6 +47,17 @@ type Load<T> =
   | { status: 'ready'; data: T }
   | { status: 'failed' }
   | { status: 'unavailable' }
+
+// 集計の取得状態。key は取得時の条件（buildBuyerMatchQueryString の出力）。
+//   現在の条件と key が違えば「読み込み中」として扱い、前の条件の数字を出さない。
+type BuyerMatchLoad =
+  | { status: 'idle' }
+  | { status: 'ready'; key: string; summary: BuyerMatchSummary; cells: BuyerMatchCell[] }
+  | { status: 'failed'; key: string }
+  | { status: 'unavailable' }
+
+// 価格入力の打鍵ごとに集計を叩かないための待ち時間（ms）。
+const REFETCH_DELAY_MS = 350
 
 const SELECT_CLASS =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500'
@@ -101,8 +126,58 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
   // 下限>上限は条件として成り立たない。API へは送らず画面で知らせる（400 を踏まない）。
   const priceInverted = priceMin !== null && priceMax !== null && priceMin > priceMax
 
+  // API へ渡す条件。⛔ school_district_id は含まない（裁定33・案A）。
+  //   下限>上限のときは価格条件を落とす（成り立たない条件を送らない）。
+  const queryKey = buildBuyerMatchQueryString({
+    muniCode5,
+    propertyType,
+    priceMin: priceInverted ? null : priceMin,
+    priceMax: priceInverted ? null : priceMax,
+  })
+
+  const [bm, setBm] = useState<BuyerMatchLoad>({ status: 'idle' })
+
+  useEffect(() => {
+    if (!muniCode5 || !propertyType) return
+    let alive = true
+    // 打鍵ごとに叩かないよう待ってから取得する（effect 本体では setState しない）。
+    const timer = setTimeout(async () => {
+      const [summary, cells] = await Promise.all([
+        fetchBuyerMatchSummary(listId, queryKey),
+        fetchBuyerMatchCells(listId, queryKey),
+      ])
+      if (!alive) return
+      // どちらかが 404 ＝ FEATURE_BUYER_MATCH off／名簿なし。パネルごと出さない。
+      if (
+        (!summary.ok && summary.reason === 'unavailable') ||
+        (!cells.ok && cells.reason === 'unavailable')
+      ) {
+        setBm({ status: 'unavailable' })
+        return
+      }
+      if (!summary.ok || !cells.ok) {
+        setBm({ status: 'failed', key: queryKey })
+        return
+      }
+      setBm({ status: 'ready', key: queryKey, summary: summary.data, cells: cells.data })
+    }, REFETCH_DELAY_MS)
+    return () => {
+      alive = false
+      clearTimeout(timer)
+    }
+  }, [listId, queryKey, muniCode5, propertyType])
+
+  // 条件が変わった直後は前の条件の数字を出さない（key 不一致＝読み込み中）。
+  const bmLoading =
+    bm.status === 'idle' || (bm.status !== 'unavailable' && bm.key !== queryKey)
+
+  const counts = bm.status === 'ready' ? buildCountDisplays(bm.summary) : null
+  const cellsView = bm.status === 'ready' ? buildCellsDisplay(bm.cells) : null
+
   // 404（FEATURE_CUSTOMER_LIST off／名簿が無い）はセクションごと出さない。
   if (areas.status === 'unavailable') return null
+  // 404（FEATURE_BUYER_MATCH off）も同様にセクションごと出さない（二層封鎖の下層に追従）。
+  if (bm.status === 'unavailable') return null
 
   return (
     <section className="mb-8">
@@ -203,6 +278,82 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
           </p>
         )}
       </div>
+
+      {/* ── 集計（大きな数字2つ ＋ 内訳カード）── */}
+      <div className="mt-4">
+        {bmLoading ? (
+          <div className="flex items-center gap-2 px-1 py-6 text-sm text-slate-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            読み込み中…
+          </div>
+        ) : bm.status === 'failed' ? (
+          <div className="bg-white border border-slate-200 rounded-xl py-8 px-6 text-center text-sm text-slate-400">
+            購入希望の集計を取得できませんでした。
+          </div>
+        ) : counts && cellsView ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <CountCard display={counts.wide} />
+              <CountCard display={counts.near} />
+            </div>
+
+            {/* 内訳カード。⛔ n を合算して総数として出さない（1行が複数の価格
+                バケットに現れる）。総数は上の大きな数字だけが担う。*/}
+            <div className="mt-4">
+              <h3 className="mb-2 text-xs font-semibold text-slate-500">内訳</h3>
+              {cellsView.emptyMessage ? (
+                <div className="bg-white border border-slate-200 rounded-xl py-8 px-6 text-center text-sm text-slate-400">
+                  {cellsView.emptyMessage}
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {cellsView.cells.map((c) => (
+                    <div
+                      key={`${c.property_type}:${c.price_bucket_min ?? 'x'}:${c.floor_area_bucket_min ?? 'x'}`}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                    >
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        {formatCellTitle(c)}
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-slate-900">
+                        {formatCellCount(c)}
+                      </p>
+                    </div>
+                  ))}
+                  {/* 7件目以降。⛔ 残り件数を出さない（裁定34）。*/}
+                  {cellsView.overflowLabel && (
+                    <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-400">
+                      {cellsView.overflowLabel}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 免責（裁定30・逐語）。*/}
+            <p className="mt-3 text-xs text-slate-400 leading-relaxed">
+              {BUYER_MATCH_MESSAGES.disclaimer}
+            </p>
+          </>
+        ) : null}
+      </div>
     </section>
+  )
+}
+
+// 大きな数字1つ分。⛔ suppressed のときは数値を1つも描画しない（display.ts が
+//   value を null にしているため、ここで count を組み立て直さない）。
+function CountCard({ display }: { display: CountDisplay }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <p className="text-xs text-slate-500">{display.heading}</p>
+      {display.value === null ? (
+        <p className="mt-1 text-sm leading-relaxed text-slate-400">{display.message}</p>
+      ) : (
+        <p className="mt-1 text-3xl font-bold text-slate-900">
+          {formatCountValue(display.value)}
+        </p>
+      )}
+    </div>
   )
 }
