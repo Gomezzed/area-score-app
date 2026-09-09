@@ -22,6 +22,7 @@ import { Logo } from '@/components/Logo'
 import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
 import { TIER_LABEL } from '@/lib/school-district-tiers'
+import { BuyerMatchPanel } from '@/components/ui/BuyerMatchPanel'
 import type { PresetChoice } from '@/lib/customer-list/preset-choice'
 import {
   canDeleteList,
@@ -995,6 +996,12 @@ export default function CustomersClient() {
                 {/* 校区別の反響の濃淡（PR-C・SD-42）。RPC get_school_district_heatmap の
                     tier(1..4)を濃淡順（RPC の ORDER BY そのまま）に描く。件数・順位番号は出さない。*/}
                 <SchoolDistrictRanking listId={data.id} />
+
+                {/* 購入希望マッチ（売主向け・BM-7）。裁定37: 校区ランキングの直後・
+                    as_of footer の手前に置き、売主向けの集計セクションを個票
+                    （アタックリスト）から視覚的に離す。
+                    ⛔ このパネルは個票（/buyer-match/rows）を呼ばない。*/}
+                <BuyerMatchPanel listId={data.id} />
 
                 {/* 突合基準の as_of（自治体別）。データの鮮度を明示する。 */}
                 {data.as_of_by_municipality.length > 0 && (
