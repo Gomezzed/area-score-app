@@ -78,3 +78,34 @@ export const BUYER_MATCH_CARDS_MESSAGES = {
 } as const
 
 export type BuyerMatchCardsMessageKey = keyof typeof BUYER_MATCH_CARDS_MESSAGES
+
+// ============================================================
+// PR-BM-10c: 購入希望マッチ org モード（/customers/buyer-match?list なし）の文言。
+//   ⛔ 新設するのは裁定-bm-L の定数のみ（ここに列挙した以外を足さない）。
+//   ⛔ near/wide の見出しは BUYER_MATCH_MESSAGES.nearHeading / wideHeading を
+//     流用する（org 用に別文言を作らない・裁定41）。名簿モードの文言は1文字も変えない。
+//   ・backToCustomers は両モード共通の戻るリンク文言（裁定-bm-E）。名簿モード・org
+//     モードの BackLink がともにこの定数を参照する。
+//   ⚠ 外部 import を持たない（node --test で直接読める純モジュール）。
+// ============================================================
+export const BUYER_MATCH_ORG_MESSAGES = {
+  // 上段（条件ボックス）の見出し（裁定-bm-D／裁定-bm-L）。
+  orgHeading: 'この条件で住まいをお探しの方',
+
+  // 条件未入力（URL に条件が無い）ときに結果領域へ出す案内（裁定-bm-L）。
+  orgEmpty: '条件を選んで「表示する」を押すと、その条件で住まいをお探しの方の人数を表示します。',
+
+  // org 版 areas が空（名簿がまだ無い等）のときの市区町村セレクトの代替（裁定-bm-L）。
+  orgAreasEmpty: '対象の市区町村がありません。名簿を取り込むと候補が表示されます。',
+
+  // 戻るリンク（裁定-bm-E・両モード共通・href=/customers）。
+  backToCustomers: '顧客アタックリストへ戻る',
+
+  // /customers の ListIndex に置くボタン（裁定-bm-F）。
+  orgButton: '購入希望マッチ',
+
+  // 条件フォームの送信ボタン（裁定-bm-L）。
+  orgSubmit: '表示する',
+} as const
+
+export type BuyerMatchOrgMessageKey = keyof typeof BUYER_MATCH_ORG_MESSAGES

@@ -7,7 +7,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { BUYER_MATCH_MESSAGES } from './messages.ts'
+import { BUYER_MATCH_MESSAGES, BUYER_MATCH_ORG_MESSAGES } from './messages.ts'
 
 test('見出し2つ（裁定34・逐語）', () => {
   assert.equal(BUYER_MATCH_MESSAGES.wideHeading, 'この市区町村で同じ種別をお探しの方')
@@ -42,4 +42,30 @@ test('物件種別の取得失敗文言は code を含まない（裁定35）', 
   for (const code of ['new_detached', 'used_detached', 'new_condo', 'used_condo', 'land', 'commercial']) {
     assert.equal(BUYER_MATCH_MESSAGES.propertyTypesFailed.includes(code), false)
   }
+})
+
+// ---------------------------------------------------------------------
+// PR-BM-10c: org モードの文言（裁定-bm-L・逐語）。
+//   ⛔ near/wide の見出しは既存 BUYER_MATCH_MESSAGES を流用し、org 用に別文言を
+//     作らない（裁定41）。ここで新設した6定数以外を足したらこのテストで気づける。
+// ---------------------------------------------------------------------
+test('org モードの文言6つ（裁定-bm-L・逐語）', () => {
+  assert.equal(BUYER_MATCH_ORG_MESSAGES.orgHeading, 'この条件で住まいをお探しの方')
+  assert.equal(
+    BUYER_MATCH_ORG_MESSAGES.orgEmpty,
+    '条件を選んで「表示する」を押すと、その条件で住まいをお探しの方の人数を表示します。',
+  )
+  assert.equal(
+    BUYER_MATCH_ORG_MESSAGES.orgAreasEmpty,
+    '対象の市区町村がありません。名簿を取り込むと候補が表示されます。',
+  )
+  assert.equal(BUYER_MATCH_ORG_MESSAGES.backToCustomers, '顧客アタックリストへ戻る')
+  assert.equal(BUYER_MATCH_ORG_MESSAGES.orgButton, '購入希望マッチ')
+  assert.equal(BUYER_MATCH_ORG_MESSAGES.orgSubmit, '表示する')
+})
+
+test('org モードは near/wide 見出しを新設しない（裁定41・既存流用）', () => {
+  // org 用に独自の near/wide 見出しキーを作っていないこと（裁定41）。
+  assert.equal('orgNearHeading' in BUYER_MATCH_ORG_MESSAGES, false)
+  assert.equal('orgWideHeading' in BUYER_MATCH_ORG_MESSAGES, false)
 })
