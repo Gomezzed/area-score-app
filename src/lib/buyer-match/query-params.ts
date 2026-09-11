@@ -109,3 +109,59 @@ export function parseBuyerMatchQueryParams(
     },
   }
 }
+
+// ============================================================
+// PR-BM-9b-1: cards ルート専用のクエリ引数パース（裁定57/65/67）。
+//   summary/cells/rows と挙動を揃えつつ、cards だけの2点を反映する:
+//     - property_type は【必須】。未指定(null)も allowlist 外も 400（裁定57）。
+//     - school_district_id は【受け取らない】。クエリに来ても無視し（400 にもしない）、
+//       RPC には常に null を渡す（裁定67・33/46）。ここでは get すらしない。
+//   muni_code_5 は既存3ルートと同じ「任意・形式検証なし・生値透過」（裁定65・O49）。
+//   price_min / price_max は既存と同じ非負整数（parsePriceMin/parsePriceMax を流用）。
+//   ⛔ 既存の parsePropertyType（null 許可版）は変更しない。必須判定はここで行う。
+//   ⛔ 不正値そのものは結果に含めない（D144）。返すのはパラメータ名のみ。
+// ============================================================
+
+export type BuyerMatchCardsQueryParamName = 'property_type' | 'price_min' | 'price_max'
+
+export interface BuyerMatchCardsQueryParams {
+  // school_district_id は保持しない（cards では受け取らない・裁定67）。
+  muniCode5: string | null
+  propertyType: PropertyTypeCode
+  priceMin: number | null
+  priceMax: number | null
+}
+
+export type BuyerMatchCardsQueryParamsResult =
+  | { ok: true; params: BuyerMatchCardsQueryParams }
+  | { ok: false; parameter: BuyerMatchCardsQueryParamName }
+
+export function parseBuyerMatchCardsQueryParams(
+  searchParams: Pick<URLSearchParams, 'get'>,
+): BuyerMatchCardsQueryParamsResult {
+  // property_type は必須。未指定(null)も allowlist 外も 400（裁定57）。
+  const rawPropertyType = searchParams.get('property_type')
+  if (rawPropertyType === null) return { ok: false, parameter: 'property_type' }
+  const propertyType = parsePropertyType(rawPropertyType)
+  if (propertyType === undefined || propertyType === null) {
+    return { ok: false, parameter: 'property_type' }
+  }
+
+  const priceMin = parsePriceMin(searchParams.get('price_min'))
+  if (priceMin === undefined) return { ok: false, parameter: 'price_min' }
+
+  const priceMax = parsePriceMax(searchParams.get('price_max'))
+  if (priceMax === undefined) return { ok: false, parameter: 'price_max' }
+
+  return {
+    ok: true,
+    params: {
+      // muni_code_5 は検証せず生値透過（裁定65・O49）。
+      muniCode5: searchParams.get('muni_code_5'),
+      // ⛔ school_district_id は get せず、RPC 側で常に null を渡す（裁定67）。
+      propertyType,
+      priceMin,
+      priceMax,
+    },
+  }
+}

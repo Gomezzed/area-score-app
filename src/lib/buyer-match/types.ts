@@ -50,3 +50,54 @@ export interface SellerCondition {
   priceMin: number | null
   priceMax: number | null
 }
+
+// ============================================================
+// PR-BM-9b-1: GET /api/customer-lists/[id]/buyer-match/cards が透過する匿名カード（裁定61）。
+//   RPC get_buyer_match_cards が返す単一 jsonb をそのまま表す（裁定60/66 で無改変透過）。
+//   ⛔ 禁止16列（row_id / list_id / user_id / organization_id / external_id /
+//     customer_name / assignee / inquiry_at / media / category / address_raw /
+//     address_normalized / desired_school / input_name / normalized_name /
+//     match_method / candidate_count）は宣言しない。宣言しなければ参照した時点で型エラーに
+//     なり、匿名カードへ実在属性が混入するのを構造的に防ぐ（BM-7 で unknown_area_count を
+//     宣言しなかったのと同じ手法・裁定61）。
+// ============================================================
+
+// 匿名カード1枚。キーは8つのみ（PM 確定・これ以外を足さない）。
+//   1枚＝1人の粒度の匿名化済み希望条件（属性の絞り込みは RPC 側で完結・API は加工しない）。
+export interface BuyerMatchCard {
+  property_types: string[]
+  price_min: number | null
+  price_max: number | null
+  desired_floor_area_min: number | null
+  desired_floor_area_max: number | null
+  desired_land_area_min: number | null
+  desired_land_area_max: number | null
+  desired_districts: string[]
+}
+
+// 実際に検索に使われた条件（stage の段階緩和後の値・裁定68）。
+//   ⛔ Record<string, unknown> にしない。任意キーの誤参照を型で塞ぎ、裁定61 の「型で防ぐ」を
+//     used_conditions の内側まで効かせる（BM-9b-2 はこの値から見出し文を組み立てる）。
+//   段階緩和で null になる項目がある: 段3・段4 は price_*、段4 は property_type も外れる。
+export interface BuyerMatchUsedConditions {
+  muni_code_5: string | null
+  school_district_id: string | null // cards ルートからは常に null（裁定67）
+  property_type: string | null // 段4 では null（種別を外した段）
+  price_min: number | null // 段3・段4 では null
+  price_max: number | null
+}
+
+// cards ルートが透過する jsonb 全体（裁定60/66・summary と同型で data ?? {} を返す）。
+//   stage は 1〜4 の4段または null（段は4つしかないことを型で示す・裁定68）。
+//   used_conditions は上記の締めた型または null。
+//   cards は 0〜max_cards(=6) 枚。suppressed は k 匿名化で抑止されたか。
+export interface BuyerMatchCards {
+  opt_in: boolean
+  k: number
+  max_cards: number
+  stage: 1 | 2 | 3 | 4 | null
+  used_conditions: BuyerMatchUsedConditions | null
+  matched_count: number
+  suppressed: boolean
+  cards: BuyerMatchCard[]
+}
