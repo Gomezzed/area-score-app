@@ -11,8 +11,10 @@ import assert from 'node:assert/strict'
 import {
   buildBuyerCardsHeading,
   formatCardArea,
+  formatCardPrice,
   hasAreaRow,
   hasDistrictsRow,
+  hasPriceRow,
   resolveCardBadgeLabel,
   shouldShowBuyerCards,
   shouldShowBuyerCardsButton,
@@ -157,6 +159,54 @@ test('バッジ: 未解決 code は「指定なし」（⛔ code を出さない
 
 test('バッジ: property_types が空なら「指定なし」', () => {
   assert.equal(resolveCardBadgeLabel([], { used_condo: '中古マンション' }), BUYER_MATCH_CARDS_MESSAGES.valueNone)
+})
+
+// --- 希望予算行（裁定81） ----------------------------------------------
+
+test('hasPriceRow: 両方 null は行を出さない', () => {
+  assert.equal(hasPriceRow(null, null), false)
+})
+
+test('hasPriceRow: 片側でも値があれば行を出す', () => {
+  assert.equal(hasPriceRow(2000, null), true)
+  assert.equal(hasPriceRow(null, 3000), true)
+})
+
+test('formatCardPrice: {min}〜{max}万円（3桁区切り）', () => {
+  assert.equal(formatCardPrice(2000, 3000), '2,000〜3,000万円')
+})
+
+test('formatCardPrice: 片側のみ', () => {
+  assert.equal(formatCardPrice(null, 3000), '〜3,000万円')
+  assert.equal(formatCardPrice(2000, null), '2,000万円〜')
+})
+
+test('formatCardPrice: 両方 null は「指定なし」', () => {
+  assert.equal(formatCardPrice(null, null), BUYER_MATCH_CARDS_MESSAGES.valueNone)
+})
+
+// 裁定81: formatCardPrice は formatCardArea のコピーではない（単位が違う）が、整形の
+//   分岐（両方あり／上限のみ／下限のみ／両方 null）は同型でなければならない。単位語だけを
+//   差し替えれば一致することで「同じ分岐・違う単位」を担保する（⛔ 片方だけ分岐が崩れない）。
+test('formatCardPrice と formatCardArea は整形分岐が同型（単位語のみ差）', () => {
+  const cases: [number | null, number | null][] = [
+    [2000, 3000], // 両方あり
+    [null, 3000], // 上限のみ
+    [2000, null], // 下限のみ
+    [null, null], // 両方なし
+  ]
+  for (const [min, max] of cases) {
+    const price = formatCardPrice(min, max)
+    const area = formatCardArea(min, max)
+    if (min === null && max === null) {
+      // 両方 null はどちらも valueNone（単位語を持たない）。
+      assert.equal(price, BUYER_MATCH_CARDS_MESSAGES.valueNone)
+      assert.equal(area, BUYER_MATCH_CARDS_MESSAGES.valueNone)
+      continue
+    }
+    // price の「万円」を「㎡」に置換すると area と一致する＝分岐が同型。
+    assert.equal(price.replaceAll('万円', '㎡'), area)
+  }
 })
 
 // --- 面積行（裁定76） --------------------------------------------------

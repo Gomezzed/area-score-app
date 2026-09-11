@@ -200,6 +200,25 @@ export function resolveCardBadgeLabel(
   return labelByCode[first] ?? BUYER_MATCH_CARDS_MESSAGES.valueNone
 }
 
+// 希望予算行を出すか（裁定81: 両方 null なら行ごと出さない）。片側でも値があれば出す。
+//   ⚠ カードの price_min/price_max は「購入検討者本人の希望予算」であり、見出しの価格
+//     （売主の検索条件）とは別物（裁定81）。
+export function hasPriceRow(min: number | null, max: number | null): boolean {
+  return min !== null || max !== null
+}
+
+// 希望予算の表示「{min}〜{max}万円」（3桁区切り）。片側のみは「〜{max}万円」「{min}万円〜」。
+//   両方 null は「指定なし」（呼び出し側は hasPriceRow で行ごと落とすのが原則）。
+//   ⚠ formatCardArea のコピーではない（単位が万円・裁定81）。整形分岐が同型であることは
+//     display-cards.test.ts で担保する。
+export function formatCardPrice(min: number | null, max: number | null): string {
+  const M = BUYER_MATCH_CARDS_MESSAGES
+  if (min === null && max === null) return M.valueNone
+  if (min !== null && max !== null) return `${fmtInt(min)}〜${fmtInt(max)}万円`
+  if (max !== null) return `〜${fmtInt(max)}万円`
+  return `${fmtInt(min as number)}万円〜`
+}
+
 // 面積行を出すか（裁定76: 両方 null なら行ごと出さない）。片側でも値があれば出す。
 export function hasAreaRow(min: number | null, max: number | null): boolean {
   return min !== null || max !== null

@@ -15,8 +15,10 @@
 import { BUYER_MATCH_CARDS_MESSAGES } from '@/lib/buyer-match/messages'
 import {
   formatCardArea,
+  formatCardPrice,
   hasAreaRow,
   hasDistrictsRow,
+  hasPriceRow,
   resolveCardBadgeLabel,
 } from '@/lib/buyer-match/display'
 import type { BuyerMatchCard } from '@/lib/buyer-match/types'
@@ -78,6 +80,7 @@ function BuyerMatchCardItem({
   labelByCode: Record<string, string>
 }) {
   const badge = resolveCardBadgeLabel(card.property_types, labelByCode)
+  const showPrice = hasPriceRow(card.price_min, card.price_max)
   const showFloor = hasAreaRow(card.desired_floor_area_min, card.desired_floor_area_max)
   const showLand = hasAreaRow(card.desired_land_area_min, card.desired_land_area_max)
   const showDistricts = hasDistrictsRow(card)
@@ -90,6 +93,15 @@ function BuyerMatchCardItem({
         <span className="text-xs font-medium text-slate-400">{number}</span>
       </div>
       <dl className="mt-2 space-y-1.5 text-xs">
+        {/* 希望予算（裁定81）＝購入検討者本人の予算。カードの主役の行としてバッジ直下・面積より上。*/}
+        {showPrice && (
+          <div className="flex gap-2">
+            <dt className="shrink-0 text-slate-400">{BUYER_MATCH_CARDS_MESSAGES.rowPrice}</dt>
+            <dd className="font-semibold text-slate-900">
+              {formatCardPrice(card.price_min, card.price_max)}
+            </dd>
+          </div>
+        )}
         {showFloor && (
           <div className="flex gap-2">
             <dt className="shrink-0 text-slate-400">{BUYER_MATCH_CARDS_MESSAGES.rowFloorArea}</dt>

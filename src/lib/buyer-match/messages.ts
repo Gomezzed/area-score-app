@@ -68,7 +68,10 @@ export const BUYER_MATCH_CARDS_MESSAGES = {
   // 値が null のとき（種別・市区町村名が解決できない等）の代替（裁定・値なし）。
   valueNone: '指定なし',
 
-  // カード本体の行ラベル（裁定76）。
+  // カード本体の行ラベル（裁定76/81）。
+  //   ⚠ rowPrice は「購入検討者本人の希望予算」（裁定81）。見出しの価格（売主の検索条件＝
+  //     査定物件の想定価格帯）とは別物。カードの主役の行としてバッジ直下・面積より上に置く。
+  rowPrice: '希望予算',
   rowFloorArea: '専有面積',
   rowLandArea: '土地面積',
   rowDistricts: '校区',

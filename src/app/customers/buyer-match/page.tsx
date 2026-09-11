@@ -21,7 +21,7 @@ import { notFound, useSearchParams } from 'next/navigation'
 import { ArrowLeft, Loader2, Lock } from 'lucide-react'
 import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
-import { BUYER_MATCH_CARDS_MESSAGES } from '@/lib/buyer-match/messages'
+import { BUYER_MATCH_CARDS_MESSAGES, BUYER_MATCH_MESSAGES } from '@/lib/buyer-match/messages'
 import { buildBuyerMatchQueryString, parsePriceInput } from '@/lib/buyer-match/request'
 import {
   buildBuyerCardsHeading,
@@ -225,7 +225,12 @@ function CardsRoute({
         ) : cardsLoad.status === 'failed' ? (
           <p className="text-sm text-slate-500">購入検討者の情報を取得できませんでした。</p>
         ) : (
-          <CardsBody cards={cardsLoad.data} labelByCode={labelByCode} muniNameByCode={muniNameByCode} />
+          <>
+            <CardsBody cards={cardsLoad.data} labelByCode={labelByCode} muniNameByCode={muniNameByCode} />
+            {/* 免責（裁定30/82・逐語）。カード一覧でも抑止文言だけの経路でも必ず1つ置く。
+                ⛔ disclaimer 定数は編集しない・新設しない（参照のみ）。*/}
+            <p className="text-xs text-slate-400 leading-relaxed">{BUYER_MATCH_MESSAGES.disclaimer}</p>
+          </>
         )}
       </div>
     </div>

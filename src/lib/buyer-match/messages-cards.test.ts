@@ -28,8 +28,9 @@ test('抑止時文言（裁定72・逐語）', () => {
   )
 })
 
-test('値なし・行ラベル（裁定76・逐語）', () => {
+test('値なし・行ラベル（裁定76/81・逐語）', () => {
   assert.equal(BUYER_MATCH_CARDS_MESSAGES.valueNone, '指定なし')
+  assert.equal(BUYER_MATCH_CARDS_MESSAGES.rowPrice, '希望予算')
   assert.equal(BUYER_MATCH_CARDS_MESSAGES.rowFloorArea, '専有面積')
   assert.equal(BUYER_MATCH_CARDS_MESSAGES.rowLandArea, '土地面積')
   assert.equal(BUYER_MATCH_CARDS_MESSAGES.rowDistricts, '校区')
