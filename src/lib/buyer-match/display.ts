@@ -238,3 +238,43 @@ export function formatCardArea(min: number | null, max: number | null): string {
 export function hasDistrictsRow(card: BuyerMatchCard): boolean {
   return card.desired_districts.length > 0
 }
+
+// ============================================================
+// PR-BM-10c: org モード（/customers/buyer-match?list なし）の表示補助（純関数）。
+//   ⚠ 画面（buyer-match/page.tsx）が同じ整形を通すよう純関数化する。node --test で網羅。
+//   ⛔ 価格整形の新規ロジックを書かない。上段の条件要約は既存の formatCardPrice /
+//     hasPriceRow を再利用する（万円・片側のみ・価格なしの分岐は BM-9b-2 と同一）。
+// ============================================================
+
+// 上段の条件要約「岡崎市 / 中古戸建 / 2,000〜4,000万円」形式（裁定-bm-D）。
+//   ・市区町村名・種別名は解決済みラベルを渡す（null は valueNone「指定なし」）。
+//     org モードでは両者とも必須なので通常は非 null。
+//   ・価格は両方 null のときセグメントごと出さない（「指定なし」を末尾に付けない）。
+//     片側のみは formatCardPrice に委ねる（「〜{max}万円」「{min}万円〜」）。
+export function formatConditionSummary(input: {
+  muniName: string | null
+  propertyTypeLabel: string | null
+  priceMin: number | null
+  priceMax: number | null
+}): string {
+  const M = BUYER_MATCH_CARDS_MESSAGES
+  const segments: string[] = [
+    input.muniName ?? M.valueNone,
+    input.propertyTypeLabel ?? M.valueNone,
+  ]
+  if (hasPriceRow(input.priceMin, input.priceMax)) {
+    segments.push(formatCardPrice(input.priceMin, input.priceMax))
+  }
+  return segments.join(' / ')
+}
+
+// 市区町村セレクトの表示名（都道府県があれば前置き）。
+//   ⚠ BuyerMatchPanel.areaLabel と同形（⛔ Panel は触らない）。Panel 側の重複は残件。
+//   ⚠ CustomerListArea は client.ts（supabase 依存）由来のため型 import しない。
+//     必要な2フィールドだけを受ける構造的型にして純モジュールを保つ。
+export function formatAreaLabel(area: {
+  prefecture_name: string | null
+  muni_name: string
+}): string {
+  return area.prefecture_name ? `${area.prefecture_name} ${area.muni_name}` : area.muni_name
+}

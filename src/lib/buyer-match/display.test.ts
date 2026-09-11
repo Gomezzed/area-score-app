@@ -170,3 +170,51 @@ test('内訳カードの見出しは「種別 / 価格帯 / 広さ帯」', () =>
   assert.equal(formatCellCount(cell({ n: 12 })), '12名')
   assert.equal(formatCountValue(1234), '1,234名')
 })
+
+// ---------------------------------------------------------------------
+// PR-BM-10c: org モードの表示補助（formatConditionSummary / formatAreaLabel）。
+//   ⚠ 価格整形は formatCardPrice の再利用を前提に、片側のみ・価格なしを網羅する。
+// ---------------------------------------------------------------------
+import { formatConditionSummary, formatAreaLabel } from './display.ts'
+
+test('条件要約は「市区町村 / 種別 / 価格帯」を / で連結する', () => {
+  assert.equal(
+    formatConditionSummary({
+      muniName: '岡崎市',
+      propertyTypeLabel: '中古戸建',
+      priceMin: 2000,
+      priceMax: 4000,
+    }),
+    '岡崎市 / 中古戸建 / 2,000〜4,000万円',
+  )
+})
+
+test('条件要約: 価格が片側のみは formatCardPrice に委ねる', () => {
+  assert.equal(
+    formatConditionSummary({ muniName: '岡崎市', propertyTypeLabel: '中古戸建', priceMin: null, priceMax: 4000 }),
+    '岡崎市 / 中古戸建 / 〜4,000万円',
+  )
+  assert.equal(
+    formatConditionSummary({ muniName: '岡崎市', propertyTypeLabel: '中古戸建', priceMin: 2000, priceMax: null }),
+    '岡崎市 / 中古戸建 / 2,000万円〜',
+  )
+})
+
+test('条件要約: 価格が両方 null なら価格セグメントを出さない', () => {
+  assert.equal(
+    formatConditionSummary({ muniName: '岡崎市', propertyTypeLabel: '中古戸建', priceMin: null, priceMax: null }),
+    '岡崎市 / 中古戸建',
+  )
+})
+
+test('条件要約: 市区町村名・種別名が null なら「指定なし」に写す', () => {
+  assert.equal(
+    formatConditionSummary({ muniName: null, propertyTypeLabel: null, priceMin: null, priceMax: null }),
+    '指定なし / 指定なし',
+  )
+})
+
+test('市区町村ラベルは都道府県があれば前置きする', () => {
+  assert.equal(formatAreaLabel({ prefecture_name: '愛知県', muni_name: '岡崎市' }), '愛知県 岡崎市')
+  assert.equal(formatAreaLabel({ prefecture_name: null, muni_name: '岡崎市' }), '岡崎市')
+})

@@ -23,6 +23,7 @@ import { useSubscription } from '@/hooks/useSubscription'
 import { canUse } from '@/lib/plans'
 import { TIER_LABEL } from '@/lib/school-district-tiers'
 import { BuyerMatchPanel } from '@/components/ui/BuyerMatchPanel'
+import { BUYER_MATCH_ORG_MESSAGES } from '@/lib/buyer-match/messages'
 import type { PresetChoice } from '@/lib/customer-list/preset-choice'
 import {
   canDeleteList,
@@ -1342,14 +1343,26 @@ function ListIndex({
             組織で共有されている顧客名簿です。行を選ぶと開けます。
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onNew}
-          className="inline-flex items-center gap-1.5 self-start shrink-0 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          新規リスト作成
-        </button>
+        {/* 裁定-bm-F: 「リスト一覧」見出しの右・「＋新規リスト作成」の左に org モードへの
+            導線を1つ置く（href=/customers/buyer-match・空状態には置かない）。
+            ⛔ 色は新しく決めない。既存 brand トークンのみで構成（アウトライン）。*/}
+        <div className="flex items-center gap-2 self-start shrink-0">
+          <Link
+            href="/customers/buyer-match"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-brand-700 text-brand-700 hover:bg-brand-100 text-sm font-medium transition-colors"
+          >
+            <Users className="w-4 h-4" />
+            {BUYER_MATCH_ORG_MESSAGES.orgButton}
+          </Link>
+          <button
+            type="button"
+            onClick={onNew}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            新規リスト作成
+          </button>
+        </div>
       </div>
 
       {/* 開く処理中の薄いインジケータ（詳細フェッチ中）。*/}
