@@ -75,15 +75,28 @@ export interface BuyerMatchCard {
   desired_districts: string[]
 }
 
+// 実際に検索に使われた条件（stage の段階緩和後の値・裁定68）。
+//   ⛔ Record<string, unknown> にしない。任意キーの誤参照を型で塞ぎ、裁定61 の「型で防ぐ」を
+//     used_conditions の内側まで効かせる（BM-9b-2 はこの値から見出し文を組み立てる）。
+//   段階緩和で null になる項目がある: 段3・段4 は price_*、段4 は property_type も外れる。
+export interface BuyerMatchUsedConditions {
+  muni_code_5: string | null
+  school_district_id: string | null // cards ルートからは常に null（裁定67）
+  property_type: string | null // 段4 では null（種別を外した段）
+  price_min: number | null // 段3・段4 では null
+  price_max: number | null
+}
+
 // cards ルートが透過する jsonb 全体（裁定60/66・summary と同型で data ?? {} を返す）。
-//   stage は 1〜4 または null。used_conditions は付随オブジェクトまたは null。
+//   stage は 1〜4 の4段または null（段は4つしかないことを型で示す・裁定68）。
+//   used_conditions は上記の締めた型または null。
 //   cards は 0〜max_cards(=6) 枚。suppressed は k 匿名化で抑止されたか。
 export interface BuyerMatchCards {
   opt_in: boolean
   k: number
   max_cards: number
-  stage: number | null
-  used_conditions: Record<string, unknown> | null
+  stage: 1 | 2 | 3 | 4 | null
+  used_conditions: BuyerMatchUsedConditions | null
   matched_count: number
   suppressed: boolean
   cards: BuyerMatchCard[]
