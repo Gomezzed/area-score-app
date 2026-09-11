@@ -6,7 +6,20 @@
 //   ⚠ node --test は '@/' を解決できないため相対 import・拡張子付きで書く。
 // ============================================================
 
-import type { SellerCondition } from '../types.ts'
+import {
+  buildBuyerCardsHeading,
+  formatCardArea,
+  formatCardPrice,
+  formatCountValue,
+  hasAreaRow,
+  hasDistrictsRow,
+  hasPriceRow,
+  resolveCardBadgeLabel,
+  shouldShowBuyerCards,
+  shouldShowBuyerCardsButton,
+} from '../display.ts'
+import { BUYER_MATCH_CARDS_MESSAGES } from '../messages.ts'
+import type { BuyerMatchCard, BuyerMatchCards, SellerCondition } from '../types.ts'
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : `${n}`
@@ -63,4 +76,110 @@ export function buildConditionLines(condition: SellerCondition): string[] {
   const price = formatConditionPrice(condition.priceMin, condition.priceMax)
   if (price) lines.push(`査定価格: ${price}`)
   return lines
+}
+
+// ============================================================
+// PR-BM-9b-3: PDF 2枚目「匿名カード」の表示モデル（裁定88〜93）。
+//   BuyerMatchPanel が既に持つ cards レスポンス（BuyerMatchCards）から、PDF が描く
+//   だけの表示用データを組む。⛔ 追加 fetch はしない（配線は index.ts / Panel 側）。
+//   ⚠ 画面（app/customers/buyer-match/page.tsx の CardsBody ＋ ui/BuyerMatchCardsView）と
+//     同一の判定・整形を通すため、整形・見出し・文言は display.ts / messages.ts の関数と
+//     定数だけを呼ぶ（⛔ 独自整形を書かない・裁定90）。例外は裁定96 が複製を許可した2点
+//     （#01 連番・desired_districts の「、」結合）のみ。
+//
+//   ⚠ 画面と PDF は cards レスポンスを別々に取得するため、同条件でも 6人が異なり得る
+//     （RPC はランダム順で最大 max_cards 件を返す・裁定89）。これは仕様。
+// ============================================================
+
+// カード1行の表示ラベル＋値（値の無い行は null＝行ごと出さない）。
+export interface BuyerCardRow {
+  label: string
+  value: string
+}
+
+// カード1枚の表示データ（裁定90: バッジ＋#NN＋希望予算＋専有面積＋土地面積＋校区）。
+export interface BuyerCardView {
+  // #01〜（裁定74・裁定96 で PDF 複製可）。
+  number: string
+  // 物件種別 label_ja（resolveCardBadgeLabel・裁定76）。
+  badge: string
+  // 希望予算（先頭・太字・裁定81）。両方 null なら null。
+  priceRow: BuyerCardRow | null
+  floorRow: BuyerCardRow | null
+  landRow: BuyerCardRow | null
+  districtsRow: BuyerCardRow | null
+}
+
+// PDF 2枚目の3分岐（裁定88）。判定は display.ts の純関数のみ（⛔ cards.length で判定しない）。
+//   'cards'      … opt_in=true かつ表示可（見出し・人数・カード・免責）
+//   'suppressed' … opt_in=true かつ suppressed / stage=null（抑止文言＋免責）
+//   'legacy'     … opt_in=false（従来のセル集計2枚目・⛔ 1文字も変えない）
+export type BuyerCardsPageModel =
+  | { kind: 'legacy' }
+  | { kind: 'suppressed' }
+  | { kind: 'cards'; heading: string; countLabel: string; cards: BuyerCardView[] }
+
+// #01 の連番＝配列 index+1・2桁ゼロ詰め。
+//   ⚠ 裁定96 で複製を許可された2点のうちの1つ（画面 ui/BuyerMatchCardsView.tsx:37-40
+//     の cardNumber と同一ロジック。display.ts へは後日別 PR で移す候補）。
+function cardNumber(index: number): string {
+  return `#${String(index + 1).padStart(2, '0')}`
+}
+
+function buildCardView(
+  card: BuyerMatchCard,
+  index: number,
+  labelByCode: Record<string, string>,
+): BuyerCardView {
+  const M = BUYER_MATCH_CARDS_MESSAGES
+  return {
+    number: cardNumber(index),
+    badge: resolveCardBadgeLabel(card.property_types, labelByCode),
+    // 行の有無は has*Row（display.ts）で決め、値は format*（display.ts）で整形する。
+    priceRow: hasPriceRow(card.price_min, card.price_max)
+      ? { label: M.rowPrice, value: formatCardPrice(card.price_min, card.price_max) }
+      : null,
+    floorRow: hasAreaRow(card.desired_floor_area_min, card.desired_floor_area_max)
+      ? { label: M.rowFloorArea, value: formatCardArea(card.desired_floor_area_min, card.desired_floor_area_max) }
+      : null,
+    landRow: hasAreaRow(card.desired_land_area_min, card.desired_land_area_max)
+      ? { label: M.rowLandArea, value: formatCardArea(card.desired_land_area_min, card.desired_land_area_max) }
+      : null,
+    // desired_districts の「、」結合。
+    //   ⚠ 裁定96 で複製を許可された2点のもう1つ（画面 ui/BuyerMatchCardsView.tsx:124 と同一）。
+    districtsRow: hasDistrictsRow(card)
+      ? { label: M.rowDistricts, value: card.desired_districts.join('、') }
+      : null,
+  }
+}
+
+// cards レスポンス → PDF 2枚目の表示モデル。
+//   labelByCode: property_type code → label_ja（バッジ・見出しの種別解決／Panel の typeList 由来）。
+//   muniNameByCode: muni_code_5 → muni_name（段4 見出しの市区町村名解決／Panel の areaList 由来）。
+export function buildBuyerCardsPageModel(
+  cards: BuyerMatchCards,
+  labelByCode: Record<string, string>,
+  muniNameByCode: Record<string, string>,
+): BuyerCardsPageModel {
+  // 裁定88: opt_in=false は従来のセル集計2枚目のまま（判定は display.ts）。
+  if (!shouldShowBuyerCardsButton(cards)) return { kind: 'legacy' }
+  // 裁定88/72: opt_in=true でも suppressed / stage=null は抑止文言（⛔ cards.length で判定しない）。
+  if (!shouldShowBuyerCards(cards)) return { kind: 'suppressed' }
+
+  const used = cards.used_conditions
+  // 見出しは used_conditions 由来（裁定73）。種別/市区町村名を解決して純関数へ渡す。
+  const heading = used
+    ? buildBuyerCardsHeading(
+        used,
+        used.property_type ? labelByCode[used.property_type] ?? null : null,
+        used.muni_code_5 ? muniNameByCode[used.muni_code_5] ?? null : null,
+      )
+    : ''
+  return {
+    kind: 'cards',
+    heading,
+    // 大きな人数＝matched_count を「○名」に整形（裁定75）。⛔ stage/k/max_cards は出さない。
+    countLabel: formatCountValue(cards.matched_count),
+    cards: cards.cards.map((card, i) => buildCardView(card, i, labelByCode)),
+  }
 }

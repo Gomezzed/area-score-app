@@ -15,12 +15,18 @@ import { downloadPdf } from '@/lib/heatmap-pdf/download'
 import { formatGeneratedAt, type LegendRow } from '@/lib/heatmap-pdf/model'
 import { buildCellsDisplay, buildCountDisplays } from '@/lib/buyer-match/display'
 import type {
+  BuyerMatchCards,
   BuyerMatchCell,
   BuyerMatchSummary,
   SellerCondition,
 } from '@/lib/buyer-match/types'
 import { SellerSheetDocument } from './document'
-import { buildConditionLines, buildSellerSheetFileName, buildSellerSheetTitle } from './model'
+import {
+  buildBuyerCardsPageModel,
+  buildConditionLines,
+  buildSellerSheetFileName,
+  buildSellerSheetTitle,
+} from './model'
 
 export interface SellerSheetMapInput {
   pngDataUrl: string
@@ -44,6 +50,15 @@ export interface ExportSellerSheetInput {
   //   ⚠ 顧客ロゴ経路（P1-5）が確定したら logoSrc を渡すだけで差し替わる。
   //     置き場は public/brand/partners/ の見込み。本 PR の呼び出し側は undefined を渡す。
   logoSrc?: string
+  // PR-BM-9b-3: 2枚目を匿名カード面に差し替えるデータ源（裁定88/89）。
+  //   BuyerMatchPanel が「買い手を見る」判定のため既に取得済みの cards レスポンスを渡す
+  //   （⛔ PDF 生成時に追加 fetch はしない）。null／未指定なら従来のセル集計2枚目のまま。
+  //   ⚠ 画面（専用画面）と PDF は cards を別々に取得するため、同条件でも 6人が異なり得る（裁定89）。
+  cards?: BuyerMatchCards | null
+  // property_type code → label_ja（バッジ・見出しの種別解決／Panel の typeList 由来）。
+  labelByCode?: Record<string, string>
+  // muni_code_5 → muni_name（段4 見出しの市区町村名解決／Panel の areaList 由来）。
+  muniNameByCode?: Record<string, string>
   now?: Date
 }
 
@@ -54,6 +69,16 @@ export async function exportSellerSheetPdf(input: ExportSellerSheetInput): Promi
     // 抑止・セル選抜の判定は画面とまったく同じ関数を通す。
     const counts = buildCountDisplays(input.summary)
     const cellsView = buildCellsDisplay(input.cells)
+
+    // 2枚目の出し分け（裁定88）。cards が無ければ undefined＝従来のセル集計2枚目のまま。
+    //   3分岐（cards/suppressed/legacy）の判定は model.ts が display.ts で済ませる。
+    const cardsPage = input.cards
+      ? buildBuyerCardsPageModel(
+          input.cards,
+          input.labelByCode ?? {},
+          input.muniNameByCode ?? {},
+        )
+      : undefined
 
     const element = SellerSheetDocument({
       title: buildSellerSheetTitle(input.condition),
@@ -69,6 +94,7 @@ export async function exportSellerSheetPdf(input: ExportSellerSheetInput): Promi
       attributions: input.map?.attributions ?? [],
       mapDisclaimer: input.map ? input.mapDisclaimer : null,
       logoSrc: input.logoSrc,
+      cardsPage,
     })
 
     const fileName = buildSellerSheetFileName(
