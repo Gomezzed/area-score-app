@@ -39,6 +39,7 @@ import {
   type CustomerListArea,
 } from '@/lib/buyer-match/client'
 import type {
+  BuyerMatchCards,
   BuyerMatchCell,
   BuyerMatchSummary,
   PropertyTypeOption,
@@ -180,10 +181,11 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
   }, [listId, queryKey, muniCode5, propertyType])
 
   // 「買い手を見る」ボタンの出し分け（裁定71・①B案）。条件が揃った時点で cards API を
-  //   1回呼び、返り値の opt_in だけを見てボタンの有無を決める。⛔ シート内にカードを描かない。
+  //   1回呼ぶ。返り値の opt_in でボタンの有無を決め、レスポンス本体は PDF 2枚目のデータ源にも
+  //   使う（裁定89・⛔ PDF 生成時に追加 fetch はしない）。⛔ シート内にカードを描かない。
   //   ⛔ opt_in=false ならボタンも案内文も出さない（裁定71）。判定は display.ts の純関数。
-  //   条件ごとに key を持たせ、条件変更の途中で前の opt_in を使ってボタンを出さない。
-  const [optInState, setOptInState] = useState<{ key: string; optIn: boolean } | null>(null)
+  //   条件ごとに key を持たせ、条件変更の途中で前のレスポンスを使ってボタンを出さない。
+  const [cardsState, setCardsState] = useState<{ key: string; cards: BuyerMatchCards | null } | null>(null)
 
   useEffect(() => {
     if (!muniCode5 || !propertyType) return
@@ -191,11 +193,8 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
     const timer = setTimeout(async () => {
       const res = await fetchBuyerMatchCards(listId, queryKey)
       if (!alive) return
-      setOptInState({
-        key: queryKey,
-        // 取得失敗（403 含む）は false 扱い＝ボタンを出さない（fail-closed）。
-        optIn: res.ok ? shouldShowBuyerCardsButton(res.data) : false,
-      })
+      // 取得失敗（403 含む）は cards=null＝ボタンを出さず PDF も従来のセル集計（fail-closed）。
+      setCardsState({ key: queryKey, cards: res.ok ? res.data : null })
     }, REFETCH_DELAY_MS)
     return () => {
       alive = false
@@ -203,8 +202,10 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
     }
   }, [listId, queryKey, muniCode5, propertyType])
 
-  // 現在の条件に対して opt_in=true のときだけボタンを描く（key 不一致＝まだ未確定）。
-  const showCardsButton = optInState?.key === queryKey && optInState.optIn === true
+  // 現在の条件に対して取得済みの cards（key 不一致＝まだ未確定＝null）。PDF 2枚目の源も兼ねる。
+  const currentCards = cardsState?.key === queryKey ? cardsState.cards : null
+  // opt_in=true のときだけボタンを描く（判定は display.ts の純関数・fail-closed）。
+  const showCardsButton = currentCards !== null && shouldShowBuyerCardsButton(currentCards)
   // 専用画面へのリンク（条件はクエリ文字列で渡す・裁定78。⛔ 別のクエリ組立を作らない・裁定80）。
   const cardsHref = `/customers/buyer-match?list=${encodeURIComponent(listId)}${
     queryKey ? `&${queryKey}` : ''
@@ -248,6 +249,11 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
         mapDisclaimer: SCHOOL_DISTRICT_DISCLAIMER,
         // ⛔ 顧客ロゴの取得経路（P1-5）は本 PR で作らない。undefined＝自社マーク。
         logoSrc: undefined,
+        // 2枚目の匿名カード面（裁定88/89）。ボタン判定と同じ取得済みレスポンスを渡す
+        //   （⛔ 追加 fetch なし）。null（未取得/失敗）なら従来のセル集計2枚目のまま。
+        cards: currentCards,
+        labelByCode: Object.fromEntries(typeList.map((t) => [t.code, t.label_ja])),
+        muniNameByCode: Object.fromEntries(areaList.map((a) => [a.muni_code_5, a.muni_name])),
       })
       setPdfStatus('idle')
     } catch {
