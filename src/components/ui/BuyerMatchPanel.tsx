@@ -17,8 +17,9 @@
 // =====================================================================
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Download } from 'lucide-react'
-import { BUYER_MATCH_MESSAGES } from '@/lib/buyer-match/messages'
+import Link from 'next/link'
+import { Loader2, Download, Users } from 'lucide-react'
+import { BUYER_MATCH_MESSAGES, BUYER_MATCH_CARDS_MESSAGES } from '@/lib/buyer-match/messages'
 import { buildBuyerMatchQueryString, parsePriceInput } from '@/lib/buyer-match/request'
 import {
   buildCellsDisplay,
@@ -26,9 +27,11 @@ import {
   formatCellCount,
   formatCellTitle,
   formatCountValue,
+  shouldShowBuyerCardsButton,
   type CountDisplay,
 } from '@/lib/buyer-match/display'
 import {
+  fetchBuyerMatchCards,
   fetchBuyerMatchCells,
   fetchBuyerMatchSummary,
   fetchCustomerListAreas,
@@ -175,6 +178,37 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
       clearTimeout(timer)
     }
   }, [listId, queryKey, muniCode5, propertyType])
+
+  // 「買い手を見る」ボタンの出し分け（裁定71・①B案）。条件が揃った時点で cards API を
+  //   1回呼び、返り値の opt_in だけを見てボタンの有無を決める。⛔ シート内にカードを描かない。
+  //   ⛔ opt_in=false ならボタンも案内文も出さない（裁定71）。判定は display.ts の純関数。
+  //   条件ごとに key を持たせ、条件変更の途中で前の opt_in を使ってボタンを出さない。
+  const [optInState, setOptInState] = useState<{ key: string; optIn: boolean } | null>(null)
+
+  useEffect(() => {
+    if (!muniCode5 || !propertyType) return
+    let alive = true
+    const timer = setTimeout(async () => {
+      const res = await fetchBuyerMatchCards(listId, queryKey)
+      if (!alive) return
+      setOptInState({
+        key: queryKey,
+        // 取得失敗（403 含む）は false 扱い＝ボタンを出さない（fail-closed）。
+        optIn: res.ok ? shouldShowBuyerCardsButton(res.data) : false,
+      })
+    }, REFETCH_DELAY_MS)
+    return () => {
+      alive = false
+      clearTimeout(timer)
+    }
+  }, [listId, queryKey, muniCode5, propertyType])
+
+  // 現在の条件に対して opt_in=true のときだけボタンを描く（key 不一致＝まだ未確定）。
+  const showCardsButton = optInState?.key === queryKey && optInState.optIn === true
+  // 専用画面へのリンク（条件はクエリ文字列で渡す・裁定78。⛔ 別のクエリ組立を作らない・裁定80）。
+  const cardsHref = `/customers/buyer-match?list=${encodeURIComponent(listId)}${
+    queryKey ? `&${queryKey}` : ''
+  }`
 
   // 条件が変わった直後は前の条件の数字を出さない（key 不一致＝読み込み中）。
   const bmLoading =
@@ -343,6 +377,21 @@ export function BuyerMatchPanel({ listId }: { listId: string }) {
               <CountCard display={counts.wide} />
               <CountCard display={counts.near} />
             </div>
+
+            {/* 「買い手を見る」（裁定70/71・①B案）。opt_in=true のときだけ描く。
+                ⛔ opt_in=false なら案内文も出さない。⛔ シート内にカードは描かない
+                （専用画面 /customers/buyer-match で見せる）。*/}
+            {showCardsButton && (
+              <div className="mt-4">
+                <Link
+                  href={cardsHref}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 text-white text-sm font-medium transition-colors"
+                >
+                  <Users className="w-4 h-4" />
+                  {BUYER_MATCH_CARDS_MESSAGES.button}
+                </Link>
+              </div>
+            )}
 
             {/* 内訳カード。⛔ n を合算して総数として出さない（1行が複数の価格
                 バケットに現れる）。総数は上の大きな数字だけが担う。*/}

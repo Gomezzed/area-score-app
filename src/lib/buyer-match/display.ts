@@ -14,8 +14,14 @@
 //     解決できないため相対 import・拡張子付き）。
 // ============================================================
 
-import { BUYER_MATCH_MESSAGES } from './messages.ts'
-import type { BuyerMatchCell, BuyerMatchSummary } from './types.ts'
+import { BUYER_MATCH_MESSAGES, BUYER_MATCH_CARDS_MESSAGES } from './messages.ts'
+import type {
+  BuyerMatchCard,
+  BuyerMatchCards,
+  BuyerMatchCell,
+  BuyerMatchSummary,
+  BuyerMatchUsedConditions,
+} from './types.ts'
 
 // 内訳カードの最大表示数（2行3列＝PDF 2枚目のレイアウトと同数）。
 export const MAX_CELLS = 6
@@ -121,4 +127,114 @@ export function formatCellCount(cell: BuyerMatchCell): string {
 // 大きな数字の表示「n名」。suppressed のときは呼ばない（value が null）。
 export function formatCountValue(value: number): string {
   return `${fmtInt(value)}名`
+}
+
+// ============================================================
+// PR-BM-9b-2: 匿名カード（cards）の表示ロジック（裁定71〜76）。
+//   ⚠ ここも純関数のみ。画面（buyer-match/page.tsx）とボタン（BuyerMatchPanel）が
+//     同じ判定・整形を通す。node --test で網羅する（display-cards.test.ts）。
+//   ⛔ 画面に出してはならない内部値（stage 数値・k・max_cards）を返り値に混ぜない。
+// ============================================================
+
+// 裁定71: opt_in=false ならボタンを描かない（⛔ 案内文も出さない）。
+//   売主向けシートはこの1関数の真偽だけでボタンの有無を決める。
+export function shouldShowBuyerCardsButton(cards: BuyerMatchCards): boolean {
+  return cards.opt_in === true
+}
+
+// 裁定72: suppressed=true または stage=null のときはカード領域ごと出さない。
+//   ⛔ cards.length === 0 で判定しない（裁定38 の再演）。必ず suppressed / stage を見る。
+//   （RPC は抑止時にも cards を空で返すため、length では抑止と 0 件を区別できない。）
+export function shouldShowBuyerCards(cards: BuyerMatchCards): boolean {
+  return !cards.suppressed && cards.stage !== null
+}
+
+// テンプレート（messages）へプレースホルダを流し込む最小の補間。未知キーは空へ。
+function fillTemplate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => vars[key] ?? '')
+}
+
+// 裁定73: 見出しは used_conditions から組む（⛔ 呼び出し時の条件ではない）。
+//   段の分岐は used_conditions の「どのフィールドが非 null か」だけで決める
+//   （⛔ stage 数値には依存しない・「段2」等の内部用語も出さない）。
+//   種別名（property_type→label_ja）と市区町村名（muni_code_5→muni_name）は
+//   呼び出し側で解決して渡す。null は「指定なし」。
+export function buildBuyerCardsHeading(
+  used: BuyerMatchUsedConditions,
+  propertyTypeLabel: string | null,
+  muniName: string | null,
+): string {
+  const M = BUYER_MATCH_CARDS_MESSAGES
+  const type = propertyTypeLabel ?? M.valueNone
+  // 種別を外した段（段4）：市区町村名で組む。
+  if (used.property_type === null) {
+    return fillTemplate(M.headingMuniOnly, { muni: muniName ?? M.valueNone })
+  }
+  const hasMin = used.price_min !== null
+  const hasMax = used.price_max !== null
+  if (hasMin && hasMax) {
+    return fillTemplate(M.headingPriceRange, {
+      min: fmtInt(used.price_min as number),
+      max: fmtInt(used.price_max as number),
+      type,
+    })
+  }
+  if (hasMax) {
+    return fillTemplate(M.headingPriceMax, { max: fmtInt(used.price_max as number), type })
+  }
+  if (hasMin) {
+    return fillTemplate(M.headingPriceMin, { min: fmtInt(used.price_min as number), type })
+  }
+  // 価格が両方 null（段3）：種別のみ。
+  return fillTemplate(M.headingTypeOnly, { type })
+}
+
+// カードのバッジ（裁定76: property_types の先頭を label_ja で表示）。
+//   ⛔ 解決できない code をそのまま画面に出さない（裁定35）→「指定なし」。
+export function resolveCardBadgeLabel(
+  propertyTypes: string[],
+  labelByCode: Record<string, string>,
+): string {
+  const first = propertyTypes[0]
+  if (!first) return BUYER_MATCH_CARDS_MESSAGES.valueNone
+  return labelByCode[first] ?? BUYER_MATCH_CARDS_MESSAGES.valueNone
+}
+
+// 希望予算行を出すか（裁定81: 両方 null なら行ごと出さない）。片側でも値があれば出す。
+//   ⚠ カードの price_min/price_max は「購入検討者本人の希望予算」であり、見出しの価格
+//     （売主の検索条件）とは別物（裁定81）。
+export function hasPriceRow(min: number | null, max: number | null): boolean {
+  return min !== null || max !== null
+}
+
+// 希望予算の表示「{min}〜{max}万円」（3桁区切り）。片側のみは「〜{max}万円」「{min}万円〜」。
+//   両方 null は「指定なし」（呼び出し側は hasPriceRow で行ごと落とすのが原則）。
+//   ⚠ formatCardArea のコピーではない（単位が万円・裁定81）。整形分岐が同型であることは
+//     display-cards.test.ts で担保する。
+export function formatCardPrice(min: number | null, max: number | null): string {
+  const M = BUYER_MATCH_CARDS_MESSAGES
+  if (min === null && max === null) return M.valueNone
+  if (min !== null && max !== null) return `${fmtInt(min)}〜${fmtInt(max)}万円`
+  if (max !== null) return `〜${fmtInt(max)}万円`
+  return `${fmtInt(min as number)}万円〜`
+}
+
+// 面積行を出すか（裁定76: 両方 null なら行ごと出さない）。片側でも値があれば出す。
+export function hasAreaRow(min: number | null, max: number | null): boolean {
+  return min !== null || max !== null
+}
+
+// 面積の表示「{min}〜{max}㎡」（3桁区切り）。片側のみは「〜{max}㎡」「{min}㎡〜」。
+//   両方 null は「指定なし」（呼び出し側は hasAreaRow で行ごと落とすのが原則）。
+export function formatCardArea(min: number | null, max: number | null): string {
+  const M = BUYER_MATCH_CARDS_MESSAGES
+  if (min === null && max === null) return M.valueNone
+  if (min !== null && max !== null) return `${fmtInt(min)}〜${fmtInt(max)}㎡`
+  if (max !== null) return `〜${fmtInt(max)}㎡`
+  return `${fmtInt(min as number)}㎡〜`
+}
+
+// 校区行を出すか（裁定76: desired_districts が空配列なら校区の行を出さない）。
+export function hasDistrictsRow(card: BuyerMatchCard): boolean {
+  return card.desired_districts.length > 0
 }

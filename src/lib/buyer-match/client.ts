@@ -15,7 +15,12 @@
 // ============================================================
 
 import { supabase } from '@/lib/supabase'
-import type { BuyerMatchCell, BuyerMatchSummary, PropertyTypeOption } from './types'
+import type {
+  BuyerMatchCards,
+  BuyerMatchCell,
+  BuyerMatchSummary,
+  PropertyTypeOption,
+} from './types'
 
 // 取得結果。'unavailable'＝機能が無い/名簿が無い（404）。'failed'＝それ以外の失敗。
 export type FetchOutcome<T> =
@@ -63,6 +68,21 @@ export async function fetchBuyerMatchCells(
   )
   if (!res.ok) return res
   return { ok: true, data: res.data.rows ?? [] }
+}
+
+// 匿名カード（BM-9b-2・裁定80）。cards ルートは単一 jsonb（BuyerMatchCards）を
+//   無改変で返す（⛔ {id,rows} で包まれない・cells とは形が違う）。query は
+//   buildBuyerMatchQueryString の出力を流用する（⛔ 別のクエリ組立を作らない・裁定80）。
+//   404 → 'unavailable'（機能 off／名簿なし）・その他 !ok → 'failed'（403 含む＝
+//   プランゲートは呼び出し側の canUse が先に弾くため通常ここへ来ない）。
+export async function fetchBuyerMatchCards(
+  listId: string,
+  query: string,
+): Promise<FetchOutcome<BuyerMatchCards>> {
+  const suffix = query ? `?${query}` : ''
+  return getJson<BuyerMatchCards>(
+    `/api/customer-lists/${encodeURIComponent(listId)}/buyer-match/cards${suffix}`,
+  )
 }
 
 // 名簿が当たった市区町村の索引（市区町村セレクトの選択肢）。
