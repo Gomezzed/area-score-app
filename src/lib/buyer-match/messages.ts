@@ -37,3 +37,41 @@ export const BUYER_MATCH_MESSAGES = {
 } as const
 
 export type BuyerMatchMessageKey = keyof typeof BUYER_MATCH_MESSAGES
+
+// ============================================================
+// PR-BM-9b-2: 匿名カードの専用画面（/customers/buyer-match）の表示文言。
+//   ⛔ JSX に直書きしない（裁定70）。画面・ボタン・見出しはすべてここを参照する。
+//   ⚠ heading* はプレースホルダ（{min}/{max}/{type}/{muni}）を持つテンプレート。
+//     補間は display.ts の buildBuyerCardsHeading が担う（messages は文言だけを持ち、
+//     数値整形・分岐ロジックを持たない＝BM-7 の formatPriceBucket と同じ責務分割）。
+//   ⚠ 見出しは used_conditions の「どのフィールドが非 null か」で選ぶ（裁定73）。
+//     ⛔ stage 数値・「段」等の内部用語を文言に含めない（裁定73/75）。
+//   ・rowFloorArea / rowLandArea / rowDistricts はカード本体の行ラベル。裁定76 が
+//     専有面積・土地面積・校区の行を要求するため、その dt ラベルを文言として置く
+//     （JSX 直書きを避けるため）。⛔ 間取り・反響種別のラベルは作らない（裁定76）。
+//   ・抑止時文言は PP §9-4 で対外公表済みの数字（5名未満）を含む確定文言。
+// ============================================================
+export const BUYER_MATCH_CARDS_MESSAGES = {
+  // 売主向けシートに出すボタン（裁定70）。⛔ 他社サービス名に似せない。
+  button: '買い手を見る',
+
+  // 見出し（裁定73・used_conditions 由来）。{type}=物件種別 label_ja／{muni}=市区町村名。
+  headingPriceRange: '{min}〜{max}万円で{type}をお探しの方', // 段1/2（下限・上限とも）
+  headingPriceMax: '{max}万円までで{type}をお探しの方', // 上限のみ
+  headingPriceMin: '{min}万円以上で{type}をお探しの方', // 下限のみ
+  headingTypeOnly: '{type}をお探しの方', // 段3（価格を外した段）
+  headingMuniOnly: '{muni}で住まいをお探しの方', // 段4（種別も外した段）
+
+  // suppressed=true または stage=null のとき、カード領域の代わりに出す（裁定72）。
+  suppressed: '条件に近い購入検討者は、現在5名未満のため表示していません。',
+
+  // 値が null のとき（種別・市区町村名が解決できない等）の代替（裁定・値なし）。
+  valueNone: '指定なし',
+
+  // カード本体の行ラベル（裁定76）。
+  rowFloorArea: '専有面積',
+  rowLandArea: '土地面積',
+  rowDistricts: '校区',
+} as const
+
+export type BuyerMatchCardsMessageKey = keyof typeof BUYER_MATCH_CARDS_MESSAGES
