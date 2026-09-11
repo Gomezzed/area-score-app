@@ -245,7 +245,9 @@ AS $$
   ),
   -- 裁定53①②: 採用段の DISTINCT row_id 集合に ORDER BY random() LIMIT max_cards。
   --   ⛔ property_types と JOIN した状態で LIMIT しない（row_stage は1行1 row_id）。
-  picked AS (
+  -- ★MATERIALIZED 必須（裁定55）: 3箇所から参照される。インラインされると
+  --   参照ごとに random() が再評価され、別々の6人になってカードが壊れる。
+  picked AS MATERIALIZED (
     SELECT rs.row_id
     FROM row_stage rs, chosen ch
     WHERE ch.stage IS NOT NULL
