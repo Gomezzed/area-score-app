@@ -97,6 +97,43 @@ export async function fetchCustomerListAreas(
   return { ok: true, data: res.data.areas ?? [] }
 }
 
+// ============================================================
+// PR-BM-10b: org スコープ版（list_id を持たない）の fetch ヘルパ。
+//   URL は /api/buyer-match/... の固定パス（list_id を含まない）。
+//   既存の getJson ヘルパ・型（BuyerMatchSummary / BuyerMatchCards /
+//   CustomerListArea）をそのまま再利用し、新しい型は作らない。
+//   認可判定はサーバー側の3ルート（isCustomerListEnabled → isBuyerMatchEnabled →
+//   guardFeature）が担う。本関数は取得結果を FetchOutcome で返すのみ。
+// ============================================================
+
+// 売主条件に対する2つの数（k 抑止済み・org スコープ＝全名簿合算）。
+export async function fetchOrgBuyerMatchSummary(
+  query: string,
+): Promise<FetchOutcome<BuyerMatchSummary>> {
+  const suffix = query ? `?${query}` : ''
+  return getJson<BuyerMatchSummary>(`/api/buyer-match/summary${suffix}`)
+}
+
+// 匿名カード（org スコープ）。cards ルートは単一 jsonb（BuyerMatchCards）を
+//   無改変で返す（⛔ {id,rows} で包まれない・list_id 版と同型）。
+export async function fetchOrgBuyerMatchCards(
+  query: string,
+): Promise<FetchOutcome<BuyerMatchCards>> {
+  const suffix = query ? `?${query}` : ''
+  return getJson<BuyerMatchCards>(`/api/buyer-match/cards${suffix}`)
+}
+
+// 名簿が当たった市区町村の索引（org スコープ＝全名簿合算）。
+//   ★索引であって集計ではない（生件数は返らない設計）。
+export async function fetchOrgBuyerMatchAreas(
+  schoolType?: string,
+): Promise<FetchOutcome<CustomerListArea[]>> {
+  const suffix = schoolType ? `?school_type=${encodeURIComponent(schoolType)}` : ''
+  const res = await getJson<{ areas?: CustomerListArea[] }>(`/api/buyer-match/areas${suffix}`)
+  if (!res.ok) return res
+  return { ok: true, data: res.data.areas ?? [] }
+}
+
 // 物件種別マスタ（裁定35）。is_active = true のみ・sort_order 昇順。
 //   ⛔ 6値のラベルをクライアントに直書きしない。DB が唯一の定義（原則19）。
 export async function fetchPropertyTypes(): Promise<FetchOutcome<PropertyTypeOption[]>> {
