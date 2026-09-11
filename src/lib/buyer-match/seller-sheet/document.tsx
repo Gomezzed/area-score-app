@@ -26,10 +26,11 @@ import {
 } from '@react-pdf/renderer'
 import { A4_LANDSCAPE_PT, frameRectPt, mmToPt } from '@/lib/heatmap-pdf/geometry'
 import type { LegendRow } from '@/lib/heatmap-pdf/model'
-import { BUYER_MATCH_MESSAGES } from '@/lib/buyer-match/messages'
+import { BUYER_MATCH_MESSAGES, BUYER_MATCH_CARDS_MESSAGES } from '@/lib/buyer-match/messages'
 import { formatCellCount, formatCellTitle, formatCountValue } from '@/lib/buyer-match/display'
 import type { CountDisplays } from '@/lib/buyer-match/display'
 import type { BuyerMatchCell } from '@/lib/buyer-match/types'
+import type { BuyerCardsPageModel, BuyerCardView } from './model'
 
 Font.register({ family: 'NotoSansJP', src: '/fonts/NotoSansJP-Regular.woff' })
 Font.registerHyphenationCallback((word) => [word])
@@ -140,6 +141,55 @@ const styles = StyleSheet.create({
   attribution: { fontFamily: 'NotoSansJP', fontSize: 7.5, color: '#64748b', marginTop: 2 },
   disclaimer: { fontFamily: 'NotoSansJP', fontSize: 7, color: '#94a3b8', marginTop: 3, lineHeight: 1.35 },
   warning: { fontFamily: 'NotoSansJP', fontSize: 7.5, color: '#b45309', marginTop: 3 },
+
+  // ── PR-BM-9b-3: 匿名カード2枚目（裁定90）。条件ボックス→大きな人数→3列カード→免責。──
+  // 条件ボックス（見出し＝buildBuyerCardsHeading）。画面の rounded box 相当。
+  cardsHeadingBox: {
+    borderWidth: 0.75,
+    borderColor: '#cbd5e1',
+    borderRadius: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginBottom: 8,
+  },
+  cardsHeadingText: { fontFamily: 'NotoSansJP', fontSize: 11, color: '#1e3f66' },
+  // 大きな人数（matched_count・裁定75）。
+  cardsCount: { fontFamily: 'NotoSansJP', fontSize: 26, color: '#0f172a', marginBottom: 10 },
+  // 抑止文言（裁定72・opt_in=true かつ suppressed/stage=null）。
+  cardsSuppressed: { fontFamily: 'NotoSansJP', fontSize: 10, color: '#64748b', lineHeight: 1.5 },
+  // カード（3列・幅は既存 CELL_WIDTH と同じ）。
+  buyerCard: {
+    width: CELL_WIDTH,
+    marginRight: CELL_GAP,
+    marginBottom: CELL_GAP,
+    borderWidth: 0.75,
+    borderColor: '#cbd5e1',
+    borderRadius: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  buyerCardLast: { marginRight: 0 },
+  buyerCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  buyerBadge: {
+    fontFamily: 'NotoSansJP',
+    fontSize: 8,
+    color: '#1e3f66',
+    backgroundColor: '#e8eff6',
+    borderRadius: 2,
+    paddingVertical: 1,
+    paddingHorizontal: 4,
+  },
+  buyerCardNo: { fontFamily: 'NotoSansJP', fontSize: 7.5, color: '#94a3b8' },
+  buyerRow: { flexDirection: 'row', marginTop: 2 },
+  buyerRowLabel: { fontFamily: 'NotoSansJP', fontSize: 7.5, color: '#64748b', width: 44 },
+  buyerRowValue: { fontFamily: 'NotoSansJP', fontSize: 8, color: '#334155', flexGrow: 1, flexBasis: 0 },
+  // 希望予算は主役の行（裁定81）＝先頭・太字風に濃色で強調。
+  buyerRowValueStrong: { fontFamily: 'NotoSansJP', fontSize: 9, color: '#0f172a', flexGrow: 1, flexBasis: 0 },
 })
 
 export interface SellerSheetDocProps {
@@ -167,6 +217,9 @@ export interface SellerSheetDocProps {
   //   ⚠ 顧客ロゴ経路（P1-5）が確定したら logoSrc を渡すだけで差し替わる。
   //     置き場は public/brand/partners/ の見込み。本 PR では呼び出し側が undefined を渡す。
   logoSrc?: string
+  // PR-BM-9b-3: 2枚目の出し分け（裁定88）。undefined または kind='legacy' なら従来のセル集計。
+  //   'cards'/'suppressed' のとき匿名カード面に差し替える。判定は model.ts が display.ts で済ませる。
+  cardsPage?: BuyerCardsPageModel
 }
 
 function CountCard({
@@ -205,6 +258,81 @@ function Footer({
       {mapDisclaimer && <Text style={styles.disclaimer}>{mapDisclaimer}</Text>}
       <Text style={styles.disclaimer}>{BUYER_MATCH_MESSAGES.disclaimer}</Text>
     </View>
+  )
+}
+
+// カード1行（ラベル＋値）。希望予算だけ strong で強調する（裁定81）。
+//   ⚠ @react-pdf は単一ウェイト登録のため fontWeight で太字にならない。size＋濃色で強調する。
+function BuyerCardRowView({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <View style={styles.buyerRow}>
+      <Text style={styles.buyerRowLabel}>{label}</Text>
+      <Text style={strong ? styles.buyerRowValueStrong : styles.buyerRowValue}>{value}</Text>
+    </View>
+  )
+}
+
+// 匿名カード1枚（バッジ＋#NN＋希望予算＋専有面積＋土地面積＋校区・裁定90）。
+//   行の有無・整形は model.ts が display.ts 経由で解決済み。ここは描くだけ。
+function BuyerCardItem({ card, last }: { card: BuyerCardView; last: boolean }) {
+  return (
+    <View style={last ? [styles.buyerCard, styles.buyerCardLast] : styles.buyerCard} wrap={false}>
+      <View style={styles.buyerCardTop}>
+        <Text style={styles.buyerBadge}>{card.badge}</Text>
+        <Text style={styles.buyerCardNo}>{card.number}</Text>
+      </View>
+      {card.priceRow && <BuyerCardRowView label={card.priceRow.label} value={card.priceRow.value} strong />}
+      {card.floorRow && <BuyerCardRowView label={card.floorRow.label} value={card.floorRow.value} />}
+      {card.landRow && <BuyerCardRowView label={card.landRow.label} value={card.landRow.value} />}
+      {card.districtsRow && <BuyerCardRowView label={card.districtsRow.label} value={card.districtsRow.value} />}
+    </View>
+  )
+}
+
+// PR-BM-9b-3: 匿名カード2枚目（裁定88/90/93）。ヘッダ帯・余白は既存 seller-sheet と同じ。
+//   model.kind は 'cards'（見出し・人数・カード）または 'suppressed'（抑止文言）。
+//   どちらも免責を1つ置く（Footer・出典は空＝カード面には学区図が無いため）。
+//   ⛔ stage / k / max_cards は出さない（裁定93・model にそもそも渡らない）。
+function BuyerCardsPage({
+  title,
+  generatedAtLabel,
+  model,
+}: {
+  title: string
+  generatedAtLabel: string
+  model: Extract<BuyerCardsPageModel, { kind: 'cards' } | { kind: 'suppressed' }>
+}) {
+  return (
+    <Page size="A4" orientation="landscape" style={styles.page}>
+      <View style={styles.header}>
+        <View style={styles.headerText}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.generatedAt}>出力日時: {generatedAtLabel}</Text>
+        </View>
+      </View>
+
+      {model.kind === 'suppressed' ? (
+        <Text style={styles.cardsSuppressed}>{BUYER_MATCH_CARDS_MESSAGES.suppressed}</Text>
+      ) : (
+        <>
+          {/* 条件ボックス（見出し＝used_conditions 由来）。*/}
+          <View style={styles.cardsHeadingBox}>
+            <Text style={styles.cardsHeadingText}>{model.heading}</Text>
+          </View>
+          {/* 大きな人数（matched_count・裁定75）。*/}
+          <Text style={styles.cardsCount}>{model.countLabel}</Text>
+          {/* 3列×2行のカード（0〜6枚・5枚なら3列目の1枠が空・裁定93）。*/}
+          <View style={styles.cellGrid}>
+            {model.cards.map((c, i) => (
+              <BuyerCardItem key={c.number} card={c} last={i % 3 === 2} />
+            ))}
+          </View>
+        </>
+      )}
+
+      {/* 免責（裁定30/82・逐語）。カード面に学区図は無いため出典は空。*/}
+      <Footer attributions={[]} mapDisclaimer={null} />
+    </Page>
   )
 }
 
@@ -262,8 +390,15 @@ export function SellerSheetDocument(props: SellerSheetDocProps) {
         <Footer attributions={props.attributions} mapDisclaimer={props.mapDisclaimer} />
       </Page>
 
-      {/* ── 2枚目: 内訳カード（最大6セル・2行3列）／出典／免責 ── */}
-      {/* ⛔ 個票・unknown_area_count は出さない。⛔ n を合算しない。 */}
+      {/* ── 2枚目（裁定88）: opt_in=true→匿名カード面（cards/suppressed）／opt_in=false→従来のセル集計 ── */}
+      {props.cardsPage && props.cardsPage.kind !== 'legacy' ? (
+        <BuyerCardsPage
+          title={props.title}
+          generatedAtLabel={props.generatedAtLabel}
+          model={props.cardsPage}
+        />
+      ) : (
+      /* ── 従来のセル集計2枚目（最大6セル・2行3列）。⛔ 個票・unknown_area_count は出さない。⛔ n を合算しない。⛔ 1文字も変えない ── */
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerText}>
@@ -298,6 +433,7 @@ export function SellerSheetDocument(props: SellerSheetDocProps) {
 
         <Footer attributions={props.attributions} mapDisclaimer={props.mapDisclaimer} />
       </Page>
+      )}
     </Document>
   )
 }
