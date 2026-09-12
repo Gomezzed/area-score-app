@@ -416,17 +416,22 @@ function OrgMode() {
 
   // 提示モード（?present=1・仮番 -bm-M・裁定86「売主が触れる画面に入力欄を置かない」）。
   //   条件が解決できるとき（URL 条件あり・areas/types 取得済みかつ非空）だけ入る。
+  //   あわせて URL の市区町村・種別がマスタ（areas/property_types）で解決できること。
   //   満たさなければ present を無視して編集モードで描画する（新しい空状態は作らない）。
   //   ⚠ 表示の切替であり権限の境界ではない（ゲートは PageInner・API 側のまま）。
   //   ⛔ CSS で隠さない（原則12）。フォームと BackLink は JSX ごと描画しない。
-  const present =
-    isPresentMode(sp) &&
+  const canPresent =
     hasConditions &&
     formReady &&
     areas.status === 'ready' &&
     areaList.length > 0 &&
     types.status === 'ready' &&
-    typeList.length > 0
+    typeList.length > 0 &&
+    !!urlMuni &&
+    urlMuni in muniNameByCode &&
+    !!urlType &&
+    urlType in labelByCode
+  const present = isPresentMode(sp) && canPresent
   const urlConditions = {
     muniCode5: urlMuni,
     propertyType: urlType,
@@ -550,7 +555,7 @@ function OrgMode() {
         )}
 
         {/* 編集モード：条件が解決できるときだけ「提示する」（現在の4条件＋present=1・仮番 -bm-M）。*/}
-        {!present && formReady && hasConditions && (
+        {!present && canPresent && (
           <div className="flex justify-end">
             <Link
               href={buildPresentHref(urlConditions)}
