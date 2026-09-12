@@ -428,9 +428,9 @@ function OrgMode() {
     types.status === 'ready' &&
     typeList.length > 0 &&
     !!urlMuni &&
-    urlMuni in muniNameByCode &&
+    Object.hasOwn(muniNameByCode, urlMuni) &&
     !!urlType &&
-    urlType in labelByCode
+    Object.hasOwn(labelByCode, urlType)
   const present = isPresentMode(sp) && canPresent
   const urlConditions = {
     muniCode5: urlMuni,
