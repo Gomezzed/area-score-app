@@ -34,6 +34,30 @@ export function isValidPrice(v: number | null): v is number {
   return v !== null && Number.isInteger(v) && v >= 0
 }
 
+// ============================================================
+// A3-1（仮番 -bm-M）: org モードの提示モード（?present=1・裁定86）の URL 補助（純関数）。
+//   ⚠ 提示モードは表示の切替であり権限の境界ではない（ゲート・403・RLS とは無関係）。
+//   ⛔ list= を付けない（org モード専用・裁定-bm-C）。条件は buildBuyerMatchQueryString
+//     を流用する（⛔ 別のクエリ組立を作らない・裁定80）。
+// ============================================================
+
+export const BUYER_MATCH_ROUTE = '/customers/buyer-match'
+
+// present=1 のときのみ提示モード（'0'・'true'・''・未指定はすべて false）。
+export function isPresentMode(sp: Pick<URLSearchParams, 'get'>): boolean {
+  return sp.get('present') === '1'
+}
+
+// 「提示する」の遷移先：現在の4条件＋present=1（present はここでのみ・ちょうど1回付ける）。
+export function buildPresentHref(conditions: BuyerMatchQueryInput): string {
+  return `${BUYER_MATCH_ROUTE}?${buildBuyerMatchQueryString(conditions)}&present=1`
+}
+
+// 「編集に戻る」の遷移先：現在の4条件のみ（present を含まない）。
+export function buildEditHref(conditions: BuyerMatchQueryInput): string {
+  return `${BUYER_MATCH_ROUTE}?${buildBuyerMatchQueryString(conditions)}`
+}
+
 // 入力欄（文字列）から価格を読む。空・非整数・負値は null（＝未指定）。
 //   ⚠ 全角数字は受けない（NFKC 正規化は取込側の責務であり、ここで別規約を作らない）。
 export function parsePriceInput(raw: string): number | null {

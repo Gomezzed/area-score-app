@@ -69,3 +69,8 @@ test('org モードは near/wide 見出しを新設しない（裁定41・既存
   assert.equal('orgNearHeading' in BUYER_MATCH_ORG_MESSAGES, false)
   assert.equal('orgWideHeading' in BUYER_MATCH_ORG_MESSAGES, false)
 })
+
+test('提示モードの文言2つ（仮番 -bm-M／A3・逐語）', () => {
+  assert.equal(BUYER_MATCH_ORG_MESSAGES.presentButton, '提示する')
+  assert.equal(BUYER_MATCH_ORG_MESSAGES.presentBackToEdit, '編集に戻る')
+})
