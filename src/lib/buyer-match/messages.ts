@@ -81,7 +81,7 @@ export type BuyerMatchCardsMessageKey = keyof typeof BUYER_MATCH_CARDS_MESSAGES
 
 // ============================================================
 // PR-BM-10c: 購入希望マッチ org モード（/customers/buyer-match?list なし）の文言。
-//   ⛔ 新設するのは裁定-bm-L の定数のみ（ここに列挙した以外を足さない）。
+//   ⛔ 新設するのは裁定-bm-L および仮番 -bm-M（A3）の定数のみ（ここに列挙した以外を足さない）。
 //   ⛔ near/wide の見出しは BUYER_MATCH_MESSAGES.nearHeading / wideHeading を
 //     流用する（org 用に別文言を作らない・裁定41）。名簿モードの文言は1文字も変えない。
 //   ・backToCustomers は両モード共通の戻るリンク文言（裁定-bm-E）。名簿モード・org
@@ -106,6 +106,12 @@ export const BUYER_MATCH_ORG_MESSAGES = {
 
   // 条件フォームの送信ボタン（裁定-bm-L）。
   orgSubmit: '表示する',
+
+  // 提示モード（?present=1・仮番 -bm-M／A3）。編集モードから提示モードへ入るリンク。
+  presentButton: '提示する',
+
+  // 提示モードから編集モードへ戻るリンク（仮番 -bm-M／A3）。
+  presentBackToEdit: '編集に戻る',
 } as const
 
 export type BuyerMatchOrgMessageKey = keyof typeof BUYER_MATCH_ORG_MESSAGES

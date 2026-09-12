@@ -26,7 +26,13 @@ import {
   BUYER_MATCH_MESSAGES,
   BUYER_MATCH_ORG_MESSAGES,
 } from '@/lib/buyer-match/messages'
-import { buildBuyerMatchQueryString, parsePriceInput } from '@/lib/buyer-match/request'
+import {
+  buildBuyerMatchQueryString,
+  buildEditHref,
+  buildPresentHref,
+  isPresentMode,
+  parsePriceInput,
+} from '@/lib/buyer-match/request'
 import {
   buildBuyerCardsHeading,
   buildCountDisplays,
@@ -408,117 +414,157 @@ function OrgMode() {
   // org 版 areas が 404（FEATURE_BUYER_MATCH off／機能なし）＝ページごと隠す（裁定-bm-G）。
   if (areas.status === 'unavailable') notFound()
 
+  // 提示モード（?present=1・仮番 -bm-M・裁定86「売主が触れる画面に入力欄を置かない」）。
+  //   条件が解決できるとき（URL 条件あり・areas/types 取得済みかつ非空）だけ入る。
+  //   あわせて URL の市区町村・種別がマスタ（areas/property_types）で解決できること。
+  //   満たさなければ present を無視して編集モードで描画する（新しい空状態は作らない）。
+  //   ⚠ 表示の切替であり権限の境界ではない（ゲートは PageInner・API 側のまま）。
+  //   ⛔ CSS で隠さない（原則12）。フォームと BackLink は JSX ごと描画しない。
+  const canPresent =
+    hasConditions &&
+    formReady &&
+    areas.status === 'ready' &&
+    areaList.length > 0 &&
+    types.status === 'ready' &&
+    typeList.length > 0 &&
+    !!urlMuni &&
+    Object.hasOwn(muniNameByCode, urlMuni) &&
+    !!urlType &&
+    Object.hasOwn(labelByCode, urlType)
+  const present = isPresentMode(sp) && canPresent
+  const urlConditions = {
+    muniCode5: urlMuni,
+    propertyType: urlType,
+    priceMin: urlPriceMin,
+    priceMax: urlPriceMax,
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <BackLink />
+        {/* 提示モードでは戻るリンク（社内導線）を DOM に出さない（仮番 -bm-M）。*/}
+        {!present && <BackLink />}
 
         {/* 条件フォーム（営業担当が操作）。⛔ 校区セレクトは置かない（裁定86）。*/}
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
-          {!formReady ? (
-            <div className="flex items-center gap-2 px-1 py-6 text-sm text-slate-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              読み込み中…
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {/* 市区町村（org 版 areas の索引・必須） */}
-                <div>
-                  <label className={ORG_LABEL_CLASS} htmlFor="org-muni">
-                    市区町村
-                  </label>
-                  {areas.status === 'failed' ? (
-                    <p className="text-sm text-slate-400">市区町村を取得できませんでした</p>
-                  ) : areaList.length === 0 ? (
-                    <p className="text-sm text-slate-400">{BUYER_MATCH_ORG_MESSAGES.orgAreasEmpty}</p>
-                  ) : (
-                    <select
-                      id="org-muni"
-                      className={ORG_SELECT_CLASS}
-                      value={muniCode5 ?? ''}
-                      onChange={(e) => setMuniChoice(e.target.value)}
-                    >
-                      {areaList.map((a) => (
-                        <option key={a.muni_code_5} value={a.muni_code_5}>
-                          {formatAreaLabel(a)}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* 物件種別（property_types・必須・⛔ ラベル直書き禁止） */}
-                <div>
-                  <label className={ORG_LABEL_CLASS} htmlFor="org-type">
-                    物件種別
-                  </label>
-                  {types.status === 'failed' || typeList.length === 0 ? (
-                    <p className="text-sm text-slate-400">{BUYER_MATCH_MESSAGES.propertyTypesFailed}</p>
-                  ) : (
-                    <select
-                      id="org-type"
-                      className={ORG_SELECT_CLASS}
-                      value={propertyType ?? ''}
-                      onChange={(e) => setTypeChoice(e.target.value)}
-                    >
-                      {typeList.map((t) => (
-                        <option key={t.code} value={t.code}>
-                          {t.label_ja}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* 価格帯（万円・任意・片側のみ可） */}
-                <div>
-                  <label className={ORG_LABEL_CLASS} htmlFor="org-price-min">
-                    価格の下限（万円）
-                  </label>
-                  <input
-                    id="org-price-min"
-                    className={ORG_INPUT_CLASS}
-                    inputMode="numeric"
-                    placeholder="例: 2000"
-                    value={priceMinInput}
-                    onChange={(e) => setPriceMinInput(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className={ORG_LABEL_CLASS} htmlFor="org-price-max">
-                    価格の上限（万円）
-                  </label>
-                  <input
-                    id="org-price-max"
-                    className={ORG_INPUT_CLASS}
-                    inputMode="numeric"
-                    placeholder="例: 4000"
-                    value={priceMaxInput}
-                    onChange={(e) => setPriceMaxInput(e.target.value)}
-                  />
-                </div>
+        {!present && (
+          <div className="bg-white border border-slate-200 rounded-xl p-4">
+            {!formReady ? (
+              <div className="flex items-center gap-2 px-1 py-6 text-sm text-slate-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                読み込み中…
               </div>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {/* 市区町村（org 版 areas の索引・必須） */}
+                  <div>
+                    <label className={ORG_LABEL_CLASS} htmlFor="org-muni">
+                      市区町村
+                    </label>
+                    {areas.status === 'failed' ? (
+                      <p className="text-sm text-slate-400">市区町村を取得できませんでした</p>
+                    ) : areaList.length === 0 ? (
+                      <p className="text-sm text-slate-400">{BUYER_MATCH_ORG_MESSAGES.orgAreasEmpty}</p>
+                    ) : (
+                      <select
+                        id="org-muni"
+                        className={ORG_SELECT_CLASS}
+                        value={muniCode5 ?? ''}
+                        onChange={(e) => setMuniChoice(e.target.value)}
+                      >
+                        {areaList.map((a) => (
+                          <option key={a.muni_code_5} value={a.muni_code_5}>
+                            {formatAreaLabel(a)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
 
-              {priceInverted && (
-                <p className="mt-2 text-xs text-amber-700">
-                  価格の下限が上限を上回っています。価格の条件は反映していません。
-                </p>
-              )}
+                  {/* 物件種別（property_types・必須・⛔ ラベル直書き禁止） */}
+                  <div>
+                    <label className={ORG_LABEL_CLASS} htmlFor="org-type">
+                      物件種別
+                    </label>
+                    {types.status === 'failed' || typeList.length === 0 ? (
+                      <p className="text-sm text-slate-400">{BUYER_MATCH_MESSAGES.propertyTypesFailed}</p>
+                    ) : (
+                      <select
+                        id="org-type"
+                        className={ORG_SELECT_CLASS}
+                        value={propertyType ?? ''}
+                        onChange={(e) => setTypeChoice(e.target.value)}
+                      >
+                        {typeList.map((t) => (
+                          <option key={t.code} value={t.code}>
+                            {t.label_ja}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
 
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={!muniCode5 || !propertyType}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 disabled:bg-slate-300 text-white text-sm font-medium transition-colors"
-                >
-                  {BUYER_MATCH_ORG_MESSAGES.orgSubmit}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+                  {/* 価格帯（万円・任意・片側のみ可） */}
+                  <div>
+                    <label className={ORG_LABEL_CLASS} htmlFor="org-price-min">
+                      価格の下限（万円）
+                    </label>
+                    <input
+                      id="org-price-min"
+                      className={ORG_INPUT_CLASS}
+                      inputMode="numeric"
+                      placeholder="例: 2000"
+                      value={priceMinInput}
+                      onChange={(e) => setPriceMinInput(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className={ORG_LABEL_CLASS} htmlFor="org-price-max">
+                      価格の上限（万円）
+                    </label>
+                    <input
+                      id="org-price-max"
+                      className={ORG_INPUT_CLASS}
+                      inputMode="numeric"
+                      placeholder="例: 4000"
+                      value={priceMaxInput}
+                      onChange={(e) => setPriceMaxInput(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {priceInverted && (
+                  <p className="mt-2 text-xs text-amber-700">
+                    価格の下限が上限を上回っています。価格の条件は反映していません。
+                  </p>
+                )}
+
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!muniCode5 || !propertyType}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-700 hover:bg-brand-500 disabled:bg-slate-300 text-white text-sm font-medium transition-colors"
+                  >
+                    {BUYER_MATCH_ORG_MESSAGES.orgSubmit}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* 編集モード：条件が解決できるときだけ「提示する」（現在の4条件＋present=1・仮番 -bm-M）。*/}
+        {!present && canPresent && (
+          <div className="flex justify-end">
+            <Link
+              href={buildPresentHref(urlConditions)}
+              className="inline-flex items-center rounded-lg border border-brand-700 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100 transition-colors"
+            >
+              {BUYER_MATCH_ORG_MESSAGES.presentButton}
+            </Link>
+          </div>
+        )}
 
         {/* 上段（summary）＋下段（cards）。URL に条件があれば表示、無ければ案内（裁定-bm-L）。*/}
         {formReady &&
@@ -538,6 +584,18 @@ function OrgMode() {
               {BUYER_MATCH_ORG_MESSAGES.orgEmpty}
             </div>
           ))}
+
+        {/* 提示モード：結果の下・右寄せに「編集に戻る」（4条件を保ち present なし・仮番 -bm-M）。*/}
+        {present && (
+          <div className="flex justify-end">
+            <Link
+              href={buildEditHref(urlConditions)}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              {BUYER_MATCH_ORG_MESSAGES.presentBackToEdit}
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )

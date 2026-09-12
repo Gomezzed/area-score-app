@@ -6,7 +6,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { buildBuyerMatchQueryString, isValidPrice, parsePriceInput } from './request.ts'
+import {
+  BUYER_MATCH_ROUTE,
+  buildBuyerMatchQueryString,
+  buildEditHref,
+  buildPresentHref,
+  isPresentMode,
+  isValidPrice,
+  parsePriceInput,
+} from './request.ts'
 
 test('⛔ school_district_id を絶対に含まない（裁定33・案A）', () => {
   const q = buildBuyerMatchQueryString({
@@ -75,4 +83,51 @@ test('入力欄のパース: 空・非整数・負値・全角は null', () => {
   assert.equal(parsePriceInput('-1'), null)
   assert.equal(parsePriceInput('２０００'), null)
   assert.equal(parsePriceInput('abc'), null)
+})
+
+// ---------------------------------------------------------------------
+// A3-1（仮番 -bm-M）: 提示モード（?present=1）の URL 補助。
+// ---------------------------------------------------------------------
+const CONDITIONS = {
+  muniCode5: '35208',
+  propertyType: 'used_condo',
+  priceMin: 2000,
+  priceMax: 3000,
+}
+
+test('isPresentMode: present=1 のときのみ true', () => {
+  assert.equal(isPresentMode(new URLSearchParams('present=1')), true)
+  assert.equal(isPresentMode(new URLSearchParams('muni_code_5=35208&present=1')), true)
+  assert.equal(isPresentMode(new URLSearchParams('present=0')), false)
+  assert.equal(isPresentMode(new URLSearchParams('present=true')), false)
+  assert.equal(isPresentMode(new URLSearchParams('present=')), false)
+  assert.equal(isPresentMode(new URLSearchParams('')), false)
+})
+
+test('buildPresentHref: 4条件＋present=1（ちょうど1回・list なし）', () => {
+  const href = buildPresentHref(CONDITIONS)
+  assert.equal(
+    href,
+    '/customers/buyer-match?muni_code_5=35208&property_type=used_condo&price_min=2000&price_max=3000&present=1',
+  )
+  assert.equal(href.startsWith(`${BUYER_MATCH_ROUTE}?`), true)
+  assert.equal(href.split('present=').length - 1, 1)
+  assert.equal(href.includes('list='), false)
+})
+
+test('buildPresentHref: 価格なしでも条件を保つ', () => {
+  assert.equal(
+    buildPresentHref({ ...CONDITIONS, priceMin: null, priceMax: null }),
+    '/customers/buyer-match?muni_code_5=35208&property_type=used_condo&present=1',
+  )
+})
+
+test('buildEditHref: 4条件を保ち present を含まない（list なし）', () => {
+  const href = buildEditHref(CONDITIONS)
+  assert.equal(
+    href,
+    '/customers/buyer-match?muni_code_5=35208&property_type=used_condo&price_min=2000&price_max=3000',
+  )
+  assert.equal(href.includes('present'), false)
+  assert.equal(href.includes('list='), false)
 })
